@@ -17,4 +17,4 @@ Once the container is launched, metrics can be scraped by
 
 Default exported metrics are configured in ```/etc/dcgm-exporter/default-counters.csv``` in the container. Custom metrics file can be passed by ```-f``` option. Complete avaliable metrics/fields can be found [here](https://docs.nvidia.com/datacenter/dcgm/1.6/dcgm-api/group__dcgmFieldIdentifiers.html).
 
-If deploy in a Kubernetes cluster, [here]() is a basic yaml file, and [this](https://developer.nvidia.com/blog/monitoring-gpus-in-kubernetes-with-dcgm/) Nvidia blog on monitoring GPUS in Kubernetes with DCGM providers more information.
+If deploy in a Kubernetes cluster, [here](https://github.com/CentaurusInfra/AI-SIG/blob/main/dcgm-gpu-monitoring/dcgm-pod.yaml) is a basic yaml file, and [this](https://developer.nvidia.com/blog/monitoring-gpus-in-kubernetes-with-dcgm/) Nvidia blog on monitoring GPUS in Kubernetes with DCGM providers more information.
