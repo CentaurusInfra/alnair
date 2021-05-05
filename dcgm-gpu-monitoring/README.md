@@ -1,8 +1,8 @@
-# DCGM(data center GPU management)
-A Nvidia GPU monitoring tool
+# Device-level GPU metrics collector
+DCGM (data center GPU management) is a Nvidia GPU monitoring tool.
 Quick Start refer to Nvidia's [github](https://github.com/NVIDIA/gpu-monitoring-tools) and [documents](https://docs.nvidia.com/datacenter/cloud-native/gpu-telemetry/dcgm-exporter.html)
 
-dcgm-export container can be easily lauched by the following commands
+dcgm-export container can be easily lauched by the following commands. Make sure docker and Nvidia driver version is up-to-date on the host.
 
 
 ```sudo docker run --name=dcgm --cap-add SYS_ADMIN -d -e DCGM_EXPORTER_INTERVAL=100 --gpus all --rm -p 9400:9400 nvidia/dcgm-exporter:2.0.13-2.1.1-ubuntu18.04```
