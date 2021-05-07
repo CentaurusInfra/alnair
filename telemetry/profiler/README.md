@@ -13,7 +13,7 @@
   - reload configuration everytime to support online reconfigure
 - Advanced seasonality detection and usage forecasting algorithms
   - Autocorrelation based seasonality detection
-  - LSTM based usage forecasting
+  - LSTM (or transformer) based usage forecasting
 - Tag analysis results to host/node as annotation
   - grant cluster-admin role for pod service account 
   - update and log when changes happened
