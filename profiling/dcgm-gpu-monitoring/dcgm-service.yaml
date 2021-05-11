@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: dcgm
+spec:
+  selector:
+    matchLabels:
+      app: dcgm
+  template:
+    metadata:
+      labels:
+        app: dcgm
+    spec:
+      containers:
+        - name: dcgm-container
+          image: nvidia/dcgm-exporter:2.0.13-2.1.1-ubuntu18.04
+          ports:
+            - containerPort: 9400
+              hostPort: 9400
+          env:
+            - name: DCGM_EXPORTER_INTERVAL
+              value: "100"
+          securityContext:
+            capabilities:
+              add:
+                - SYS_ADMIN
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dcgm
+  annotations: # add annotation for prometheus scraping
+    prometheus.io/scrape: 'true'
+    prometheus.io/port: '9400'
+spec:
+  selector:
+    app: dcgm
+  ports:
+  - port: 9400        # abstracted Service port, in-cluster access
+    targetPort: 9400  # port the container accepts traffic on
+    protocol: TCP
+  type: ClusterIP     # default type
