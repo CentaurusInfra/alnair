@@ -6,7 +6,7 @@ Test pod is created with [tensorflow/tensorflow:latest-gpu](https://hub.docker.c
 
 To run the workloads, first, create the test pod in your K8s cluster.
 
-```kubectl apply -f dlt-workload.yaml``` 
+```kubectl apply -f dlt-job.yaml``` 
 
 Then launch the training job with the following command
 
