@@ -44,19 +44,15 @@ metadata:
 data:
   prometheus.yml: |
     global:
-      scrape_interval: 100ms
+      scrape_interval: 1s
     scrape_configs:
-      - job_name: 'dcgm'
+      - job_name: 'kubernetes-pods'
         kubernetes_sd_configs:
-          - role: endpoints
-        relabel_configs:
-        - source_labels: [__meta_kubernetes_endpoints_name]
-          regex: 'dcgm'
-          action: keep
-      - job_name: 'prometheus'
-        scrape_interval: 1s  
-        static_configs:
-        - targets: ['localhost:9090']
+          - role: pod
+#        relabel_configs:
+#        - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+#          regex: true
+#          action: keep
 ---
 # prometheus server deployment
 apiVersion: apps/v1
@@ -66,7 +62,7 @@ metadata:
   labels:
     app: prometheus
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: prometheus

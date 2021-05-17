@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: dlt-workload
+spec:
+  containers:
+    - name: dlt-workload
+      image: fizzbb/dlt-job   
+      imagePullPolicy: IfNotPresent  
+      resources:
+        limits:
+          nvidia.com/gpu: 2  # requesting 2 GPUs
+#  nodeName: lambda-server-125  # specify the node to run if needed
