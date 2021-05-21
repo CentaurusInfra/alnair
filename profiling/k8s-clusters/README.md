@@ -1,4 +1,5 @@
-# Goals
+<!-- TOC -->autoauto- [1. Goals](#1-goals)auto- [2. Prerequisites](#2-prerequisites)auto- [3. Setting Up the Workspace Directory and Ansible Inventory File](#3-setting-up-the-workspace-directory-and-ansible-inventory-file)auto- [4. Creating a Non-Root User on All Remote Servers](#4-creating-a-non-root-user-on-all-remote-servers)auto- [5. Installing Kubernetetes’ Dependencies](#5-installing-kubernetetes-dependencies)auto- [6. Setting Up the Master Node](#6-setting-up-the-master-node)auto- [7. Setting Up the Worker Nodes](#7-setting-up-the-worker-nodes)auto    - [7.1. Installing nvidia-container-toolkit](#71-installing-nvidia-container-toolkit)auto    - [7.2. Installing nvidia-container-runtime](#72-installing-nvidia-container-runtime)auto    - [7.3. Setting default runtime as nvidia-container-runtime](#73-setting-default-runtime-as-nvidia-container-runtime)auto    - [7.4. Creating a New Token](#74-creating-a-new-token)auto    - [7.5. Joining the New Worker to the Cluster](#75-joining-the-new-worker-to-the-cluster)auto- [8. Prometheus Monitoring Setup on Kubernetes](#8-prometheus-monitoring-setup-on-kubernetes)auto    - [8.1. Installing Prometheus](#81-installing-prometheus)auto    - [8.2. Setup Prometheus Configuration](#82-setup-prometheus-configuration)auto    - [8.3. Setup Prometheus Service File](#83-setup-prometheus-service-file)auto    - [8.4. Access Prometheus Web UI](#84-access-prometheus-web-ui)autoauto<!-- /TOC -->
+# 1. Goals
 Your cluster will include the following physical resources:
 
 - **One master node**
@@ -13,14 +14,14 @@ After completing this guide, you will have a cluster ready to run containerized 
 
 Once the cluster is set up, you will deploy the webserver Nginx to it to ensure that it is running workloads correctly.
 
-# Prerequisites
+# 2. Prerequisites
 - An SSH key pair on your local Linux/macOS/BSD machine. If you haven’t used SSH keys before, you can learn how to set them up by following this explanation of how to set up SSH keys on your local machine.
 
 - Ansible installed on your local machine. If you’re running Ubuntu 18.04 as your OS, follow the “Step 1 - Installing Ansible” section in [How to Install and Configure Ansible on Ubuntu 18.04 to install Ansible](https://www.digitalocean.com/community/tutorials/how-to-install-and-configure-ansible-on-ubuntu-18-04#step-1-%E2%80%94-installing-ansible).
 
 - Familiarity with Ansible playbooks. For review, check out [Configuration Management 101: Writing Ansible Playbooks](https://www.digitalocean.com/community/tutorials/configuration-management-101-writing-ansible-playbooks).
 
-# Step 1 — Setting Up the Workspace Directory and Ansible Inventory File
+# 3. Setting Up the Workspace Directory and Ansible Inventory File
 
 This section will create a directory on your local machine that will serve as your workspace. You will configure Ansible locally so that it can communicate with and execute commands on your remote servers. Once that’s done, you will create a "hosts" file containing inventory information such as the IP addresses of your servers and the groups that each server belongs to.
 
@@ -67,7 +68,7 @@ Save and close the file after you’ve added the text.
 
 Having set up the server inventory with groups, let’s move on to installing operating system level dependencies and creating configuration settings.
 
-# Step 2 — Creating a Non-Root User on All Remote Servers
+# 4. Creating a Non-Root User on All Remote Servers
 
 Create a file named **initial.yml** in the workspace:
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -100,7 +101,7 @@ $ sudo ansible-playbook -i hosts initial.yml -K
 BECOME password: <your sudo password>
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-# Step 3 — Installing Kubernetetes’ Dependencies
+# 5. Installing Kubernetetes’ Dependencies
 In this section, you will install the operating-system-level packages required by Kubernetes with Ubuntu’s package manager. These packages are:
 
 - Docker - a container runtime. It is the component that runs your containers. Support for other runtimes such as rkt is under active development in Kubernetes.
@@ -171,7 +172,7 @@ $ sudo ansible-playbook -i hosts kube-dependencies.yml -K
 BECOME password: <your sudo password>
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-# Step 4 — Setting Up the Master Node
+# 6. Setting Up the Master Node
 
 In this section, you will set up the master node. Before creating any playbooks, however, it’s worth covering a few concepts such as Pods and Pod Network Plugins, since your cluster will include both.
 
@@ -196,7 +197,7 @@ $ sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
 $ sudo chown $(id -u):$(id -g) $HOME/.kube/config
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-2. install Pod network:
+2. install Pod network plugin:
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 $ sudo kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -210,12 +211,48 @@ NAME      STATUS    ROLES     AGE       VERSION
 master    Ready     master    1d        v1.14.0
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-# Step 5 — Setting Up the Worker Nodes
+# 7. Setting Up the Worker Nodes
 
-## Creating a New Token
-1. Using the kubeadm command, list your current tokens on the Master node. If your cluster was initialized over 24 hours ago, the list will likely be empty, since a token’s lifespan is only 24 hours.
+## 7.1. Installing nvidia-container-toolkit
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-$ sudo kubeadm tokens list
+$ sudo apt-get update \
+    && sudo apt-get install -y nvidia-container-toolkit
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+## 7.2. Installing nvidia-container-runtime
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+$ distribution=$(. /etc/os-release;echo $ID$VERSION_ID) \
+    && curl -s -L https://nvidia.github.io/nvidia-docker/gpgkey | sudo apt-key add - \
+    && curl -s -L https://nvidia.github.io/nvidia-docker/$distribution/nvidia-docker.list | sudo tee /etc/apt/sources.list.d/nvidia-docker.list
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+$ sudo apt-get update \
+    && sudo apt-get install -y nvidia-container-runtime
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+## 7.3. Setting default runtime as nvidia-container-runtime
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+$ sudo nano /etc/docker/daemon.json
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Add the following json structure:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+{
+    "default-runtime":"nvidia",
+    "runtimes": {
+        "nvidia": {
+            "path": "nvidia-container-runtime",
+            "runtimeArgs": []
+        }
+    }
+}
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+## 7.4. Creating a New Token
+1. In your **master node**, use the kubeadm command, list your current tokens on the Master node. If your cluster was initialized over 24 hours ago, the list will likely be empty, since a token’s lifespan is only 24 hours.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+$ sudo kubeadm token list
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 2. Create a new token using kubeadm. By using the –print-join-command argument kubeadm will output the token and SHA hash required to securely communicate with the master.
@@ -223,13 +260,122 @@ $ sudo kubeadm tokens list
 $ sudo kubeadm token create --print-join-command
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-## Joining the New Worker to the Cluster
-1. Using SSH, log onto the new worker node.
+## 7.5. Joining the New Worker to the Cluster
+1. Using SSH, log onto the new **worker node**.
 2. Use the kubeadm join command with our new token to join the node to our cluster.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 $ sudo kubeadm join --token <token> <master-ip>:<master-port> --discovery-token-ca-cert-hash sha256:<hash>
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-3. List your cluster’s nodes to verify your new worker has successfully joined the cluster.
+3. Go back to **master node**, and list your cluster’s nodes to verify your new worker has successfully joined the cluster.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 $ sudo kubectl get nodes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+# 8. Prometheus Monitoring Setup on Kubernetes
+
+## 8.1. Installing Prometheus
+1. Go to the official Prometheus [downloads page](https://prometheus.io/download/) and get the latest download link for the Linux binary.
+
+2. Download the source using curl, untar it, and rename the extracted folder to prometheus-files.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+$ curl -LO url -LO https://github.com/prometheus/prometheus/releases/download/v2.22.0/prometheus-2.22.0.linux-amd64.tar.gz
+$ tar -xvf prometheus-2.22.0.linux-amd64.tar.gz
+$ mv prometheus-2.22.0.linux-amd64 prometheus-files
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+3. Create a Prometheus user, required directories, and make Prometheus the user as the owner of those directories.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+$ sudo useradd --no-create-home --shell /bin/false prometheus
+$ sudo mkdir /etc/prometheus
+$ sudo mkdir /var/lib/prometheus
+$ sudo chown prometheus:prometheus /etc/prometheus
+$ sudo chown prometheus:prometheus /var/lib/prometheus
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+4. Copy prometheus and promtool binary from prometheus-files folder to /usr/local/bin and change the ownership to prometheus user.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+$ sudo cp prometheus-files/prometheus /usr/local/bin/
+$ sudo cp prometheus-files/promtool /usr/local/bin/
+$ sudo chown prometheus:prometheus /usr/local/bin/prometheus
+$ sudo chown prometheus:prometheus /usr/local/bin/promtool
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+5. Move the consoles and console_libraries directories from prometheus-files to /etc/prometheus folder and change the ownership to prometheus user.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+$ sudo cp -r prometheus-files/consoles /etc/prometheus
+$ sudo cp -r prometheus-files/console_libraries /etc/prometheus
+$ sudo chown -R prometheus:prometheus /etc/prometheus/consoles
+$ sudo chown -R prometheus:prometheus /etc/prometheus/console_libraries
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+## 8.2. Setup Prometheus Configuration
+All the prometheus configurations should be present in /etc/prometheus/prometheus.yml file.
+
+1. Create the prometheus.yml file.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+$ sudo nano /etc/prometheus/prometheus.yml
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+2. Copy the following contents to the prometheus.yml file.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+global:
+  scrape_interval: 10s
+
+scrape_configs:
+  - job_name: 'prometheus'
+    scrape_interval: 5s
+    static_configs:
+      - targets: ['localhost:9090']
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+3. Change the ownership of the file to prometheus user.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+$ sudo chown prometheus:prometheus /etc/prometheus/prometheus.yml
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+## 8.3. Setup Prometheus Service File
+1. Create a prometheus service file.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+$ sudo nano /etc/systemd/system/prometheus.service
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+2. Copy the following content to the file.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[Unit]
+Description=Prometheus
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User=prometheus
+Group=prometheus
+Type=simple
+ExecStart=/usr/local/bin/prometheus \
+    --config.file /etc/prometheus/prometheus.yml \
+    --storage.tsdb.path /var/lib/prometheus/ \
+    --web.console.templates=/etc/prometheus/consoles \
+    --web.console.libraries=/etc/prometheus/console_libraries
+
+[Install]
+WantedBy=multi-user.target
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+3. Reload the systemd service to register the prometheus service and start the prometheus service.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+$ sudo systemctl daemon-reload
+$ sudo systemctl start prometheus
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Check the prometheus service status using the following command.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+$ sudo systemctl status prometheus
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The status should show the active state as shown below:
+
+![Capture.PNG](/profiling/k8s-clusters/imgs/Capture.PNG)
+
+## 8.4. Access Prometheus Web UI
+Now you will be able to access the prometheus UI on 9090 port of the prometheus server.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+http://<worker-node-ip>:9090/graph
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
