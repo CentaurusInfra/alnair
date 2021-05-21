@@ -1,25 +1,27 @@
 <!-- TOC -->
-- [Goals](#goals)
-- [Prerequisites](#prerequisites)
-- [Setting Up the Workspace Directory and Ansible Inventory File](#setting-up-the-workspace-directory-and-ansible-inventory-file)
-- [Creating a Non-Root User on All Remote Servers](#creating-a-non-root-user-on-all-remote-servers)
-- [Installing Kubernetetes’ Dependencies](#installing-kubernetetes-dependencies)
-- [Setting Up the Master Node](#setting-up-the-master-node)
-- [Setting Up the Worker Nodes](#setting-up-the-worker-nodes)
-  - [Installing nvidia-container-toolkit](#installing-nvidia-container-toolkit)
-  - [Installing nvidia-container-runtime](#installing-nvidia-container-runtime)
-  - [Setting default runtime as nvidia-container-runtime](#setting-default-runtime-as-nvidia-container-runtime)
-  - [Creating a New Token](#creating-a-new-token)
-  - [Joining the New Worker to the Cluster](#joining-the-new-worker-to-the-cluster)
-- [Prometheus Monitoring Setup on Kubernetes](#prometheus-monitoring-setup-on-kubernetes)
-  - [Installing Prometheus](#installing-prometheus)
-  - [Setup Prometheus Configuration](#setup-prometheus-configuration)
-  - [Setup Prometheus Service File](#setup-prometheus-service-file)
-  - [Access Prometheus Web UI](#access-prometheus-web-ui)
+
+- [1. Goals](#1-goals)
+- [2. Prerequisites](#2-prerequisites)
+- [3. Setting Up the Workspace Directory and Ansible Inventory File](#3-setting-up-the-workspace-directory-and-ansible-inventory-file)
+- [4. Creating a Non-Root User on All Remote Servers](#4-creating-a-non-root-user-on-all-remote-servers)
+- [5. Installing Kubernetetes’ Dependencies](#5-installing-kubernetetes-dependencies)
+- [6. Setting Up the Master Node](#6-setting-up-the-master-node)
+- [7. Setting Up the Worker Nodes](#7-setting-up-the-worker-nodes)
+  - [7.1. Installing nvidia-container-toolkit](#71-installing-nvidia-container-toolkit)
+  - [7.2. Installing nvidia-container-runtime](#72-installing-nvidia-container-runtime)
+  - [7.3. Setting default runtime as nvidia-container-runtime](#73-setting-default-runtime-as-nvidia-container-runtime)
+  - [7.4. Creating a New Token](#74-creating-a-new-token)
+  - [7.5. Joining the New Worker to the Cluster](#75-joining-the-new-worker-to-the-cluster)
+- [8. Prometheus Monitoring Setup on Kubernetes](#8-prometheus-monitoring-setup-on-kubernetes)
+  - [8.1. Installing Prometheus](#81-installing-prometheus)
+  - [8.2. Setup Prometheus Configuration](#82-setup-prometheus-configuration)
+  - [8.3. Setup Prometheus Service File](#83-setup-prometheus-service-file)
+  - [8.4. Access Prometheus Web UI](#84-access-prometheus-web-ui)
+  - [8.5. Apply Prometheus Kubernetes Manifest Files](#85-apply-prometheus-kubernetes-manifest-files)
 
 <!-- /TOC -->
 
-# Goals
+# 1. Goals
 Your cluster will include the following physical resources:
 
 - **One master node**
@@ -34,14 +36,14 @@ After completing this guide, you will have a cluster ready to run containerized 
 
 Once the cluster is set up, you will deploy the webserver Nginx to it to ensure that it is running workloads correctly.
 
-# Prerequisites
+# 2. Prerequisites
 - An SSH key pair on your local Linux/macOS/BSD machine. If you haven’t used SSH keys before, you can learn how to set them up by following this explanation of how to set up SSH keys on your local machine.
 
 - Ansible installed on your local machine. If you’re running Ubuntu 18.04 as your OS, follow the “Step 1 - Installing Ansible” section in [How to Install and Configure Ansible on Ubuntu 18.04 to install Ansible](https://www.digitalocean.com/community/tutorials/how-to-install-and-configure-ansible-on-ubuntu-18-04#step-1-%E2%80%94-installing-ansible).
 
 - Familiarity with Ansible playbooks. For review, check out [Configuration Management 101: Writing Ansible Playbooks](https://www.digitalocean.com/community/tutorials/configuration-management-101-writing-ansible-playbooks).
 
-# Setting Up the Workspace Directory and Ansible Inventory File
+# 3. Setting Up the Workspace Directory and Ansible Inventory File
 
 This section will create a directory on your local machine that will serve as your workspace. You will configure Ansible locally so that it can communicate with and execute commands on your remote servers. Once that’s done, you will create a "hosts" file containing inventory information such as the IP addresses of your servers and the groups that each server belongs to.
 
@@ -88,7 +90,7 @@ Save and close the file after you’ve added the text.
 
 Having set up the server inventory with groups, let’s move on to installing operating system level dependencies and creating configuration settings.
 
-# Creating a Non-Root User on All Remote Servers
+# 4. Creating a Non-Root User on All Remote Servers
 
 Create a file named **initial.yml** in the workspace:
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -121,7 +123,7 @@ $ sudo ansible-playbook -i hosts initial.yml -K
 BECOME password: <your sudo password>
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-# Installing Kubernetetes’ Dependencies
+# 5. Installing Kubernetetes’ Dependencies
 In this section, you will install the operating-system-level packages required by Kubernetes with Ubuntu’s package manager. These packages are:
 
 - Docker - a container runtime. It is the component that runs your containers. Support for other runtimes such as rkt is under active development in Kubernetes.
@@ -192,7 +194,7 @@ $ sudo ansible-playbook -i hosts kube-dependencies.yml -K
 BECOME password: <your sudo password>
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-# Setting Up the Master Node
+# 6. Setting Up the Master Node
 
 In this section, you will set up the master node. Before creating any playbooks, however, it’s worth covering a few concepts such as Pods and Pod Network Plugins, since your cluster will include both.
 
@@ -231,15 +233,15 @@ NAME      STATUS    ROLES     AGE       VERSION
 master    Ready     master    1d        v1.14.0
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-# Setting Up the Worker Nodes
+# 7. Setting Up the Worker Nodes
 
-## Installing nvidia-container-toolkit
+## 7.1. Installing nvidia-container-toolkit
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 $ sudo apt-get update \
     && sudo apt-get install -y nvidia-container-toolkit
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-## Installing nvidia-container-runtime
+## 7.2. Installing nvidia-container-runtime
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 $ distribution=$(. /etc/os-release;echo $ID$VERSION_ID) \
     && curl -s -L https://nvidia.github.io/nvidia-docker/gpgkey | sudo apt-key add - \
@@ -251,7 +253,7 @@ $ sudo apt-get update \
     && sudo apt-get install -y nvidia-container-runtime
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-## Setting default runtime as nvidia-container-runtime
+## 7.3. Setting default runtime as nvidia-container-runtime
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 $ sudo nano /etc/docker/daemon.json
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -269,7 +271,7 @@ Add the following json structure:
 }
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-## Creating a New Token
+## 7.4. Creating a New Token
 1. In your **master node**, use the kubeadm command, list your current tokens on the Master node. If your cluster was initialized over 24 hours ago, the list will likely be empty, since a token’s lifespan is only 24 hours.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 $ sudo kubeadm token list
@@ -280,7 +282,7 @@ $ sudo kubeadm token list
 $ sudo kubeadm token create --print-join-command
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-## Joining the New Worker to the Cluster
+## 7.5. Joining the New Worker to the Cluster
 1. Using SSH, log onto the new **worker node**.
 2. Use the kubeadm join command with our new token to join the node to our cluster.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -291,9 +293,9 @@ $ sudo kubeadm join --token <token> <master-ip>:<master-port> --discovery-token-
 $ sudo kubectl get nodes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-# Prometheus Monitoring Setup on Kubernetes
+# 8. Prometheus Monitoring Setup on Kubernetes
 
-## Installing Prometheus
+## 8.1. Installing Prometheus
 1. Go to the official Prometheus [downloads page](https://prometheus.io/download/) and get the latest download link for the Linux binary.
 
 2. Download the source using curl, untar it, and rename the extracted folder to prometheus-files.
@@ -328,7 +330,7 @@ $ sudo chown -R prometheus:prometheus /etc/prometheus/consoles
 $ sudo chown -R prometheus:prometheus /etc/prometheus/console_libraries
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-## Setup Prometheus Configuration
+## 8.2. Setup Prometheus Configuration
 All the prometheus configurations should be present in /etc/prometheus/prometheus.yml file.
 
 1. Create the prometheus.yml file.
@@ -353,7 +355,7 @@ scrape_configs:
 $ sudo chown prometheus:prometheus /etc/prometheus/prometheus.yml
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-## Setup Prometheus Service File
+## 8.3. Setup Prometheus Service File
 1. Create a prometheus service file.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 $ sudo nano /etc/systemd/system/prometheus.service
@@ -394,8 +396,24 @@ The status should show the active state as shown below:
 
 ![Capture.PNG](/profiling/k8s-clusters/imgs/Capture.PNG)
 
-## Access Prometheus Web UI
+## 8.4. Access Prometheus Web UI
 Now you will be able to access the prometheus UI on 9090 port of the prometheus server.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 http://<worker-node-ip>:9090/graph
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+## 8.5. Apply Prometheus Kubernetes Manifest Files
+Create two files: [prometheus-complete.yml](https://github.com/CentaurusInfra/AI-SIG/blob/main/profiling/prometheus-service/prometheus-complete.yaml) and [profiler-dcgm-daemonset.yml](https://github.com/CentaurusInfra/AI-SIG/blob/main/profiling/profiler/profiler-dcgm-daemonset.yaml)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+$ sudo kubectl apply -f prometheus-complete.yml
+$ sudo kubectl apply -f profiler-dcgm-daemonset.yml
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+After servel minutes, you should be able to see the following result:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+$ sudo kubectl get pods
+
+NAME                          READY   STATUS    RESTARTS   AGE
+profiler-dvjxp                2/2     Running   2          17h
+prometheus-6fc569d59d-hsk4p   1/1     Running   2          18h
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
