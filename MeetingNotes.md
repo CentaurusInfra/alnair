@@ -1,6 +1,6 @@
 # AI-SIG Weekly Meeting Notes
 ## 2021-05-26
-- Kubecon US proposal submission
+- KubeCon 2021 NA proposal submission
   - Title: GPU Profiling and Elastic Allocation for AI jobs in Kubernetes ([link](https://docs.google.com/document/d/1hrNXUYZDlMz6518pqLD0KawGo_3FjoCG0-rvuE4tvpw/edit)) 
 - Profiler
   - Bug fix on annotation removal functions
