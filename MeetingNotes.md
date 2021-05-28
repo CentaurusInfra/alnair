@@ -4,9 +4,9 @@
   - Title: GPU Profiling and Elastic Allocation for AI jobs in Kubernetes ([link](https://docs.google.com/document/d/1hrNXUYZDlMz6518pqLD0KawGo_3FjoCG0-rvuE4tvpw/edit)) 
 - Profiler
   - Bug fix on annotation removal functions
-  - Compare multiple GPUs and single GPU utilization for the same workload
+  - Compare multiple GPUs and single GPU utilization for the same workload, based on Tensorflow's all reduce distributed strategy
 - Elastic Training
-  - Write GPU allocator for the elastic training framework
+  - Implement GPU allocator for the elastic training framework
   - Setup demo environment
 - Big Model
   - Further discuss big model training solutions: data/model/pipeline parallelism, compression, specific hardware
