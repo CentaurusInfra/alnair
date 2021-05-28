@@ -1,4 +1,16 @@
 # AI-SIG Weekly Meeting Notes
+## 2021-05-26
+- Kubecon US proposal submission
+  - Title: GPU Profiling and Elastic Allocation for AI jobs in Kubernetes ([link](https://docs.google.com/document/d/1hrNXUYZDlMz6518pqLD0KawGo_3FjoCG0-rvuE4tvpw/edit)) 
+- Profiler
+  - Bug fix on annotation removal functions
+  - Compare multiple GPUs and single GPU utilization for the same workload
+- Elastic Training
+  - Write GPU allocator for the elastic training framework
+  - Setup demo environment
+- Big Model
+  - Further discuss big model training solutions: data/model/pipeline parallelism, compression, specific hardware
+
 ## 2021-05-19
 - Profiler
   - Check in module's 1st version, profiler and dcgm are deployed together in the same pod for easy Pod IP based query in Prometheus
