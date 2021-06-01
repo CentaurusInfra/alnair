@@ -1,0 +1,14 @@
+apiVersion: ai.centauruscloud.io/v1alpha1
+kind: ElasticHorovodJob
+metadata:
+  name: sample
+spec:
+  launcherSpec:
+    image: hxhp/elastic-horovod-demo:1.0
+    pythonCommand:
+      - python
+      - /examples/tensorflow2_mnist_elastic.py
+  workersSpec:
+    image: hxhp/elastic-horovod-demo:1.0
+    minReplicas: 2
+    maxReplicas: 5

@@ -1,0 +1,10 @@
+domain: centauruscloud.io
+repo: elastictraining
+resources:
+- group: ai
+  kind: HorovodJob
+  version: v1alpha1
+- group: ai
+  kind: ElasticHorovodJob
+  version: v1alpha1
+version: "2"
