@@ -20,5 +20,5 @@
   - update and log when changes happened
 
 ## Image location
-Docker hub: fizzbb/profiler:v1
+Docker hub: fizzbb/profiler:v1.1
 ## Deploy as DaemonSet
