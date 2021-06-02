@@ -11,7 +11,7 @@
 - GPU sharing, optimized resource utilzation
 
 ## ML Framework optimization
-- Hyperparameter tuning
-- Learning rate auto ajustment
+- Hyperparameter auto tuning
+
 
 Weekly meeting: Wed 1:30pm - 2:30pm (PST) [zoom meeing](https://futurewei.zoom.us/j/95486163822?from=addon)
