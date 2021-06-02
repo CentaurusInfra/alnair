@@ -1,4 +1,4 @@
-FROM tensorflow/tensorflow:latest-gpu
+FROM tensorflow/tensorflow:nightly-gpu
 
 RUN apt-get update && apt-get install -y git vim
 
@@ -11,4 +11,5 @@ RUN pip3 install -r /models/official/requirements.txt
 RUN mkdir /tmp/{model,data,logs,scripts}
 WORKDIR /tmp/scripts
 COPY ./resnet-cifar10.py .
+COPY ./resnet_imagenet.sh .
 CMD ["tail", "-f", "/dev/null"]

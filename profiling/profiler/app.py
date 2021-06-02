@@ -5,14 +5,14 @@ import os
 import time
 import logging
 from kubernetes import config, client
-import copy
 from scipy.stats import norm
 import numpy as np
 
 MEM_UTIL = "DCGM_FI_DEV_MEM_COPY_UTIL"
 GPU_UTIL = "DCGM_FI_DEV_GPU_UTIL"
 DOMAIN = "ai.centaurus.io"
-
+ANN1 = "job-type"
+ANN2 = "mem-util-max"
 
 def cyclic_pattern_detection(time_series):
     """input pandas series, detect cyclic pattern return True/False
@@ -44,18 +44,14 @@ def update_annotation(node_name, current_ann, new_ann):
     else:
         logging.error("RUNNING cluster is not avaliable")
         exit(1)
-    ann = copy.deepcopy(new_ann)
-    for kv in current_ann.items():
-        if kv not in ann:
-            ann[kv] = None  # remove previous patched annotation
-    body = {'metadata': {'annotations': ann}}
+    body = {'metadata': {'annotations': new_ann}}
     v1 = client.CoreV1Api()
     logging.info("Usage change detected, update node annotation to \n{}".format(body))
     v1.patch_node(node_name, body)
     return True
 
 
-def profiling(url, pod_ip, ana_window='2m', metrics=MEM_UTIL, m_name="MEM_UTIL_MAX"):
+def profiling(url, pod_ip, ana_window='2m', metrics=MEM_UTIL):
     ret_dict = dict()
     promi = PrometheusConnect(url=url, disable_ssl=True)
     instance = pod_ip + ":9400" # tmp fixed
@@ -71,15 +67,20 @@ def profiling(url, pod_ip, ana_window='2m', metrics=MEM_UTIL, m_name="MEM_UTIL_M
     for item in metric_object_list: # iterate through all the gpus on the node
         id = item.label_config['gpu']  # predefined key from dcgm
         # ip = item.label_config['instance']
+        key1 = DOMAIN + "/" + "-".join(["GPU", str(id), ANN1])
+        key2 = DOMAIN + "/" + "-".join(["GPU", str(id), ANN2])
         ts = item.metric_values.iloc[:, 1]  # metrics_values are two row df, 1st is timestamp, 2nd is value
-        cyclic, _ = cyclic_pattern_detection(ts)
-        key = DOMAIN + "/" + "-".join(["GPU", str(id), "job-type"])
-        job_type = "DLT" if cyclic else "Empty" if ts.max() ==0 else "Others"
-        ret_dict[key] = job_type
+        if ts.max() ==0:
+            job_type = "Empty"
+        else:
+            cyclic, _ = cyclic_pattern_detection(ts)
+            job_type = "DLT" if cyclic else "Others"
+        ret_dict[key1] = job_type
         if job_type == "DLT":  # add max utilization
-            sub_key = DOMAIN + "/" + "-".join(["GPU", str(id), m_name])
-            ret_dict[sub_key] = str(ts.max())
-        logging.debug("{}, job type {}, max usage {}".format(key, job_type, ts.max()))
+            ret_dict[key2] = str(ts.max())
+        else:
+            ret_dict[key2] = None  # remove previous annotation if there is any
+        logging.debug("{}, job type {}, max usage {}".format(key1, job_type, ts.max()))
     return ret_dict
 
 
@@ -129,7 +130,7 @@ def app_top():
 
 
 def delete_annotations():
-    """assign key value to None for deletion
+    """assign key value to None for deletion, not in use in the main flow
     """
     #key = "GPU-0-DCGM_FI_DEV_MEM_COPY_UTIL"
     delete_dict = dict()

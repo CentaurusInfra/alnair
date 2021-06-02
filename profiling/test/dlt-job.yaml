@@ -10,4 +10,13 @@ spec:
       resources:
         limits:
           nvidia.com/gpu: 2  # requesting 2 GPUs
+      volumeMounts:
+      - mountPath: /tmp/data
+        name: network-data
+  volumes:
+  - name: network-data
+    hostPath:
+      #path: /data/yaohui/tf_records  # directory on host
+      path: /nfs_3/tf_records/imagenet # network drive
+      type: Directory
 #  nodeName: lambda-server-125  # specify the node to run if needed

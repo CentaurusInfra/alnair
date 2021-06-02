@@ -1,0 +1,1 @@
+python3 /models/official/vision/image_classification/resnet/resnet_ctl_imagenet_main.py --data_dir=/tmp/data --model_dir=/tmp/model --num_gpus=2 --batch_size=64 --train_epochs=10 --steps_per_loop=100 --skip_eval=true --enable_eager=true
