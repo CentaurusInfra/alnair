@@ -2,8 +2,8 @@
 
 This release is the first release of the project. It includes the following new components:
 
-- Profiler (Daemon Set)
-- Elastic training operator
+- Profiler
+- Elastic Training Framework
 
 
 # Key Features and Improvements:
