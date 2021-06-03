@@ -1,17 +1,14 @@
-# Project XXX
-## Vision:
-## Goal: Improve AI workloads efficiency
-- Intelligent **platform** for AI workloads
-- ML **Framework** optimization
+# Project Alnair
+### Building an intelligent platform to improve AI workloads efficiency
 
-## Platform Features:
-- Elastic training, dynamic GPU allocation
-- Parralelism (data/model) Optimization
-- GPU utilization profiling for precise allocation
-- GPU sharing, optimized resource utilzation
-
-## ML Framework optimization
-- Hyperparameter auto tuning
+- Elastic platform with self-learning capability
+  - Elastic training, dynamic GPU allocation  
+  - GPU utilization profiling, precise resource management
+  - GPU sharing, optimized resource utilzation  
+- Optimized ML framework
+  - Parallelism (data/model/pipeline) Optimization
+  - Hyperparameters auto tuning
 
 
-Weekly meeting: Wed 1:30pm - 2:30pm (PST) [zoom meeing](https://futurewei.zoom.us/j/95486163822?from=addon)
+
+### Weekly meeting: Wed 1:30pm - 2:30pm (PST) [zoom meeing](https://futurewei.zoom.us/j/95486163822?from=addon)
