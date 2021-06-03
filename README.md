@@ -4,7 +4,8 @@
 - Elastic platform with self-learning capability
   - Elastic training, dynamic GPU allocation  
   - GPU utilization profiling, precise resource management
-  - GPU sharing, optimized resource utilzation  
+  - GPU fine-grained sharing, optimized resource utilzation
+  - Autonomous scheduler, continuous scheduling decision learning, policy improvement  
 - Optimized ML framework
   - Parallelism (data/model/pipeline) Optimization
   - Hyperparameters auto tuning
