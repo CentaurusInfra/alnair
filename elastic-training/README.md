@@ -18,6 +18,10 @@ Key benefits of this framework include fault tolerance, higher GPU utilization a
 * Provision a Centaurus or Kubernetes cluster with GPU nodes.
 * Install official [Nvidia device plugin](https://github.com/NVIDIA/k8s-device-plugin).
 * A kubeconfig with enough permissions. (We are working on deploying it to run within a pod) 
+* Generate an ssh key pair, for exapmle, 
+```bash
+ssh-keygen -t rsa -b 2048
+``` 
 
 ### Steps
 
@@ -27,6 +31,7 @@ git clone git@github.com:CentaurusInfra/AI-SIG.git
 cd AI-SIG/elastic-training
 kubectl apply -f config/crd/bases/ai.centauruscloud.io_elastichorovodjobs.yaml
 kubectl create configmap ai-horovod-discover-hosts --from-file=scripts/discover_hosts.sh
+kubectl create secret generic horovod-sshkeys --from-file=id_rsa=/path/to/id_rsa --from-file=authorized_keys=/path/to/id_rsa.pub
 ```
 2. Build and run the operators
 ```bash
