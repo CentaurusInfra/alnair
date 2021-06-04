@@ -55,10 +55,6 @@ func (r *ElasticHorovodJobReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	for i, f := range ehjob.ManagedFields {
-		log.Info(fmt.Sprintf("Dump %d: %s", i, f.FieldsV1.String()))
-	}
-
 	serviceName := fmt.Sprintf("elastichorovodjob-%s", ehjob.Name)
 	workersName := fmt.Sprintf("elastichorovodjob-%s-workers", ehjob.Name)
 	launcherName := fmt.Sprintf("elastichorovodjob-%s-launcher", ehjob.Name)
@@ -71,6 +67,20 @@ func (r *ElasticHorovodJobReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		if err := r.Status().Update(ctx, &ehjob); err != nil {
 			log.Info(fmt.Sprintf("Error in updating launcher and workers names: %s.", err.Error()))
 		}
+	}
+
+	if isJobScheduled, job, _ := r.isJobAlreadyScheduled(ctx, launcherName, ehjob.Namespace); isJobScheduled {
+		if isJobCompleteOrFailed(job) {
+			log.Info("Job has either completed or errored, releasing GPU resources.")
+			if err := r.releaseResources(ctx, serviceName, workersName, ehjob.Namespace); err != nil {
+				if !errors.IsNotFound(err) {
+					log.Info(fmt.Sprintf("Error in cleaning up resources: %s.", err.Error()))
+				}
+			}
+			return ctrl.Result{}, nil
+		}
+		log.Info("Skip patching: job is already scheduled.")
+		return ctrl.Result{}, nil
 	}
 
 	applyOpts := []client.PatchOption{client.ForceOwnership, client.FieldOwner("elastichorovodjob-controller")}
@@ -129,11 +139,6 @@ func (r *ElasticHorovodJobReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		if err := r.Status().Update(ctx, &ehjob); err != nil {
 			log.Info(fmt.Sprintf("Error in updating available worker replicas: %s.", err.Error()))
 		}
-	}
-
-	if isJobScheduled, _ := r.isJobAlreadyScheduled(ctx, launcherName, ehjob.Namespace); isJobScheduled {
-		log.Info("Skip patching: job is already scheduled.")
-		return ctrl.Result{}, nil
 	}
 
 	launcher, err := r.desiredLauncherJob(ehjob, launcherName, serviceName)
@@ -356,7 +361,7 @@ func (r *ElasticHorovodJobReconciler) desiredLauncherJob(ehjob aiv1alpha1.Elasti
 	return job, nil
 }
 
-func (r *ElasticHorovodJobReconciler) isJobAlreadyScheduled(ctx context.Context, name, namespace string) (bool, error) {
+func (r *ElasticHorovodJobReconciler) isJobAlreadyScheduled(ctx context.Context, name, namespace string) (bool, batchv1.Job, error) {
 	var job batchv1.Job
 	key := types.NamespacedName{
 		Namespace: namespace,
@@ -364,8 +369,73 @@ func (r *ElasticHorovodJobReconciler) isJobAlreadyScheduled(ctx context.Context,
 	}
 
 	if err := r.Get(ctx, key, &job); err != nil {
-		return false, err
+		return false, job, err
 	}
 
-	return true, nil
+	return true, job, nil
+}
+
+func (r *ElasticHorovodJobReconciler) deleteService(ctx context.Context, name, namespace string) error {
+	var svc corev1.Service
+	key := types.NamespacedName{
+		Namespace: namespace,
+		Name:      name,
+	}
+
+	if err := r.Get(ctx, key, &svc); err != nil {
+		return nil
+	}
+
+	zero := int64(0)
+	deletepolicy := metav1.DeletePropagationForeground
+	deleteOpts := []client.DeleteOption{&client.DeleteOptions{
+		GracePeriodSeconds: &zero,
+		PropagationPolicy:  &deletepolicy,
+	}}
+	return r.Delete(ctx, &svc, deleteOpts...)
+}
+
+func (r *ElasticHorovodJobReconciler) deleteWorkers(ctx context.Context, name, namespace string) error {
+	var workers appsv1.StatefulSet
+	key := types.NamespacedName{
+		Namespace: namespace,
+		Name:      name,
+	}
+
+	if err := r.Get(ctx, key, &workers); err != nil {
+		return nil
+	}
+
+	zero := int64(0)
+	deletepolicy := metav1.DeletePropagationForeground
+	deleteOpts := []client.DeleteOption{&client.DeleteOptions{
+		GracePeriodSeconds: &zero,
+		PropagationPolicy:  &deletepolicy,
+	}}
+	return r.Delete(ctx, &workers, deleteOpts...)
+}
+
+func (r *ElasticHorovodJobReconciler) releaseResources(ctx context.Context, serviceName, workersName, namespace string) error {
+	if err := r.deleteService(ctx, serviceName, namespace); err != nil {
+		return err
+	}
+
+	if err := r.deleteWorkers(ctx, workersName, namespace); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func isJobCompleteOrFailed(job batchv1.Job) bool {
+	for _, c := range job.Status.Conditions {
+		if c.Type == batchv1.JobComplete && c.Status == corev1.ConditionTrue {
+			return true
+		}
+
+		if c.Type == batchv1.JobFailed && c.Status == corev1.ConditionTrue {
+			return true
+		}
+	}
+	return false
 }
