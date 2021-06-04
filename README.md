@@ -2,7 +2,7 @@
 
 ### Our Vision
   
-AI workload will be the critical/dominant workloads for cloud and edge computing. Current cloud/edge systems leverage existing hardware/software architecture to support new AI workloads, which limited the capability of AI training/inferencing and also increased the serving cost. More efficient and more intelligent hardware/software frameworks and architectures are needed to support AI workloads. We (Centaurus AI SIG) will focus on the resources management aspects, to analyze and schedule AI workloads on existing/new systems, with intelligent methods. In a long term, we also explore new architecture to orchestrate heterogenous resources, and new service model to facilitate AI workloads.
+AI workloads will be the critical/dominant workloads for cloud and edge computing. Current cloud/edge systems leverage existing hardware/software architecture to support new AI workloads, which limited the capability of AI training/inferencing and also increased the serving cost. More efficient and more intelligent hardware/software frameworks and architectures are needed to support AI workloads. We (Centaurus AI SIG) will focus on the resources management aspects, to analyze and schedule AI workloads on existing/new systems, with intelligent methods. In a long term, we also explore new architecture to orchestrate heterogenous resources, and new service model to facilitate AI workloads.
 
 ### Project Goal: Building an intelligent platform to improve AI workloads efficiency
 
