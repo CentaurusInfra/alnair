@@ -20,8 +20,8 @@ spec:
       serviceAccountName: admin-pod
       containers:
         - name: profiler-container
-          image: fizzbb/profiler:v1.1   
-          imagePullPolicy: IfNotPresent  # use local build image, deployed node must have the image
+          image: fizzbb/profiler:v0.1   
+          #imagePullPolicy: IfNotPresent  #use local version if exists
           ports:
             - containerPort: 9999
               hostPort: 9999

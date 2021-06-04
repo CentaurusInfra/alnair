@@ -87,7 +87,8 @@ def profiling(url, pod_ip, ana_window='2m', metrics=MEM_UTIL):
 def load_config():
     config_dict = dict()
     if "PROMETHEUS_SERVICE_HOST" in os.environ and "PROMETHEUS_SERVICE_PORT" in os.environ:
-        url = "http://" + os.environ['PROMETHEUS_SERVICE_HOST']+":" + os.environ['PROMETHEUS_SERVICE_PORT']
+        # use service name instead of IP, to avoid IP changes during service restart
+        url = "http://prometheus:" + os.environ['PROMETHEUS_SERVICE_PORT']
         config_dict['url'] = url
     else:
         logging.error("PROMETHEUS_SERVICE_HOST cannot be found in environment variable, "
