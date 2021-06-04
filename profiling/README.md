@@ -2,6 +2,7 @@
 
 
 ## Introduction
+As deep learning advances, GPUs become increasingly important. GPU utilization is critical for cost reduction in cloud computing. GPU usage profiling is the first step to optimize resource utilization. A profiler is designed to collect and analyze GPU metrics. Nvidia's monitoring tool DCGM exporter is used to collect device-level metrics. Prometheus is used to scrape and store metrics data. Analytical functions (cyclic pattern detection, trend forecasting) are built in the profiler to predict job type, utilization, etc. Analytical results are written back as part of nodes' annotations.
 
 ## System Diagram
 <img  src="https://github.com/CentaurusInfra/alnair/blob/main/profiling/images/System%20Diagram.png" width="700" height="300">
@@ -32,3 +33,13 @@ Profiler results are written into cluster nodes' annotations. With ```kubectl de
 In addition, GPU metrics can be viewed through Prometheus's web UI. In the ```prometheus-complete.yaml```, prometheus' container port is mapped to the host port for the sake of simiplicity. http://prometheus-node-ip:9090, the node-ip is the IP address of the node where Prometheus server is deployed. 
 
 <img  src="https://github.com/CentaurusInfra/alnair/blob/main/profiling/images/prometheus_UI.png" width="1000" height="500">
+
+### 4. Remove profiler and Prometheus
+
+Profiler and Prometheus service can be deleted by the following commands.
+
+```
+kubectl delete daemonset profiler
+kubectl delete service prometheus
+kubectl delete deployment prometheus
+```
