@@ -11,13 +11,13 @@
 ### 1. Prerequisite: 
  - K8s cluster with Nvidia GPU plugin installed
  - GPU node with Nvidia driver installed
- - GPU node with nvidia container runtime installed, docker default runtime is set to nvidia-container-runtime
+ - GPU node with nvidia container runtime installed, docker default runtime is set to nvidia-container-runtime [guide](https://github.com/NVIDIA/nvidia-container-runtime)
 
 Detailed cluster installation guide can be refered [here](https://github.com/CentaurusInfra/alnair/blob/main/profiling/k8s-clusters/README.md).
 
 ### 2. Install profiler
 
-To use profiler in a Kubernetes cluster, only two yaml [prometheus-complete.yaml](https://github.com/CentaurusInfra/alnair/blob/main/profiling/prometheus-service/prometheus-complete.yaml), [profiler-dcgm-daemonset.yaml](https://github.com/CentaurusInfra/alnair/blob/main/profiling/profiler/profiler-dcgm-daemonset.yaml) files need to be applied.
+To use profiler in a Kubernetes cluster, only two yaml files [prometheus-complete.yaml](https://github.com/CentaurusInfra/alnair/blob/main/profiling/prometheus-service/prometheus-complete.yaml), [profiler-dcgm-daemonset.yaml](https://github.com/CentaurusInfra/alnair/blob/main/profiling/profiler/profiler-dcgm-daemonset.yaml) need to be applied.
 1. Install prometheus service with ```kubectl apply -f prometheus-complete.yaml```
 2. Install profiler daemon set with ```kubectl apply -f profiler-dcgm-daemonset.yaml```
 
