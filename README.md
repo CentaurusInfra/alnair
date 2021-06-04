@@ -18,6 +18,6 @@
   - Parallelism (data/model/pipeline) Optimization
   - Hyperparameters auto tuning
 
-
+### More about project roadmap and milestones are coming soon...
 
 ### Weekly meeting: Wed 1:30pm - 2:30pm (PST) [zoom meeing](https://futurewei.zoom.us/j/95486163822?from=addon)
