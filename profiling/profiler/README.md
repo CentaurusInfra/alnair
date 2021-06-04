@@ -1,8 +1,8 @@
-# Continuous GPU usage profiling
+# Profiler
 
 
 ## Image design
-- Configuration by Environment Variables
+- Configuration using Environment Variables
   - analysis window, analysis frequency, metrics under analysis
   - prometheus service url, Pod IP, Host name, etc. 
 - Query data from Prometheus server
