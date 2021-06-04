@@ -11,7 +11,7 @@
 ### 1. Prerequisite: 
  - K8s cluster with Nvidia GPU plugin installed
  - GPU node with Nvidia driver installed
- - GPU node with nvidia container runtime installed, docker default runtime is set to nvidia-container-runtime [guide](https://github.com/NVIDIA/nvidia-container-runtime)
+ - GPU node with nvidia container runtime installed, docker default runtime is set to nvidia-container-runtime ([installation guide](https://github.com/NVIDIA/nvidia-container-runtime))
 
 Detailed cluster installation guide can be refered [here](https://github.com/CentaurusInfra/alnair/blob/main/profiling/k8s-clusters/README.md).
 
