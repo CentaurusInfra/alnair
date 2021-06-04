@@ -21,7 +21,7 @@ To use profiler in a Kubernetes cluster, only two yaml files [prometheus-complet
 1. Install prometheus service with ```kubectl apply -f prometheus-complete.yaml```
 2. Install profiler daemon set with ```kubectl apply -f profiler-dcgm-daemonset.yaml```
 
-**Note**: Install the prometheus service first, since profiler needs to discover Prometheus Service IP during Pod initialization.
+**Note**: Install the prometheus service first, since profiler needs to connect to Prometheus server and read metrics data.
 
 ### 3. View profiler results
 
