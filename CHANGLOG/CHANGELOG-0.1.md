@@ -1,6 +1,6 @@
 # Release Summary
 
-This release is the first release of the project. It includes the following new components:
+This is Release v0.1. It includes the following new components:
 
 - Profiler
 - Elastic Training Framework
