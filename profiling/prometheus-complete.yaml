@@ -45,7 +45,7 @@ data:
   prometheus.yml: |
     scrape_configs:
       - job_name: 'profiler-pods'
-        scrape_interval: 5s # cannot scrape with higher frequency if some worker takes longer time to response
+        scrape_interval: 1s # cannot scrape with higher frequency if some worker takes longer time to response
         #scrape_timeout: 5s #scrape timeout cannot less than scrape interval 
         metrics_path: '/metrics' # default
         #tls_config:
