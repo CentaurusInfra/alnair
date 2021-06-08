@@ -43,13 +43,27 @@ metadata:
   name: prometheus-config
 data:
   prometheus.yml: |
-    global:
-      scrape_interval: 1s
     scrape_configs:
-      - job_name: 'kubernetes-pods'
+      - job_name: 'profiler-pods'
+        scrape_interval: 5s # cannot scrape with higher frequency if some worker takes longer time to response
+        #scrape_timeout: 5s #scrape timeout cannot less than scrape interval 
+        metrics_path: '/metrics' # default
+        #tls_config:
+        #  insecure_skip_verify: true
         kubernetes_sd_configs:
           - role: pod
-#        relabel_configs:
+            namespaces:
+              names:
+                - default
+            selectors:
+              - role: pod
+                label: "app=profiler" 
+        relabel_configs:
+        - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+          action: replace
+          regex: ([^:]+)(?::\d+)?;(\d+)
+          replacement: $1:$2
+          target_label: __address__
 #        - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
 #          regex: true
 #          action: keep
