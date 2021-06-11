@@ -11,6 +11,7 @@
   - Fix Prometheus scraping issue (context deadline exceed), due to scrape duration too long
 - Elastic Training
   - Demo elastic training framework, including increase/decrease GPU counts for a job when more or less resources avaliable, fault tolerance when some GPU is not avaliable, etc.
+  - Fix GPU resource release issue after job is done.
 - Big Model
   - Discuss PanGu and transformer principle 
   - Investigate model paralellism in PyTorch and TorchElastic
