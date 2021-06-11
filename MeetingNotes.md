@@ -2,7 +2,7 @@
 ## 2021-06-09
 - Pick project name **Alnair**(the brightest star in constellation Grus) and tag the first release 
 - Cluster reconfigure within the team
-- Dissucss global scheduler design, k8s scheduler modification (queue removal), synchronize batch scheduling to increase throughput.
+- Dissucss global scheduler design, k8s scheduler modification (queue removal), synchronize batch scheduling to reduce latency.
 - Next release feature discussion (fine-grained sharing, automomous scheduler, continuous gpu allocation optimization)
 - CI setup requirements (Jenkins)
 ## 2021-06-02
