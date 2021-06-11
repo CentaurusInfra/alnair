@@ -1,6 +1,6 @@
 # AI-SIG Weekly Meeting Notes
 ## 2021-06-09
-- Pick project name and tag the first release 
+- Pick project name **Alnair** and tag the first release 
 - Cluster reconfigure within the team
 - Dissucss global scheduler design, k8s scheduler modification (queue removal), synchronize batch scheduling to increase throughput.
 - Next release feature discussion (fine-grained sharing, automomous scheduler, continuous gpu allocation optimization)
