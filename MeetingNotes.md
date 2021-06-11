@@ -4,7 +4,7 @@
 - Cluster reconfigure within the team
 - Dissucss global scheduler design, k8s scheduler modification (queue removal), synchronize batch scheduling to increase throughput.
 - Next release feature discussion (fine-grained sharing, automomous scheduler, continuous gpu allocation optimization)
-- CI setup
+- CI setup requirements (Jenkins)
 ## 2021-06-02
 - Profiler
   - Profiling different scenarios, local and remote dataset, different types and numbers of GPUs
