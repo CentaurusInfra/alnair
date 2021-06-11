@@ -1,4 +1,19 @@
 # AI-SIG Weekly Meeting Notes
+## 2021-06-09
+- Pick project name and tag the first release 
+- Cluster reconfigure within the team
+- Dissucss global scheduler design, k8s scheduler modification (queue removal), synchronize batch scheduling to increase throughput.
+- Next release feature discussion (fine-grained sharing, automomous scheduler, continuous gpu allocation optimization)
+- CI setup
+## 2021-06-02
+- Profiler
+  - Profiling different scenarios, local and remote dataset, different types and numbers of GPUs
+  - Fix Prometheus scraping issue (context deadline exceed), due to scrape duration too long
+- Elastic Training
+  - Demo elastic training framework, including increase/decrease GPU counts for a job when more or less resources avaliable, fault tolerance when some GPU is not avaliable, etc.
+- Big Model
+  - Discuss PanGu and transformer principle 
+  - Investigate model paralellism in PyTorch and TorchElastic
 ## 2021-05-26
 - KubeCon 2021 NA proposal submission
   - Title: GPU Profiling and Elastic Allocation for AI jobs in Kubernetes ([link](https://docs.google.com/document/d/1hrNXUYZDlMz6518pqLD0KawGo_3FjoCG0-rvuE4tvpw/edit)) 
