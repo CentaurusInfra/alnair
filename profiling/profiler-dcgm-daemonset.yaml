@@ -20,7 +20,7 @@ spec:
       serviceAccountName: admin-pod
       containers:
         - name: profiler-container
-          image: fizzbb/profiler:v0.1   
+          image: fizzbb/profiler   
           ports:
             - containerPort: 9999
               hostPort: 9999

@@ -54,6 +54,12 @@ def update_annotation(node_name, current_ann, new_ann):
 def profiling(url, pod_ip, ana_window='2m', metrics=MEM_UTIL):
     ret_dict = dict()
     promi = PrometheusConnect(url=url, disable_ssl=True)
+    # except connection error
+    try:
+        promi.check_prometheus_connection()
+    except Exception as e:
+        logging.error(e)
+        return ret_dict  # if connectioin fails, return empty dict
     instance = pod_ip + ":9400" # tmp fixed
     start_time = parse_datetime(ana_window)
     end_time = parse_datetime("now")
@@ -65,6 +71,8 @@ def profiling(url, pod_ip, ana_window='2m', metrics=MEM_UTIL):
     # reorganize data to label_config and metric_values
     metric_object_list = MetricsList(metric_data)
     for item in metric_object_list: # iterate through all the gpus on the node
+        if 'gpu' not in item.label_config: # handle metric config info exception
+            continue
         id = item.label_config['gpu']  # predefined key from dcgm
         # ip = item.label_config['instance']
         key1 = DOMAIN + "/" + "-".join(["GPU", str(id), ANN1])
