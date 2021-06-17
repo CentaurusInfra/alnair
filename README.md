@@ -9,7 +9,7 @@ AI workloads will be the critical/dominant workloads for cloud and edge computin
 - Elastic platform with self-learning capability
   - Elastic training, dynamic GPU allocation  
   - GPU utilization profiling, precise resource management
-  - GPU fine-grained sharing, optimized resource utilzation
+  - GPU fine-grained sharing, optimized resource utilization
   - Autonomous scheduler, continuous scheduling decision learning, policy improvement  
 - Optimized ML framework
   - Parallelism (data/model/pipeline) Optimization
