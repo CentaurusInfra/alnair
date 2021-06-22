@@ -1,5 +1,3 @@
-<!-- TOC -->
-
 - [1. Goals](#1-goals)
 - [2. Prerequisites](#2-prerequisites)
 - [3. Setting Up the Workspace Directory and Ansible Inventory File](#3-setting-up-the-workspace-directory-and-ansible-inventory-file)
@@ -18,9 +16,6 @@
   - [8.3. Setup Prometheus Service File](#83-setup-prometheus-service-file)
   - [8.4. Access Prometheus Web UI](#84-access-prometheus-web-ui)
   - [8.5. Apply Prometheus Kubernetes Manifest Files](#85-apply-prometheus-kubernetes-manifest-files)
-
-<!-- /TOC -->
-
 # 1. Goals
 Your cluster will include the following physical resources:
 
@@ -231,6 +226,11 @@ $ sudo kubectl get nodes
 
 NAME      STATUS    ROLES     AGE       VERSION
 master    Ready     master    1d        v1.14.0
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+3. install nvidia gpu device plugin:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+$ sudo kubectl create -f https://raw.githubusercontent.com/NVIDIA/k8s-device-plugin/v0.9.0/nvidia-device-plugin.yml
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 # 7. Setting Up the Worker Nodes
