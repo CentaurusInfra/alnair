@@ -14,8 +14,8 @@ endif
 all: manager
 
 # Run tests
-test: generate fmt vet manifests
-	go test ./... -coverprofile cover.out
+test: generate fmt vet manifests launch-kind-cluster
+	go test ./controllers -coverprofile cover.out
 
 # Build manager binary
 manager: generate fmt vet
@@ -78,3 +78,10 @@ CONTROLLER_GEN=$(GOBIN)/controller-gen
 else
 CONTROLLER_GEN=$(shell which controller-gen)
 endif
+
+launch-kind-cluster:
+	./test/e2e/launch-cluster.sh
+
+remove-kind-cluster:
+	./bin/kind delete cluster
+

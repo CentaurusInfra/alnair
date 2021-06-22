@@ -54,3 +54,4 @@ patchGPU () {
 patchGPU kind-worker 4
 patchGPU kind-worker2 4
 echo "FINISHED launching a test cluster with mock GPU devices"
+
