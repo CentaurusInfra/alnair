@@ -1,6 +1,6 @@
 # AI-SIG Weekly Meeting Notes
 ## 2021-06-23
-- Investigate current AI platform with different focus, e.g., IDE(SageMaker), libarary(Tensorflow), pararell framework(Horovod), distributed computing(Ray), Data processing(Spark), Kubernetes Eco-system(Kubeflow, Volcano). Position Alnair.
+- Investigate current AI platform with different focus, e.g., IDE(SageMaker), libarary(Tensorflow), parallel framework(Horovod), distributed computing(Ray), Data processing(Spark), Kubernetes Eco-system(Kubeflow, Volcano). Position Alnair.
 - Connect with TU Wien on cloud resource usage prediction research, focus on transformer and LSTM algoritms for time series forecasting
 - Setup GPU cluster in fw-corp network
 - Implement e2e test in elastic-training framework to test cluster launch results
