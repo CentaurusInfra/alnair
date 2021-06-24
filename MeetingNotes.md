@@ -7,7 +7,7 @@
 - Setup GPU cluster in fw-corp network
 - Attend CVPR and Ray summit
 ## 2021-06-16
-- setup Jenkins CI flow ([project link](https://jenkins.alkaidcloud.io/job/alnair/)), kubebuilder test investigation
+- Setup Jenkins CI flow ([project link](https://jenkins.alkaidcloud.io/job/alnair/)), kubebuilder test investigation
 - Sort out next release features
   - Resource sharing within one GPU (GPU virtualization, MPS, CUDA call intercept)
   - GPU allocation algorithms (learning capability, continuous optimization)
