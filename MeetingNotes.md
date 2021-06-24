@@ -1,4 +1,24 @@
 # AI-SIG Weekly Meeting Notes
+## 2021-06-23
+- Setup AWS account for GPU instances/services and SageMaker trial
+- Implement e2e test in elastic-training framework to test cluster launch results
+- Connect with TU Wien on cloud resource usage prediction research, focus on transformer and LSTM algoritms for time series forecasting
+- Preliminary test on Nvidia Multi-process service (MPS) for GPU sharing
+- Setup GPU cluster in fw-corp network
+- Attend CVPR and Ray summit
+## 2021-06-16
+- setup Jenkins CI flow ([project link](https://jenkins.alkaidcloud.io/job/alnair/)), kubebuilder test investigation
+- Sort out next release features
+  - Resource sharing within one GPU (GPU virtualization, MPS, CUDA call intercept)
+  - GPU allocation algorithms (learning capability, continuous optimization)
+  - Close loop: profiling-allocation-sharing
+  - previous release improvement (profiler, elastic-training framework) 
+    - profiler: process level monitoring, usage prediction
+    - elastic-training framework: GPU type/topology awareness, multiple ML framework support (e.g pytorch)
+- Discuss spot instance features in public clouds, possible GPU application
+- CVPR video preparation (Futurewei AI activities intro)
+- Submit proposal for Edge AI to OSS
+- Attend IAP workshop
 ## 2021-06-09
 - Pick project name **Alnair**(the brightest star in constellation Grus) and tag the first release 
 - Cluster reconfigure within the team
