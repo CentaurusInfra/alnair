@@ -1,10 +1,11 @@
 # AI-SIG Weekly Meeting Notes
 ## 2021-06-23
-- Setup AWS account for GPU instances/services and SageMaker trial
-- Implement e2e test in elastic-training framework to test cluster launch results
+- Investigate current AI platform with different focus, e.g., IDE(SageMaker), libarary(Tensorflow), pararell framework(Horovod), distributed computing(Ray), Data processing(Spark), Kubernetes Eco-system(Kubeflow, Volcano). Position Alnair.
 - Connect with TU Wien on cloud resource usage prediction research, focus on transformer and LSTM algoritms for time series forecasting
-- Preliminary test on Nvidia Multi-process service (MPS) for GPU sharing
 - Setup GPU cluster in fw-corp network
+- Implement e2e test in elastic-training framework to test cluster launch results
+- Preliminary test on Nvidia Multi-Process Service (MPS) for GPU sharing
+- Setup AWS account for GPU instances/services and SageMaker trial
 - Attend CVPR and Ray summit
 ## 2021-06-16
 - Setup Jenkins CI flow ([project link](https://jenkins.alkaidcloud.io/job/alnair/)), kubebuilder test investigation
