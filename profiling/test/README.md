@@ -10,7 +10,7 @@ To run the workloads, first, create the test pod in your K8s cluster.
 
 Then launch the training job with the following command. CIFAR10 data will be downloaded online during the first time execution.
 
-```kubectl exec dlt-workload -- python3 resnet-cifar10.py```
+```kubectl exec dlt-workload -- python3 resnet-cifar10-tf2.py```
 
 To test more workloads, training scripts can be copied from local directory into the pod and lanuch in the same way. You can also modify the dockerfile and yaml file correspondingly.
 
