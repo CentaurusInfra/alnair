@@ -1,6 +1,6 @@
 # Workloads Generation
 
-## Testing with Deep Learning Training workloads
+## Testing with Deep Learning Training workloads in Kubernetes cluster
 
 Test pod is created with [tensorflow/tensorflow:latest-gpu](https://hub.docker.com/r/tensorflow/tensorflow) image. An example training job scripts ([resnet-cifar10.py]()) is copied to the /tmp/scripts folder.
 
@@ -34,3 +34,14 @@ python3 /models/official/vision/image_classification/resnet/resnet_ctl_imagenet_
 The above command is also saved in ```resnet_imagenet.sh``` file, which can be executed as following.
 
 ```kubectl exec dlt-workload -- bash resnet_imagenet.sh```
+
+## Run the container in a standalone mode
+If deep learning training workloads need to be run on a standalone GPU server, docker image can be run with the following command. It could take some time for the first time to download the dlt-job image, since the image size is about 10 GB.
+
+```sudo docker run --name=dlt -d centaurusinfra/dlt-job```
+
+We can bash into the container and run workloads with python3 command
+
+```sudo docker exec -it dlt bash```
+
+```python3 resnet-cifar10-tf2.py```
