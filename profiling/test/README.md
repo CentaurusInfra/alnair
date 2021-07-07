@@ -38,9 +38,13 @@ The above command is also saved in ```resnet_imagenet.sh``` file, which can be e
 ## Run the container in a standalone mode
 If deep learning training workloads need to be run on a standalone GPU server, docker image can be run with the following command. It could take some time for the first time to download the dlt-job image, since the image size is about 10 GB.
 
-```sudo docker run --name=dlt -d centaurusinfra/dlt-job```
+```sudo docker run --rm --gpus all --name=dlt -d centaurusinfra/dlt-job```
 
-We can bash into the container and run workloads with python3 command
+If not all gpus are exposed to the container, the following command can be used to specify the device
+
+```sudo docker run --rm --gpus device=0,2 --name=dlt -d centaurusinfra/dlt-job```
+
+Then we can bash into the container and run workloads with python3 command
 
 ```sudo docker exec -it dlt bash```
 
