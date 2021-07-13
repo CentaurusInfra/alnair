@@ -24,10 +24,10 @@ spec:
     spec:
       containers:
       - command:
-        - /manager
+        - /elastic-training-operator
         args:
         - --enable-leader-election
-        image: controller:latest
+        image: centaurusinfra/elastic-training:v0.0.0
         name: manager
         resources:
           limits:
