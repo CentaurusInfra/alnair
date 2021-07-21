@@ -5,7 +5,8 @@ metadata:
 spec:
   containers:
     - name: dlt-job
-      image: centaurusinfra/dlt-job   
+      image: centaurusinfra/dlt-job
+      imagePullPolicy: IfNotPresent   
       ports:
         - containerPort: 8888
           hostPort: 8888 
@@ -21,4 +22,4 @@ spec:
       #path: /data/yaohui/tf_records  # directory on host
       path: /nfs_3/tf_records/imagenet # network drive
       type: Directory
-  nodeName: titan34  # specify the node to run if needed
+#  nodeName: titan34  # specify the node to run if needed
