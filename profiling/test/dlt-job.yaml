@@ -5,8 +5,11 @@ metadata:
 spec:
   containers:
     - name: dlt-job
-      image: centaurusinfra/dlt-job   
-      imagePullPolicy: IfNotPresent  
+      image: centaurusinfra/dlt-job
+      imagePullPolicy: IfNotPresent   
+      ports:
+        - containerPort: 8888
+          hostPort: 8888 
       resources:
         limits:
           nvidia.com/gpu: 2  # requesting 2 GPUs
