@@ -11,8 +11,6 @@ import numpy as np
 MEM_UTIL = "DCGM_FI_DEV_MEM_COPY_UTIL"
 GPU_UTIL = "DCGM_FI_DEV_GPU_UTIL"
 DOMAIN = "ai.centaurus.io"
-ANN1 = "job-type"
-ANN2 = "mem-util-max"
 
 def cyclic_pattern_detection(time_series):
     """input pandas series, detect cyclic pattern return True/False
@@ -34,24 +32,35 @@ def cyclic_pattern_detection(time_series):
     else:
         return False, -1
 
-
-def update_annotation(node_name, current_ann, new_ann):
-    """
-    {annotations:{GPU-0:}}
-    """
+def patch_annotation(node_name, ann):
     if 'KUBERNETES_PORT' in os.environ:
         config.load_incluster_config()
     else:
         logging.error("RUNNING cluster is not avaliable")
         exit(1)
-    body = {'metadata': {'annotations': new_ann}}
+    body = {'metadata': {'annotations':ann}}
+
     v1 = client.CoreV1Api()
-    logging.info("Usage change detected, update node annotation to \n{}".format(body))
+    logging.info("Initally add gpu static attributes \n{}".format(body))
     v1.patch_node(node_name, body)
     return True
 
+def collect_cur_usage(gpu_idx):
+    cur_usage = dict()
+    nvmlInit()
+    handle = nvmlDeviceGetHandleByIndex(gpu_idx)
+    cur_usage['mem_used'] =str(math.ceil(nvmlDeviceGetMemoryInfo(handle).used/pow(1024,3))) + 'GB'
+    cur_usage['mem_free'] =str(math.ceil(nvmlDeviceGetMemoryInfo(handle).total/pow(1024,3)) - math.ceil(nvmlDeviceGetMemoryInfo(handle).used/pow(1024,3))) + 'GB'
+    cur_usage['process_cnt'] = len(nvmlDeviceGetComputeRunningProcesses(handle))
+    return cur_usage
 
 def profiling(url, pod_ip, ana_window='2m', metrics=MEM_UTIL):
+    """if key exists, the value will be replaced,
+       add dynamic status
+       {ai.centaurus.io/gpu0:{cur_mem_used:4GB, max_gpu_util:60, max_mem_cpy_util:34, cyclic:True, process_cnt:1},
+        ai.centaurus.io/gpu1:{cur_mem_used:4GB, max_gpu_util:60, max_mem_cpy_util:34, cyclic:True, process_cnt:2, processes:[{pid:25678, cur_mem_used:3GB},{pid:67234, cur_mem_used:1GB}]}                                 
+       }
+    """
     ret_dict = dict()
     promi = PrometheusConnect(url=url, disable_ssl=True)
     # except connection error
@@ -70,27 +79,25 @@ def profiling(url, pod_ip, ana_window='2m', metrics=MEM_UTIL):
                                               end_time=end_time)
     # reorganize data to label_config and metric_values
     metric_object_list = MetricsList(metric_data)
+    ret_dict = dict()
     for item in metric_object_list: # iterate through all the gpus on the node
         if 'gpu' not in item.label_config: # handle metric config info exception
             continue
-        id = item.label_config['gpu']  # predefined key from dcgm
+        id = item.label_config['gpu']  # predefined key from dcgm (gpu index)
         # ip = item.label_config['instance']
-        key1 = DOMAIN + "/" + "-".join(["GPU", str(id), ANN1])
-        key2 = DOMAIN + "/" + "-".join(["GPU", str(id), ANN2])
+        key = DOMAIN + "/gpu-" + id
+        cur_usage = collect_cur_usage(int(id))
         ts = item.metric_values.iloc[:, 1]  # metrics_values are two row df, 1st is timestamp, 2nd is value
-        if ts.max() ==0:
-            job_type = "Empty"
-        else:
-            cyclic, _ = cyclic_pattern_detection(ts)
-            job_type = "DLT" if cyclic else "Others"
-        ret_dict[key1] = job_type
-        if job_type == "DLT":  # add max utilization
-            ret_dict[key2] = str(ts.max())
-        else:
-            ret_dict[key2] = None  # remove previous annotation if there is any
-        logging.debug("{}, job type {}, max usage {}".format(key1, job_type, ts.max()))
+        cur_usage['cyclic_pattern'] = False
+        if ts.max() > 0:
+            cyclic, period = cyclic_pattern_detection(ts)
+            if cyclic:
+                cur_usage['cyclic_pattern'] = True
+                cur_usage['period'] = str(period)       
+        cur_usage['max_mem_util'] = str(ts.max())
+        # Important: flatten nested dictionary to string, otherwise error "cannot unmarshal string into Go value of type map[string]interface {}""
+        ret_dict[key] = str(cur_usage)
     return ret_dict
-
 
 def load_config():
     config_dict = dict()
@@ -122,18 +129,45 @@ def load_config():
         exit(1)
     return config_dict
 
+from pynvml import *
+import math
+
+def collect_gpu_attributes():
+    """if key exists, the value will be replaced
+       {ai.centaurus.io/gpu-static:{count:2,
+                                    gpus:[{index:0, pcie_bus_id:0000:84:00.0, model:TITANX, mem_size: 12GB, pcie_gen_width:1X16},
+                                          {index:1, pcie_bus_id:0000:88:00.0, model:TITANX, mem_size: 12GB, pcie_gen_width:1X16}
+                                         ]
+                                    } 
+        }
+    """
+    attributes = dict()
+    nvmlInit()
+    deviceCount = nvmlDeviceGetCount()
+    attributes['count']=str(deviceCount)
+    # only get gpu0's attributes, assume same GPU card on one server
+    handle = nvmlDeviceGetHandleByIndex(0)
+    attributes['model'] = nvmlDeviceGetName(handle).decode("utf-8")
+    attributes['mem_size'] = str(math.ceil(nvmlDeviceGetMemoryInfo(handle).total/pow(1024,3))) + 'GB'
+    attributes['pcie_gen_width'] = str(nvmlDeviceGetCurrPcieLinkGeneration(handle)) + 'x' + str(nvmlDeviceGetCurrPcieLinkWidth(handle))
+    key = DOMAIN + "/gpu-static" 
+    annotation = {key:str(attributes)}
+    
+    return annotation
 
 def app_top():
     current_annotation = dict()
     logging.info("profiler initialization")
+    config_dict = load_config()
+    # add gpu static attributes
+    gpu_attributes = collect_gpu_attributes()
+    patch_annotation(config_dict['node_name'], gpu_attributes)
     while True:
-        # load configuration, logging if config changed
-        config_dict = load_config()
-        # profiling
+        # profiling, add gpu dynamic status
         new_annotation = profiling(url=config_dict['url'], pod_ip=config_dict['pod_ip'])
         # update annotation if changes detected
         if new_annotation != current_annotation:
-            update_annotation(config_dict['node_name'], current_annotation, new_annotation)
+            patch_annotation(config_dict['node_name'], new_annotation)
             current_annotation = new_annotation
         time.sleep(30)
 
