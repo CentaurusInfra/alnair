@@ -18,6 +18,6 @@ AI workloads will be the critical/dominant workloads for cloud and edge computin
 ### More about project roadmap and milestones are coming soon...
 
 ## Community Meeting 
- Weekly AI SIG Meeting: Wednesday 1:30pm - 2:30pm Pacific Time (Weekly) [Join Meeting](https://futurewei.zoom.us/j/95486163822?from=addon)
+ Weekly AI SIG Meeting: Wednesday 1:30pm - 2:30pm Pacific Time (Weekly) [Join Meeting](https://futurewei.zoom.us/j/95486163822?from=addon) | [Meeting Summary](https://docs.google.com/document/d/1O8_IbcphzJxrtj9p7tQDwpNe6BP6Es00tF77dxyLR30/edit?usp=sharing) 
  
  Alnair Open Source Community Meeting: Wednesday 6:00PM Pacifc Time (Biweekly) starting 7/21/2021 | [Join Meeting](https://futurewei.zoom.us/j/97139649090?from=addon) | [Meeting Summary](https://docs.google.com/document/d/11XkRn05E_--1x41-cvBmVLIV9VWWjGsrv03SfGFxFm4/edit?usp=sharing) 
