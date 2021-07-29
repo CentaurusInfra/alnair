@@ -51,7 +51,10 @@ def collect_cur_usage(gpu_idx):
     handle = nvmlDeviceGetHandleByIndex(gpu_idx)
     cur_usage['mem_used'] =str(math.ceil(nvmlDeviceGetMemoryInfo(handle).used/pow(1024,3))) + 'GB'
     cur_usage['mem_free'] =str(math.ceil(nvmlDeviceGetMemoryInfo(handle).total/pow(1024,3)) - math.ceil(nvmlDeviceGetMemoryInfo(handle).used/pow(1024,3))) + 'GB'
-    cur_usage['process_cnt'] = len(nvmlDeviceGetComputeRunningProcesses(handle))
+    processes = nvmlDeviceGetComputeRunningProcesses(handle)
+    cur_usage['process_cnt'] = len(processes)
+    if len(processes) > 0:
+        cur_usage['pid-mem'] = [(i.pid, str(math.ceil(i.usedGpuMemory/pow(1024,2)))+'MB') for i in processes]
     return cur_usage
 
 def profiling(url, pod_ip, ana_window='2m', metrics=MEM_UTIL):
