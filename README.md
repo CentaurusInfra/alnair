@@ -13,7 +13,7 @@ AI workloads will be the critical/dominant workloads for cloud and edge computin
   - Autonomous scheduler, continuous scheduling decision learning, policy improvement  
 - Optimized ML framework
   - Parallelism (data/model/pipeline) Optimization
-  - Hyperparameters auto tuning
+  - Hyperparameters auto tuning, architecture search
 
 ### More about project roadmap and milestones are coming soon...
 
