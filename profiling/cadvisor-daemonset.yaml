@@ -40,6 +40,11 @@ spec:
         - name: disk
           mountPath: /dev/disk
           readOnly: true
+        - name: kmsg
+          mountPath: /dev/kmsg
+         # readOnly: true
+        securityContext:
+          privileged: true
         ports:
           - name: http
             containerPort: 8080
@@ -63,3 +68,6 @@ spec:
       - name: disk
         hostPath:
           path: /dev/disk
+      - name: kmsg
+        hostPath:
+          path: /dev/kmsg

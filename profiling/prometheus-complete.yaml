@@ -45,7 +45,7 @@ data:
   prometheus.yml: |
     scrape_configs:
       - job_name: cadvisor
-        scrape_interval: 5s
+        scrape_interval: 3s
         #tls_config:
         #  ca_file: /var//run/secrets/kubernetes.io/serviceaccount/ca.crt
         #  insecure_skip_verify: true
