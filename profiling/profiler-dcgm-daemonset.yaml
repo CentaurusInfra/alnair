@@ -17,6 +17,7 @@ spec:
         prometheus.io/path: '/metrics' #default is /metrics
 
     spec:
+      hostPID: true
       serviceAccountName: admin-pod
       containers:
         - name: profiler-container
@@ -28,6 +29,8 @@ spec:
               requests:
                 cpu: "0.5"
                 memory: "1Gi"
+          securityContext:
+            privileged: true
           env:
             - name: PYTHONUNBUFFERED  #for python print show in kubernetes log
               value: "0"
