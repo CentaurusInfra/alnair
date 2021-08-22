@@ -13,7 +13,7 @@ The list of prerequisites for running the virtual device plugin is described bel
 * nvidia-docker version > 2.0 (see how to [install](https://github.com/NVIDIA/nvidia-docker) and it's [prerequisites](https://github.com/nvidia/nvidia-docker/wiki/Installation-\(version-2.0\)#prerequisites))
 * docker configured with nvidia as the [default runtime](https://github.com/NVIDIA/nvidia-docker/wiki/Advanced-topics#default-runtime).
 * Kubernetes version >= 1.10
-
+* **Nvidia GPU architecture >=7.0 (Volta) e.g. it won't work on TitanX GPU**
 ## High Level Design
 ![device-plugin](./imgs/device-plugin.png)
 
