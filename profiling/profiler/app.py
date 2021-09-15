@@ -13,7 +13,7 @@ import copy
 MEM_UTIL = "DCGM_FI_DEV_MEM_COPY_UTIL"
 GPU_UTIL = "DCGM_FI_DEV_GPU_UTIL"
 DOMAIN = "ai.centaurus.io"
-POD_KEY1 = DOMAIN + "/gpu-memused"
+POD_KEY1 = DOMAIN + "/gpu_mem"
 def cyclic_pattern_detection(time_series):
     """input pandas series, detect cyclic pattern return True/False
     if True, return frequency, if false, frequency is -1
@@ -121,6 +121,28 @@ def collect_pod_metrics(pid_mem_array, node_name, gpu_id, pods_ann):
             logging.error("nsenter failed to acquire pod name,{}".format(error))
     return pods_ann
 
+def get_pod_resource_util(pod_name, ns, promi_connector, duration="30s"):
+    """use query to get resource utilization"""
+    cpu_usage_value, memory_usage_value, network_usage_value, io_usage_value = 0,0,0,0
+
+    cpu_usage = promi_connector.custom_query(query="sum(rate(container_cpu_usage_seconds_total{container_label_io_kubernetes_pod_name=\"" + pod_name + "\", container_label_io_kubernetes_pod_namespace=\"" + ns + "\"}[" + duration + "]))by(container_label_io_kubernetes_pod_name)")
+    if len(cpu_usage) > 0:
+        cpu_usage_value = cpu_usage[0]["value"][1]
+    
+    memory_usage = promi_connector.custom_query(query="sum(rate(container_memory_usage_bytes{container_label_io_kubernetes_pod_name=\"" + pod_name + "\", container_label_io_kubernetes_pod_namespace=\"" + ns + "\"}[" + duration + "]))by(container_label_io_kubernetes_pod_name)")
+    if len(memory_usage) > 0:
+        memory_usage_value = memory_usage[0]["value"][1]
+    
+    network_usage = promi_connector.custom_query(query="sum(rate(container_network_transmit_bytes_total{container_label_io_kubernetes_pod_name=\"" + pod_name + "\", container_label_io_kubernetes_pod_namespace=\"" + ns + "\"}[" + duration + "]))by(container_label_io_kubernetes_pod_name)")
+    if len(network_usage) > 0:
+        network_usage_value = network_usage[0]["value"][1]
+
+    io_usage = promi_connector.custom_query(query="sum(rate(container_fs_write_seconds_total{container_label_io_kubernetes_pod_name=\"" + pod_name + "\", container_label_io_kubernetes_pod_namespace=\"" + ns + "\"}[" + duration + "]))by(container_label_io_kubernetes_pod_name)")
+    if len(io_usage) > 0:
+        io_usage_value = io_usage[0]["value"][1]
+
+    return cpu_usage_value, memory_usage_value, network_usage_value, io_usage_value 
+
 def profiling(url, pod_ip, node_name, ana_window='2m', metrics=MEM_UTIL):
     """if key exists, the value will be replaced,
        add dynamic status
@@ -169,6 +191,14 @@ def profiling(url, pod_ip, node_name, ana_window='2m', metrics=MEM_UTIL):
         #node_dict[key] = str(cur_usage)
         # move the string cast to patch_annotation function
         node_dict[key] = cur_usage
+    # add cadvisor metrics to pod
+    for k, v in pod_dict.items():
+        pod_name, ns = k.split(":")
+        cpu, memory, network, io = get_pod_resource_util(pod_name,ns, promi)
+        v[DOMAIN + '/cpu_util'] = str(round(float(cpu)*100,2)) + '%'
+        v[DOMAIN + '/cpu_mem'] = str(round(float(memory)/1e6,2)) + 'MB'
+        v[DOMAIN + '/network'] = str(round(float(network)/1e3,2)) + 'KBps'
+        v[DOMAIN + '/disk_io'] = io
     return node_dict, pod_dict
 
 def load_config():
