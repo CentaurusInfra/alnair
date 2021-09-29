@@ -29,15 +29,15 @@ type GPU_mem_usage struct {
 	mem_free uint64
 }
 
-func (s *Data) Clone() framework.StateData {
+func (d *Data) Clone() framework.StateData {
 	c := &Data{
-		NodeValue: s.NodeValue,
-		GPUValue:  s.GPUValue,
+		NodeValue: d.NodeValue,
+		GPUValue:  d.GPUValue,
 	}
 	return c
 }
 
-func CollectValues(state *framework.CycleState, nodeName string) *framework.Status {
+func (d *Data) CollectValues(state *framework.CycleState, nodeName string) *framework.Status {
 	///
 	config, _ := clientcmd.BuildConfigFromFlags("", "/root/kube-dev/kube/config")
 	///

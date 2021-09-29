@@ -6,8 +6,7 @@ import (
 	"os"
 	"time"
 
-//	"github.com/angao/scheduler-framework-sample/pkg/plugins"
-    "github.com/YHDING23/UtilSched/pkg/plugins/register"
+    "github.com/YHDING23/AI-SIG/autonomous-scheduler/UtilSched/pkg/plugins/register"
 )
 
 func main() {

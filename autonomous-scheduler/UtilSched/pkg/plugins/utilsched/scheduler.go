@@ -17,7 +17,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"github.com/YHDING23/UtilSched/pkg/plugins/utilsched/collection"
+	"github.com/YHDING23/AI-SIG/autonomous-scheduler/UtilSched/pkg/plugins/utilsched/collection"
 )
 
 const (
@@ -51,7 +51,7 @@ type Args struct {
 	Master     string `json:"master,omitempty"`
 }
 
-func New(plArgs *runtime.Unknown, h framework.Handle) (framework.Plugin, error) {
+func New(plArgs *runtime.Unknown, handle framework.Handle) (framework.Plugin, error) {
 	args := &Args{}
 	if err := framework.DecodeInto(plArgs, args); err != nil {
 		return nil, err
