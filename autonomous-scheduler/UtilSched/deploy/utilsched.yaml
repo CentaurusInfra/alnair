@@ -1,0 +1,220 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: scheduler-config
+  namespace: kube-system
+data:
+  scheduler-config.yaml: |
+  apiVersion: kubescheduler.config.k8s.io/v1alpha1
+  kind: KubeSchedulerConfiguration
+  leaderElection:
+    leaderElect: true
+    leaseDuration: 15s
+    renewDeadline: 10s
+    resourceLock: leases
+    resourceName: utilsched
+    resourceNamespace: kube-system
+    retryPeriod: 2s
+  profiles:
+    - plugins:
+        score:
+          enabled:
+            - name: utilsched
+              weight: 300
+      schedulerName: utilsched
+      pluginConfig:
+        - name: utilsched
+          args: { "master": "master", "kubeconfig": "kubeconfig" }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: utilsched
+  namespace: kube-system
+  labels:
+      component: utilsched
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: utilsched
+  template:
+    metadata:
+      labels:
+        component: utilsched
+    spec:
+      serviceAccount: utilsched-sa
+      priorityClassName: system-cluster-critical
+      volumes:
+        - name: scheduler-config
+          configMap:
+            name: scheduler-config
+      containers:
+        - name: utilsched
+          image: https://hub.docker.com/r/centaurusinfra/my-scheduler/utilsched:1.0.1
+          imagePullPolicy: Always
+          args:
+            - utilsched
+            - --config=/scheduler/scheduler-config.yaml
+            - --v=3
+          resources:
+            requests:
+              cpu: "300m"
+          volumeMounts:
+          - name: scheduler-config
+            mountPath: /scheduler
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: utilsched-cr
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - endpoints
+      - events
+    verbs:
+      - create
+      - get
+      - update
+  - apiGroups:
+      - ""
+    resourceNames:
+      - utilsched
+    resources:
+      - endpoints
+    verbs:
+      - delete
+      - get
+      - patch
+      - update
+  - apiGroups:
+      - ""
+    resources:
+      - nodes
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - pods
+    verbs:
+      - delete
+      - get
+      - list
+      - watch
+      - update
+  - apiGroups:
+      - ""
+    resources:
+      - bindings
+      - pods/binding
+    verbs:
+      - create
+  - apiGroups:
+      - ""
+    resources:
+      - pods/status
+    verbs:
+      - patch
+      - update
+  - apiGroups:
+      - ""
+    resources:
+      - replicationcontrollers
+      - services
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - apps
+      - extensions
+    resources:
+      - replicasets
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - apps
+    resources:
+      - statefulsets
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - policy
+    resources:
+      - poddisruptionbudgets
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - persistentvolumeclaims
+      - persistentvolumes
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - "storage.k8s.io"
+    resources:
+      - storageclasses
+      - csinodes
+    verbs:
+      - watch
+      - list
+      - get
+  - apiGroups:
+      - "coordination.k8s.io"
+    resources:
+      - leases
+    verbs:
+      - create
+      - get
+      - list
+      - update
+  - apiGroups:
+      - "events.k8s.io"
+    resources:
+      - events
+    verbs:
+      - create
+      - patch
+      - update
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: utilsched-sa
+  namespace: kube-system
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: utilsched-crb
+  namespace: kube-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: utilsched-cr
+subjects:
+  - kind: ServiceAccount
+    name: utilsched-sa
+    namespace: kube-system
