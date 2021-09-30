@@ -125,7 +125,6 @@ func CalculateNodeScore(nodeValue collection.Node_static) uint64 {
 	return modelScore
 }
 
-
 func CalculateActualScore(gpuvalue map[string]collection.GPU_mem_usage) uint64 {
 	actualScore := uint64(0)
 	for _, card := range gpuvalue {
