@@ -4,20 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
-	"regexp"
-	"strconv"
 
-	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/klog"
-	framework "k8s.io/kubernetes/pkg/scheduler/framework"
+	"math"
 
+	"UtilSched/pkg/plugins/utilsched/collection"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
-
-	"github.com/YHDING23/AI-SIG/autonomous-scheduler/UtilSched/pkg/plugins/utilsched/collection"
+	"k8s.io/klog"
+	framework "k8s.io/kubernetes/pkg/scheduler/framework"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"strconv"
 )
 
 const (
@@ -42,23 +38,38 @@ const (
 )
 
 type UtilSched struct {
-	args   *Args
+
+	// 	args   *Args
 	handle framework.Handle
 }
 
-type Args struct {
-	KubeConfig string `json:"kubeconfig,omitempty"`
-	Master     string `json:"master,omitempty"`
-}
+// type Args struct {
+// 	KubeConfig string `json:"kubeconfig,omitempty"`
+// 	Master     string `json:"master,omitempty"`
+// }
 
-func New(plArgs *runtime.Unknown, handle framework.Handle) (framework.Plugin, error) {
-	args := &Args{}
-	if err := framework.DecodeInto(plArgs, args); err != nil {
+func New(_ runtime.Object, handle framework.Handle) (framework.Plugin, error) {
+	mgrConfig := ctrl.GetConfigOrDie()
+	mgrConfig.QPS = 1000
+	mgrConfig.Burst = 1000
+	mgr, err := ctrl.NewManager(mgrConfig, ctrl.Options{
+		MetricsBindAddress: "",
+		LeaderElection:     false,
+		Port:               9443,
+	})
+	go func() {
+		if err = mgr.Start(ctrl.SetupSignalHandler()); err != nil {
+			klog.Error(err)
+			panic(err)
+		}
+	}()
+
+	if err != nil {
+		klog.Error(err)
 		return nil, err
 	}
-	klog.V(3).Infof("--------> args: %+v", args)
 	return &UtilSched{
-		args:   args,
+		// 		args:   args,
 		handle: handle,
 	}, nil
 }
@@ -97,25 +108,28 @@ func CalculateScore(state *framework.CycleState, pod *v1.Pod, nodeName string) (
 	if !ok {
 		return 0, errors.New("The Type is not Data ")
 	}
-	return CalculateNodeScore(data.NodeValue)*NodeWeight + CalculateActualScore(data)*ActualWeight + CurPodCPUUsageScore(pod)*CPUUsageWeight
+
+	return CalculateNodeScore(data.NodeValue)*NodeWeight + CalculateActualScore(data.GPUValue)*ActualWeight + CurPodCPUUsageScore(pod)*CPUUsageWeight, nil
 }
 
-func CalculateBasicScore(nodeValue collection.NodeValue) uint64 {
+func CalculateNodeScore(nodeValue collection.Node_static) uint64 {
+	modelScore := uint64(0)
 	switch nodeValue.Model {
 	case "Tesla K80":
-		modelScore = uint64(nodeValue.MemSize * GPUModelWeight_k80 * nodeValue.Count / 12)
+		modelScore = uint64(nodeValue.MemSize * uint64(GPUModelWeight_k80) * uint64(nodeValue.Count) / 12)
 	case "TITAN X (Pascal)":
-		modelScore = uint64(nodeValue.MemSize * GPUModelWeight_TITANX * nodeValue.Count / 12)
+		modelScore = uint64(nodeValue.MemSize * uint64(GPUModelWeight_TITANX) * uint64(nodeValue.Count) / 12)
 	case "V100":
-		modelScore = uint64(nodeValue.MemSize * GPUModelWeight_V100 * nodeValue.Count / 12)
+		modelScore = uint64(nodeValue.MemSize * uint64(GPUModelWeight_V100) * uint64(nodeValue.Count) / 12)
 	}
 	return modelScore
 }
 
-func CalculateActualScore(data collection.Data) uint64 {
+
+func CalculateActualScore(gpuvalue map[string]collection.GPU_mem_usage) uint64 {
 	actualScore := uint64(0)
-	for _, card := range data.GPUValue {
-		actualScore += uint64(card.mem_used / (card.mem_used + card.mem_free))
+	for _, card := range gpuvalue {
+		actualScore += uint64(card.Mem_used / (card.Mem_used + card.Mem_free))
 	}
 	return actualScore
 }
@@ -125,6 +139,8 @@ func CurPodCPUUsageScore(pod *v1.Pod) uint64 {
 	for _, container := range pod.Spec.Containers {
 		curPodCPUUsage += PredictUtilisation(&container)
 	}
+
+	return uint64(curPodCPUUsage)
 }
 
 // Predict utilization for a container based on its requests/limits
@@ -134,7 +150,9 @@ func PredictUtilisation(container *v1.Container) int64 {
 	} else if _, ok := container.Resources.Requests[v1.ResourceCPU]; ok {
 		return int64(math.Round(float64(container.Resources.Requests.Cpu().MilliValue())))
 	} else {
-		return requestsMilliCores
+
+		// 		return requestsMilliCores
+		return int64(1)
 	}
 }
 

@@ -25,8 +25,9 @@ type Node_static struct {
 }
 
 type GPU_mem_usage struct {
-	mem_used uint64
-	mem_free uint64
+
+	Mem_used uint64
+	Mem_free uint64
 }
 
 func (d *Data) Clone() framework.StateData {
@@ -37,7 +38,8 @@ func (d *Data) Clone() framework.StateData {
 	return c
 }
 
-func (d *Data) CollectValues(state *framework.CycleState, nodeName string) *framework.Status {
+
+func CollectValues(state *framework.CycleState, nodeName string) *framework.Status {
 	///
 	config, _ := clientcmd.BuildConfigFromFlags("", "/root/kube-dev/kube/config")
 	///
@@ -80,8 +82,9 @@ func (d *Data) CollectValues(state *framework.CycleState, nodeName string) *fram
 			os.Exit(2)
 		}
 		node_GPU_value["gpu-"+strconv.Itoa(id)] = GPU_mem_usage{
-			mem_used: mem_used,
-			mem_free: mem_free,
+
+			Mem_used: mem_used,
+			Mem_free: mem_free,
 		}
 	}
 	data := Data{

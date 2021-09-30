@@ -22,9 +22,10 @@ data:
             - name: utilsched
               weight: 300
       schedulerName: utilsched
-      pluginConfig:
-        - name: utilsched
-          args: { "master": "master", "kubeconfig": "kubeconfig" }
+
+#      pluginConfig:
+#        - name: utilsched
+#          args: { "master": "master", "kubeconfig": "kubeconfig" }
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -51,7 +52,7 @@ spec:
             name: scheduler-config
       containers:
         - name: utilsched
-          image: https://hub.docker.com/r/centaurusinfra/my-scheduler/utilsched:1.0.1
+          image: centaurusinfra/my-scheduler:1.0.1
           imagePullPolicy: Always
           args:
             - utilsched
