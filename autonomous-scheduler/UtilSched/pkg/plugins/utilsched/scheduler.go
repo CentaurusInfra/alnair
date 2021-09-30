@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"math"
 
 	"UtilSched/pkg/plugins/utilsched/collection"
@@ -37,6 +38,7 @@ const (
 )
 
 type UtilSched struct {
+
 	// 	args   *Args
 	handle framework.Handle
 }
@@ -106,6 +108,7 @@ func CalculateScore(state *framework.CycleState, pod *v1.Pod, nodeName string) (
 	if !ok {
 		return 0, errors.New("The Type is not Data ")
 	}
+
 	return CalculateNodeScore(data.NodeValue)*NodeWeight + CalculateActualScore(data.GPUValue)*ActualWeight + CurPodCPUUsageScore(pod)*CPUUsageWeight, nil
 }
 
@@ -122,6 +125,7 @@ func CalculateNodeScore(nodeValue collection.Node_static) uint64 {
 	return modelScore
 }
 
+
 func CalculateActualScore(gpuvalue map[string]collection.GPU_mem_usage) uint64 {
 	actualScore := uint64(0)
 	for _, card := range gpuvalue {
@@ -135,6 +139,7 @@ func CurPodCPUUsageScore(pod *v1.Pod) uint64 {
 	for _, container := range pod.Spec.Containers {
 		curPodCPUUsage += PredictUtilisation(&container)
 	}
+
 	return uint64(curPodCPUUsage)
 }
 
@@ -145,6 +150,7 @@ func PredictUtilisation(container *v1.Container) int64 {
 	} else if _, ok := container.Resources.Requests[v1.ResourceCPU]; ok {
 		return int64(math.Round(float64(container.Resources.Requests.Cpu().MilliValue())))
 	} else {
+
 		// 		return requestsMilliCores
 		return int64(1)
 	}

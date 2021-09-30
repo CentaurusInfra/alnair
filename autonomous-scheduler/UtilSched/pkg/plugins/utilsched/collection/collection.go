@@ -25,6 +25,7 @@ type Node_static struct {
 }
 
 type GPU_mem_usage struct {
+
 	Mem_used uint64
 	Mem_free uint64
 }
@@ -36,6 +37,7 @@ func (d *Data) Clone() framework.StateData {
 	}
 	return c
 }
+
 
 func CollectValues(state *framework.CycleState, nodeName string) *framework.Status {
 	///
@@ -80,6 +82,7 @@ func CollectValues(state *framework.CycleState, nodeName string) *framework.Stat
 			os.Exit(2)
 		}
 		node_GPU_value["gpu-"+strconv.Itoa(id)] = GPU_mem_usage{
+
 			Mem_used: mem_used,
 			Mem_free: mem_free,
 		}
