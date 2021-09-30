@@ -5,23 +5,16 @@ metadata:
   namespace: kube-system
 data:
   scheduler-config.yaml: |
-  apiVersion: kubescheduler.config.k8s.io/v1alpha1
-  kind: KubeSchedulerConfiguration
-  leaderElection:
-    leaderElect: true
-    leaseDuration: 15s
-    renewDeadline: 10s
-    resourceLock: leases
-    resourceName: utilsched
-    resourceNamespace: kube-system
-    retryPeriod: 2s
-  profiles:
-    - plugins:
-        score:
-          enabled:
-            - name: utilsched
-              weight: 300
-      schedulerName: utilsched
+    apiVersion: kubescheduler.config.k8s.io/v1alpha1
+    kind: KubeSchedulerConfiguration
+    leaderElection:
+      leaderElect: true
+      lockObjectName: utilsched
+      lockObjectNamespace: kube-system
+    plugins:
+      score:
+        enabled:
+        - name: "utilsched"
 #      pluginConfig:
 #        - name: utilsched
 #          args: { "master": "master", "kubeconfig": "kubeconfig" }
