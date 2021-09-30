@@ -3,12 +3,21 @@ kind: ElasticHorovodJob
 metadata:
   name: sample
 spec:
+  containers:
+    - volumeMounts:
+      - mountPath: /tmp/data
+        name: network-data
   launcherSpec:
     image: hxhp/elastic-horovod-demo:1.0
     pythonCommand:
       - python
-      - /examples/tensorflow2_mnist_elastic.py
+      - /examples/tensorflow2_mnist_elastic.py --epochs=10
   workersSpec:
     image: hxhp/elastic-horovod-demo:1.0
     minReplicas: 2
     maxReplicas: 5
+  volumes:
+  - name: network-data
+    hostPath:
+      path: /nfs_3/tf_records/imagenet
+      type: Directory

@@ -28,12 +28,12 @@ ssh-keygen -t rsa -b 2048
 1. Clone repo and create CRDs
 ```bash
 git clone git@github.com:CentaurusInfra/AI-SIG.git
-cd AI-SIG/elastic-training
+cd alnair/elastic-training
 kubectl apply -f config/crd/bases/ai.centauruscloud.io_elastichorovodjobs.yaml
 kubectl create configmap ai-horovod-discover-hosts --from-file=scripts/discover_hosts.sh
 kubectl create secret generic horovod-sshkeys --from-file=id_rsa=/path/to/id_rsa --from-file=authorized_keys=/path/to/id_rsa.pub
 ```
-2. Build and run the operators
+2. Build and run the operators <sup>1</sup>
 ```bash
 make manager
 bin/manager
@@ -42,3 +42,7 @@ bin/manager
 ```bash
 kubectl apply -f config/samples/ai_v1alpha1_elastichorovodjob.yaml
 ```
+
+*Note: 
+
+1: Depending on the controller-gen version, the zz_generated.deepcopy.go method for PodGroup.PodGroupSpec's *ResourceList may be incorrect and would need to be modified manually after controller-gen is ran. For convenience purposes, controller-gen is currently disabled in ```make manager```. 

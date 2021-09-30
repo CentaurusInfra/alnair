@@ -1,0 +1,41 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: job-4gpu
+spec:
+  template:
+    spec:
+      containers:
+      - name: job-4gpu
+        image: davidluzhu/elastichorovodtest:horovod-master
+        command: ["bash", "-c"]
+        args:
+        - >-
+          python
+          /elastic_scripts/pyt-cf-rn50.py -e 50 -b 64 -g 4
+        volumeMounts:
+        - mountPath: /tmp/data
+          name: network-data
+        - mountPath: /elastic_scripts
+          name: elastic-samples
+        - name: dshm
+          mountPath: /dev/shm
+        resources:
+          limits: 
+            nvidia.com/gpu: "4"
+          requests:
+            nvidia.com/gpu: "4" 
+      volumes:
+      - name: network-data
+        hostPath:
+          path: /nfs_3/cifar10
+          type: Directory
+      - name: elastic-samples
+        hostPath:
+          path: /nfs_3/elastic-scripts
+          type: Directory
+      - name: dshm
+        emptyDir:
+          medium: Memory
+      restartPolicy: Never
+  backoffLimit: 0

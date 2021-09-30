@@ -26,6 +26,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
+	sigsv1alpha1 "elastictraining/api/scheduling.sigs.k8s.io/v1alpha1"
 	aiv1alpha1 "elastictraining/api/v1alpha1"
 	"elastictraining/controllers"
 	// +kubebuilder:scaffold:imports
@@ -40,6 +41,7 @@ func init() {
 	_ = clientgoscheme.AddToScheme(scheme)
 
 	_ = aiv1alpha1.AddToScheme(scheme)
+	_ = sigsv1alpha1.AddToScheme(scheme)
 	// +kubebuilder:scaffold:scheme
 }
 

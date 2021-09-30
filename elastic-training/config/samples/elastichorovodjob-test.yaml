@@ -1,0 +1,35 @@
+apiVersion: ai.centauruscloud.io/v1alpha1
+kind: ElasticHorovodJob
+metadata:
+  name: sample
+spec:
+  launcherSpec:
+    image: davidluzhu/elastichorovodtest:horovod-master
+    pythonCommand:
+      - python
+      - /elastic_scripts/tensorflow2_mnist_elastic.py
+  workersSpec:
+    image: davidluzhu/elastichorovodtest:horovod-master
+    minReplicas: 2
+    maxReplicas: 5
+#  containers:
+#    - volumeMounts:
+#      - mountPath: /tmp/data
+#        name: network-data
+#      - mountPath: /elastic_scripts
+#        name: elastic-samples
+#      - mountPath: /dev/shm
+#        name: dshm
+#
+#  volumes:
+#  - name: network-data
+#    hostPath:
+#      path: /nfs_3/cifar10
+#      type: Directory
+#  - name: elastic-samples
+#    hostPath:
+#      path: /nfs_3/elastic-scripts
+#      type: Directory
+#  - name: dshm
+#    emptyDir:
+#      medium: Memory
