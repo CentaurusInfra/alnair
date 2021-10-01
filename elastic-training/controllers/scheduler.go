@@ -30,7 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// SchedulerReconciler sets the TargetRepicas of an ElasticHorovodJob object
+// SchedulerReconciler sets the TargetReplicas of an ElasticHorovodJob object
 type SchedulerReconciler struct {
 	client.Client
 	Log    logr.Logger
