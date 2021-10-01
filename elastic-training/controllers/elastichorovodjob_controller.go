@@ -35,8 +35,9 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	sigsv1alpha1 "sigs.k8s.io/scheduler-plugins/pkg/apis/scheduling/v1alpha1"
 	aiv1alpha1 "elastictraining/api/v1alpha1"
+
+	sigsv1alpha1 "sigs.k8s.io/scheduler-plugins/pkg/apis/scheduling/v1alpha1"
 )
 
 // ElasticHorovodJobReconciler reconciles a ElasticHorovodJob object
@@ -159,6 +160,22 @@ func (r *ElasticHorovodJobReconciler) Reconcile(ctx context.Context, req ctrl.Re
 			}
 
 			if workers.Status.ReadyReplicas == 0 {
+
+				if *ehjob.Spec.WorkersSpec.TargetReplicas == *ehjob.Spec.WorkersSpec.MinReplicas {
+					log.Info("Workers are currently at min replicas but still all pending, deleting workers and resetting TargetReplicas")
+					if err := r.deleteWorkers(ctx, workersName, ehjob.Namespace); err != nil {
+						log.Info("Error in deleting StatefulSet")
+						return ctrl.Result{Requeue: true}, nil
+					}
+					ehjob.Spec.WorkersSpec.TargetReplicas = nil
+					if err := r.Update(ctx, &ehjob); err != nil {
+						log.Info(fmt.Sprintf("Error in updating target replicas for ElasticHorovodJob %s/%s: %s.",
+							ehjob.Namespace, ehjob.Name, err.Error()))
+						return ctrl.Result{Requeue: true}, nil
+					}
+					return ctrl.Result{}, nil
+				}
+
 				(*ehjob.Spec.WorkersSpec.TargetReplicas) -= 1
 				log.Info(fmt.Sprintf("Workers currently all pending, changing target replicas to %d", *ehjob.Spec.WorkersSpec.TargetReplicas))
 				if err := r.Update(ctx, &ehjob); err != nil {
@@ -292,8 +309,7 @@ func (r *ElasticHorovodJobReconciler) desiredWorkers(ehjob aiv1alpha1.ElasticHor
 					},
 				},
 				Spec: corev1.PodSpec{
-					//SchedulerName: "default-scheduler", 
-					SchedulerName: "coscheduling-only",
+					SchedulerName: "default-scheduler",
 					Volumes: []corev1.Volume{
 						{
 							Name: "sshkeys",
@@ -412,10 +428,7 @@ func (r *ElasticHorovodJobReconciler) desiredLauncherJob(ehjob aiv1alpha1.Elasti
 					},
 				},
 				Spec: corev1.PodSpec{
-					SchedulerName: "coscheduling-only", //coscheduling
-					NodeSelector: map[string]string{
-						"kubernetes.io/hostname": "titan34",
-					},
+					SchedulerName: "default-scheduler",
 					Volumes: []corev1.Volume{
 						{
 							Name: "sshkeys",
@@ -447,6 +460,10 @@ func (r *ElasticHorovodJobReconciler) desiredLauncherJob(ehjob aiv1alpha1.Elasti
 									Name:      "sshkeys",
 									MountPath: "/etc/secrets",
 								},
+								{
+									Name:      "scripts",
+									MountPath: "/etc/scripts",
+								},
 							},
 							Command: []string{"/bin/sh"},
 							Args: []string{
@@ -459,9 +476,6 @@ func (r *ElasticHorovodJobReconciler) desiredLauncherJob(ehjob aiv1alpha1.Elasti
 				},
 			},
 			BackoffLimit: &one,
-			//Selector: &metav1.LabelSelector{
-			//	MatchLabels: map[string]string{"kubernetes.io/hostname": "titan34"},
-			//},
 		},
 	}
 
