@@ -286,7 +286,6 @@ func (r *ElasticHorovodJobReconciler) desiredService(ehjob aiv1alpha1.ElasticHor
 
 // desiredWorkers returns a StatefulSet. StatefulSet is slow but Deployment could crash the ealstic horovod training script
 // in the case when scaling down many workers at a time.
-// Deployment used to enable coscheduling
 func (r *ElasticHorovodJobReconciler) desiredWorkers(ehjob aiv1alpha1.ElasticHorovodJob, workersName, svcName string) (appsv1.StatefulSet, error) {
 	defaultMode := int32(0600)
 	statefulset := appsv1.StatefulSet{
@@ -309,7 +308,7 @@ func (r *ElasticHorovodJobReconciler) desiredWorkers(ehjob aiv1alpha1.ElasticHor
 					},
 				},
 				Spec: corev1.PodSpec{
-					SchedulerName: "default-scheduler",
+					SchedulerName: "default-scheduler", //change if adding other schedulers 
 					Volumes: []corev1.Volume{
 						{
 							Name: "sshkeys",
@@ -402,14 +401,12 @@ func (r *ElasticHorovodJobReconciler) desiredLauncherJob(ehjob aiv1alpha1.Elasti
 	scriptMode := int32(0744)
 	one := int32(1)
 	sshSetupCommand := "mkdir -p /root/.ssh; cp /etc/secrets/* /root/.ssh/; chmod 644 /root/.ssh/authorized_keys;"
-	scriptSetupCmd := fmt.Sprintf("mkdir -p /scripts; mkdir -p /elastic_scripts; cp /etc/scripts/* /scripts/; sed -i 's/SERVICENAME/%s/' /scripts/discover_hosts.sh;", svcName)
+	scriptSetupCmd := fmt.Sprintf("mkdir -p /scripts; cp /etc/scripts/* /scripts/; sed -i 's/SERVICENAME/%s/' /scripts/discover_hosts.sh;", svcName)
 	horovodArgs := fmt.Sprintf("-np %d --max-np %d --host-discovery-script /scripts/discover_hosts.sh",
 		*ehjob.Spec.WorkersSpec.MinReplicas,
 		*ehjob.Spec.WorkersSpec.MaxReplicas)
 	pythonCommand := strings.Join(ehjob.Spec.LauncherSpec.PythonCommand, " ")
-	//sleepCommand := "sleep 600;"
-	sleepCommand := ""
-	wholeCommand := fmt.Sprintf("%s %s %s horovodrun -p 12345 %s %s", sshSetupCommand, scriptSetupCmd, sleepCommand, horovodArgs, pythonCommand)
+	wholeCommand := fmt.Sprintf("%s %s horovodrun -p 12345 %s %s", sshSetupCommand, scriptSetupCmd, horovodArgs, pythonCommand)
 
 	job := batchv1.Job{
 		TypeMeta: metav1.TypeMeta{APIVersion: batchv1.SchemeGroupVersion.String(), Kind: "Job"},
@@ -428,7 +425,7 @@ func (r *ElasticHorovodJobReconciler) desiredLauncherJob(ehjob aiv1alpha1.Elasti
 					},
 				},
 				Spec: corev1.PodSpec{
-					SchedulerName: "default-scheduler",
+					SchedulerName: "default-scheduler", //change if adding additional schedulers
 					Volumes: []corev1.Volume{
 						{
 							Name: "sshkeys",
