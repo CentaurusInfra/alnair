@@ -28,7 +28,7 @@ ssh-keygen -t rsa -b 2048
 1. Clone repo and create CRDs
 ```bash
 git clone git@github.com:CentaurusInfra/AI-SIG.git
-cd AI-SIG/elastic-training
+cd alnair/elastic-training
 kubectl apply -f config/crd/bases/ai.centauruscloud.io_elastichorovodjobs.yaml
 kubectl create configmap ai-horovod-discover-hosts --from-file=scripts/discover_hosts.sh
 kubectl create secret generic horovod-sshkeys --from-file=id_rsa=/path/to/id_rsa --from-file=authorized_keys=/path/to/id_rsa.pub
