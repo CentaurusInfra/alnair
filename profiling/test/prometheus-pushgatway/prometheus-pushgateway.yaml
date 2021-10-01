@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pushgateway
+  labels:
+    function: pushgateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      function: pushgateway
+  template:
+    metadata:
+      labels:
+        function: pushgateway
+      annotations:
+        prometheus.io/scrape: 'true'
+        prometheus.io/port: '9091'
+        prometheus.io/path: '/metrics' 
+    spec:
+      serviceAccountName: prometheus
+      containers:
+        - name: pushgateway
+          image: prom/pushgateway
+          ports:
+            - containerPort: 9091
+              hostPort: 9091   # for outside cluster testing
+          resources:
+            requests:
+              cpu: 500m
+              memory: 500M
+            limits:
+              cpu: 1
+              memory: 1Gi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pushgateway
+  labels:
+    function: pushgateway
+spec:
+  type: ClusterIP
+  selector:
+    function: pushgateway
+  ports:
+    - name: pushgateway
+      protocol: TCP
+      port: 9091
+      targetPort: 9091

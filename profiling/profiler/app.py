@@ -16,7 +16,6 @@ import ast
 MEM_UTIL = "DCGM_FI_DEV_MEM_COPY_UTIL"
 GPU_UTIL = "DCGM_FI_DEV_GPU_UTIL"
 DOMAIN = "ai.centaurus.io"
-POD_KEY1 = DOMAIN + "/gpu_mem"
 def cyclic_pattern_detection(time_series):
     """input pandas series, detect cyclic pattern return True/False
     if True, return frequency, if false, frequency is -1
@@ -78,11 +77,9 @@ def add_pod_info_to_crd(api, crd_api, pod_name, namespace, ann, node_name):
         pod_ann = ast.literal_eval(res['metadata']['annotations'][key]) # convert string to dictionary
         for k, v in pod_ann.items(): 
             domain_k = DOMAIN + "/" + k  # the key in owner's annotation has no domain name
-            if domain_k == POD_KEY1 or k == "node":  # ignore the gpu_mem for now, skip the node check
+            if k == "node":  # skip the node comparison
                 continue
-            logging.info("key {}, value {}".format(k, v))
             if float(v) < ann[domain_k]:  # detect greater utilization, update
-                logging.info("greater value detected, exising {} value {}, new value {}".format(k,v,ann[domain_k]))
                 pod_ann[k] = ann[domain_k]
                 need_patch = True
     else: # simply remove the domain name from new ann
@@ -179,18 +176,21 @@ def collect_pod_metrics(api, cur_usage, node_name, gpu_id, pods_ann):
         output, error = subp.communicate()
         if error is None:
             pod_name = output.decode("utf-8").rstrip()
-            # 3) format results to dict, key: "podname:namespace:gpu_id", value:"{DOMAIN + "/gpu-memused":memused}"
-            key = pod_name + ":" + pod_ns[pod_name]
-            # list format for gpu mem usage
-            #e.g. ai.centaurus.io/gpu-memused:[('0','12000MB'),('1','159MB')]
-            if key in pods_ann:
-                pods_ann[key][DOMAIN + "/" +node_name + "-gpu-" +str(gpu_id)+"_mem_util"] = mem_used_float 
-                pods_ann[key][DOMAIN + "/" +node_name + "-gpu-" +str(gpu_id)+"_util"] = cur_usage['max_gpu_util']
+            if pod_name in pod_ns:
+                # 3) format results to dict, key: "podname:namespace:gpu_id", value:"{DOMAIN + "/gpu-memused":memused}"
+                key = pod_name + ":" + pod_ns[pod_name]
+                # list format for gpu mem usage
+                #e.g. ai.centaurus.io/gpu-memused:[('0','12000MB'),('1','159MB')]
+                if key in pods_ann:
+                    pods_ann[key][DOMAIN + "/" +node_name + "-gpu-" +str(gpu_id)+"_mem_mb"] = mem_used_float 
+                    pods_ann[key][DOMAIN + "/" +node_name + "-gpu-" +str(gpu_id)+"_util"] = cur_usage['max_gpu_util']
+                else:
+                    value = {DOMAIN + "/" +node_name +"-gpu-" +str(gpu_id)+"_util":cur_usage['max_gpu_util'],
+                    DOMAIN + "/" +node_name +"-gpu-" +str(gpu_id)+"_mem_mb":mem_used_float
+                    }
+                    pods_ann[key] = value
             else:
-                value = {DOMAIN + "/" +node_name +"-gpu-" +str(gpu_id)+"_util":cur_usage['max_gpu_util'],
-                DOMAIN + "/" +node_name +"-gpu-" +str(gpu_id)+"_mem_util":mem_used_float
-                }
-                pods_ann[key] = value
+                logging.error("pod name {} is not in listed all pods,{}".format(pod_name, pod_ns.keys)) # there was a podname key="" incident, not reproduced 
         else:
             logging.error("nsenter failed to acquire pod name,{}".format(error))
     return pods_ann
@@ -285,9 +285,9 @@ def profiling(api, url, pod_ip, node_name, ana_window='2m', metrics=MEM_UTIL):
         # v[DOMAIN + '/cpu_mem'] = str(round(float(memory)/1e6,2)) + 'MB'
         # v[DOMAIN + '/network'] = str(round(float(network)/1e3,2)) + 'KBps'
         # v[DOMAIN + '/disk_io'] = io
-        v[DOMAIN + '/cpu_util'] = round(float(cpu),2) # unit percentage
-        v[DOMAIN + '/cpu_mem'] = round(float(memory)/1e6,2) # unit MB
-        v[DOMAIN + '/network'] = round(float(network)/1e6,2) # unit MBps
+        v[DOMAIN + '/cpu_util'] = round(float(cpu)*100,2) # unit percentage
+        v[DOMAIN + '/cpu_mem_mb'] = round(float(memory)/1e6,2) # unit MB
+        v[DOMAIN + '/network_mbps'] = round(float(network)/1e6,2) # unit MBps
         v[DOMAIN + '/disk_io'] = round(float(io),2) 
     return node_dict, pod_dict
 
@@ -389,11 +389,11 @@ def app_top():
         # update node annotation if changes detected
         if node_ann_new != node_ann_cur:
             patch_annotation(core_api, env_var['node_name'], node_ann_new)
-            logging.info("Node change detected, update node's GPU utilization \nnew:{}\nold:{}".format(node_ann_new, node_ann_cur))
+            logging.info("Node change detected, update node's GPU utilization")
             node_ann_cur = node_ann_new
         # update pod annotation
         if pods_ann_new != pods_ann_cur:
-            logging.info("Pod change deteacted, update pods GPU utilization \nnew:{}\nold:{}".format(pods_ann_new,pods_ann_cur))
+            logging.info("Pod change deteacted, update pods GPU utilization")
             for name_ns, values in pods_ann_new.items(): # iterate all the pods needs to be annotated
                 pod_name, namespace = name_ns.split(":")
                 patch_annotation(core_api, pod_name, values, namespace, env_var['node_name'], crd_api) # patch pod and patch owner crd
