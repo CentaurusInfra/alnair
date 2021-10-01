@@ -85,6 +85,39 @@ func (r *ElasticHorovodJobReconciler) Reconcile(ctx context.Context, req ctrl.Re
 			}
 			return ctrl.Result{}, nil
 		}
+
+		//check if targetreplicas has been changed while job runs
+		if isJobRunning(job) {
+			workers, err := r.getWorkers(ctx, ehjob.Namespace, workersName)
+
+			if err != nil {
+				if !errors.IsNotFound(err) {
+					log.Info(fmt.Sprintf("Error in querying workers: %s.", err.Error()))
+				}
+			}
+
+			if *ehjob.Spec.WorkersSpec.TargetReplicas != *workers.Spec.Replicas {
+				log.Info(fmt.Sprintf("Scaling workers and PodGroup from current %d to target %d", *workers.Spec.Replicas, *ehjob.Spec.WorkersSpec.TargetReplicas))
+				workers, err := r.desiredWorkers(ehjob, workersName, serviceName)
+				if err != nil {
+					return ctrl.Result{}, nil
+				}
+
+				if err := r.Patch(ctx, &workers, client.Apply, applyOpts...); err != nil {
+					log.Info(fmt.Sprintf("Error in patching workers: %s.", err.Error()))
+					return ctrl.Result{Requeue: true}, nil
+				}
+
+				log.Info("Successfully scaled workers.")
+
+				if r.createAndPatchPodGroup(ctx, ehjob, pgName, applyOpts) {
+					log.Info("Successfully scaled PodGroup.")
+				} else {
+					return ctrl.Result{RequeueAfter: 5}, nil
+				}
+			}
+		}
+
 		log.Info("Skip patching: job is already scheduled.")
 		return ctrl.Result{}, nil
 	}
