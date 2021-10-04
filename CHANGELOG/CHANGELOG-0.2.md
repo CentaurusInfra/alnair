@@ -31,4 +31,4 @@ This is Release v0.2. It includes improvements on Profiler and Elastic Framework
  
 ## Alnair Device Plugin (new)
   - Kubernetes Device Plugin for Nvidia GPU
-  - Support Fractional GPU resources request and allocation
+  - Support Fractional GPU resources request and allocation. Isolation and Enforcement will be avaliable in the next release.
