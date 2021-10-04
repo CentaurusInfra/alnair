@@ -7,7 +7,7 @@ This is Release v0.2. It includes improvements on Profiler and Elastic Framework
 
 
 # Key Features and Improvements:
-## Profiler (imporvemnts)
+## Profiler (improvemnts)
   - CPU metrics collection
     - Take advantage of cAdvisor, pod-level metrics, e.g. CPU and Memory utilization, disk io and network utilization are collected every second.
   - GPU metrics mapping
@@ -16,6 +16,7 @@ This is Release v0.2. It includes improvements on Profiler and Elastic Framework
     - The pods created by kubernetes jobs and job-like CRDs are auto deleted after job is complete, the annotations on pods will be lost. By using Pod's owner reference, Profiler automatic aggreates the Pods/workers' information to they owner (Jobs/CRDs). The max utilization of each metrics are recorded in the annotations at Job level. This is for future job execution efficiency analysis. 
 
 ## Elastic Training Framework (improvements)
+  - Single YAML deployment and unit/integration tests
   - GPU allocation auto reduction
     - Due to race condition, when the number of GPUS set by TargetReplica is not avaliable at scheduling phase, elastic horovod job controller will auto scale down the size of StatefulSet by one.
   - PodGroup Integration 
@@ -30,6 +31,7 @@ This is Release v0.2. It includes improvements on Profiler and Elastic Framework
     - Co-scheduling feature is to ensure the atomicity of a group of pods being scheduled together. The default k8s scheduler, under certain scenes (e.g. race conditions), cannot schedule the pods of a batch workload that are spawned by a statefulset or deployment, which causes a heavy waste of resource. By introducing a PodGroup CRD, a batch scheduling will be masked failed once a pod in the PodGroup failed. A controller is designed to reconcile PodGroup status and help recover from abnormal cases. The co-scheduling feature is based on the k8s scheduling framework. Cooperating with the above elastic-training-framework module, it alleviates the potential race conditions in an elastic scale down/up process.
  
 ## Alnair Device Plugin (new)
-  - Kubernetes Device Plugin for Nvidia GPU
-  - Support Fractional GPU resources request and allocation. 
-    - Isolation and Enforcement will be avaliable in the next release.
+  - Kubernetes Device Plugin for Nvidia GPUs
+    - Generate synthetic device IDs to support fractional GPU request and allocation.
+    - Prepare the container environment for CUDA driver API interception.
+    - Enforcement of GPU resource requests and GPU resource isolation will be supported in the future releases.
