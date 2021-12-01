@@ -20,8 +20,10 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/prometheus/common/log"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -34,6 +36,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	aiv1alpha1 "elastictraining/api/v1alpha1"
+
+	sigsv1alpha1 "sigs.k8s.io/scheduler-plugins/pkg/apis/scheduling/v1alpha1"
 )
 
 // ElasticHorovodJobReconciler reconciles a ElasticHorovodJob object
@@ -58,6 +62,7 @@ func (r *ElasticHorovodJobReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	serviceName := fmt.Sprintf("elastichorovodjob-%s", ehjob.Name)
 	workersName := fmt.Sprintf("elastichorovodjob-%s-workers", ehjob.Name)
 	launcherName := fmt.Sprintf("elastichorovodjob-%s-launcher", ehjob.Name)
+	pgName := fmt.Sprintf("podgroup-ehjob-%s", ehjob.Name)
 
 	if ehjob.Status.Workers != "statefulset.apps/"+workersName ||
 		ehjob.Status.Launcher != "job.batch/"+launcherName {
@@ -69,6 +74,8 @@ func (r *ElasticHorovodJobReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		}
 	}
 
+	applyOpts := []client.PatchOption{client.ForceOwnership, client.FieldOwner("elastichorovodjob-controller")}
+
 	if isJobScheduled, job, _ := r.isJobAlreadyScheduled(ctx, launcherName, ehjob.Namespace); isJobScheduled {
 		if isJobCompleteOrFailed(job) {
 			log.Info("Job has either completed or errored, releasing GPU resources.")
@@ -79,11 +86,43 @@ func (r *ElasticHorovodJobReconciler) Reconcile(ctx context.Context, req ctrl.Re
 			}
 			return ctrl.Result{}, nil
 		}
+
+		//check if targetreplicas has been changed while job runs
+		if isJobRunning(job) {
+			workers, err := r.getWorkers(ctx, ehjob.Namespace, workersName)
+
+			if err != nil {
+				if !errors.IsNotFound(err) {
+					log.Info(fmt.Sprintf("Error in querying workers: %s.", err.Error()))
+				}
+			}
+
+			if *ehjob.Spec.WorkersSpec.TargetReplicas != *workers.Spec.Replicas {
+				log.Info(fmt.Sprintf("Scaling workers and PodGroup from current %d to target %d", *workers.Spec.Replicas, *ehjob.Spec.WorkersSpec.TargetReplicas))
+				workers, err := r.desiredWorkers(ehjob, workersName, serviceName)
+				if err != nil {
+					return ctrl.Result{}, nil
+				}
+
+				if err := r.Patch(ctx, &workers, client.Apply, applyOpts...); err != nil {
+					log.Info(fmt.Sprintf("Error in patching workers: %s.", err.Error()))
+					return ctrl.Result{Requeue: true}, nil
+				}
+
+				log.Info("Successfully scaled workers.")
+
+				if r.createAndPatchPodGroup(ctx, ehjob, pgName, applyOpts) {
+					log.Info("Successfully scaled PodGroup.")
+				} else {
+					return ctrl.Result{RequeueAfter: 5}, nil
+				}
+			}
+		}
+
 		log.Info("Skip patching: job is already scheduled.")
 		return ctrl.Result{}, nil
 	}
 
-	applyOpts := []client.PatchOption{client.ForceOwnership, client.FieldOwner("elastichorovodjob-controller")}
 	if !r.serviceExists(ctx, serviceName, ehjob.Namespace) {
 		svc, err := r.desiredService(ehjob, serviceName)
 		if err != nil {
@@ -100,6 +139,61 @@ func (r *ElasticHorovodJobReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	if ehjob.Spec.WorkersSpec.TargetReplicas == nil {
 		log.Info("workers target replicas have not been set by scheduler yet.")
 		return ctrl.Result{}, nil
+	}
+
+	//worker replicas are set correctly, but pod state is stuck in pending
+	//scale down by only one, as this only occurs during the race condition
+
+	if workers, err := r.getWorkers(ctx, ehjob.Namespace, workersName); err != nil {
+		if !errors.IsNotFound(err) {
+			log.Info(fmt.Sprintf("Error in querying workers: %s.", err.Error()))
+		}
+	} else {
+		if workers.Status.ReadyReplicas == 0 && *workers.Spec.Replicas == *ehjob.Spec.WorkersSpec.TargetReplicas {
+			time.Sleep(15 * time.Second)
+
+			//re-get workers
+			if workers, err = r.getWorkers(ctx, ehjob.Namespace, workersName); err != nil {
+				if !errors.IsNotFound(err) {
+					log.Info(fmt.Sprintf("Error in querying workers: %s.", err.Error()))
+				}
+			}
+
+			if workers.Status.ReadyReplicas == 0 {
+
+				if *ehjob.Spec.WorkersSpec.TargetReplicas == *ehjob.Spec.WorkersSpec.MinReplicas {
+					log.Info("Workers are currently at min replicas but still all pending, deleting workers and resetting TargetReplicas")
+					if err := r.deleteWorkers(ctx, workersName, ehjob.Namespace); err != nil {
+						log.Info("Error in deleting StatefulSet")
+						return ctrl.Result{Requeue: true}, nil
+					}
+					ehjob.Spec.WorkersSpec.TargetReplicas = nil
+					if err := r.Update(ctx, &ehjob); err != nil {
+						log.Info(fmt.Sprintf("Error in updating target replicas for ElasticHorovodJob %s/%s: %s.",
+							ehjob.Namespace, ehjob.Name, err.Error()))
+						return ctrl.Result{Requeue: true}, nil
+					}
+					return ctrl.Result{}, nil
+				}
+
+				(*ehjob.Spec.WorkersSpec.TargetReplicas) -= 1
+				log.Info(fmt.Sprintf("Workers currently all pending, changing target replicas to %d", *ehjob.Spec.WorkersSpec.TargetReplicas))
+				if err := r.Update(ctx, &ehjob); err != nil {
+					log.Info(fmt.Sprintf("Error in updating target replicas for ElasticHorovodJob %s/%s: %s.",
+						ehjob.Namespace, ehjob.Name, err.Error()))
+					return ctrl.Result{Requeue: true}, nil
+				}
+
+				//workers scaled down by one, now scale the workers and the podgroup
+				log.Info("Deleting StatefulSet to be recreated")
+				if err := r.deleteWorkers(ctx, workersName, ehjob.Namespace); err != nil {
+					log.Info("Error in deleting StatefulSet")
+				}
+				time.Sleep(5 * time.Second)
+				return ctrl.Result{Requeue: true}, nil
+			}
+
+		}
 	}
 
 	workersReady, err := r.areWorkersReady(ctx, workersName, ehjob)
@@ -122,12 +216,18 @@ func (r *ElasticHorovodJobReconciler) Reconcile(ctx context.Context, req ctrl.Re
 			return ctrl.Result{Requeue: true}, nil
 		}
 
+		if r.createAndPatchPodGroup(ctx, ehjob, pgName, applyOpts) {
+			log.Info(fmt.Sprintf("Patched PodGroup %s", pgName))
+		} else {
+			return ctrl.Result{RequeueAfter: 5}, nil
+		}
+
 		if isReady, err := r.areWorkersReady(ctx, workers.Name, ehjob); err != nil {
 			log.Info(fmt.Sprintf("Error in workers: %s.", err.Error()))
 			return ctrl.Result{Requeue: true}, nil
 		} else {
 			if !isReady {
-				log.Info("workers are not ready yet.")
+				log.Info("Workers are not ready yet.")
 				return ctrl.Result{}, nil
 			}
 		}
@@ -195,16 +295,20 @@ func (r *ElasticHorovodJobReconciler) desiredWorkers(ehjob aiv1alpha1.ElasticHor
 			Namespace: ehjob.Namespace,
 		},
 		Spec: appsv1.StatefulSetSpec{
-			ServiceName: svcName,
-			Replicas:    ehjob.Spec.WorkersSpec.TargetReplicas,
+			ServiceName:         svcName,
+			Replicas:            ehjob.Spec.WorkersSpec.TargetReplicas,
+			PodManagementPolicy: appsv1.PodManagementPolicyType(string(appsv1.ParallelPodManagement)),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{"ElasticHorovodJob": ehjob.Name, "role": "worker"},
 			},
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{"ElasticHorovodJob": ehjob.Name, "role": "worker"},
+				ObjectMeta: metav1.ObjectMeta{ //add labels such as podgroup # and statefulset
+					Labels: map[string]string{"ElasticHorovodJob": ehjob.Name, "role": "worker",
+						"pod-group.scheduling.sigs.k8s.io": fmt.Sprintf("podgroup-ehjob-%s", ehjob.Name),
+					},
 				},
 				Spec: corev1.PodSpec{
+					SchedulerName: "default-scheduler", //change if adding other schedulers 
 					Volumes: []corev1.Volume{
 						{
 							Name: "sshkeys",
@@ -212,6 +316,15 @@ func (r *ElasticHorovodJobReconciler) desiredWorkers(ehjob aiv1alpha1.ElasticHor
 								Secret: &corev1.SecretVolumeSource{
 									SecretName:  "horovod-sshkeys",
 									DefaultMode: &defaultMode,
+								},
+							},
+						},
+						//shared memory
+						{
+							Name: "dshm",
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{
+									Medium: "Memory",
 								},
 							},
 						},
@@ -224,6 +337,11 @@ func (r *ElasticHorovodJobReconciler) desiredWorkers(ehjob aiv1alpha1.ElasticHor
 								{
 									Name:      "sshkeys",
 									MountPath: "/etc/secrets",
+								},
+								//add shared memory
+								{
+									Name:      "dshm",
+									MountPath: "/dev/shm",
 								},
 							},
 							Command: []string{"/bin/sh"},
@@ -265,13 +383,8 @@ func (r *ElasticHorovodJobReconciler) serviceExists(ctx context.Context, name, n
 }
 
 func (r *ElasticHorovodJobReconciler) areWorkersReady(ctx context.Context, name string, ehjob aiv1alpha1.ElasticHorovodJob) (bool, error) {
-	var workers appsv1.StatefulSet
-	key := types.NamespacedName{
-		Namespace: ehjob.Namespace,
-		Name:      name,
-	}
-
-	if err := r.Get(ctx, key, &workers); err != nil {
+	workers, err := r.getWorkers(ctx, ehjob.Namespace, name)
+	if err != nil {
 		return false, err
 	}
 
@@ -303,7 +416,16 @@ func (r *ElasticHorovodJobReconciler) desiredLauncherJob(ehjob aiv1alpha1.Elasti
 		},
 		Spec: batchv1.JobSpec{
 			Template: corev1.PodTemplateSpec{
+				//commented because podgroup only supports single-object podgroup (podgroup
+				//label is enabled in worker statefulset)
+
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"pod-group.scheduling.sigs.k8s.io": fmt.Sprintf("podgroup-ehjob-%s", ehjob.Name),
+					},
+				},
 				Spec: corev1.PodSpec{
+					SchedulerName: "default-scheduler", //change if adding additional schedulers
 					Volumes: []corev1.Volume{
 						{
 							Name: "sshkeys",
@@ -415,6 +537,20 @@ func (r *ElasticHorovodJobReconciler) deleteWorkers(ctx context.Context, name, n
 	return r.Delete(ctx, &workers, deleteOpts...)
 }
 
+func (r *ElasticHorovodJobReconciler) getWorkers(ctx context.Context, namespace string, workerName string) (appsv1.StatefulSet, error) {
+	var workers appsv1.StatefulSet
+	key := types.NamespacedName{
+		Namespace: namespace,
+		Name:      workerName,
+	}
+
+	if err := r.Get(ctx, key, &workers); err != nil {
+		return workers, err
+	}
+
+	return workers, nil
+}
+
 func (r *ElasticHorovodJobReconciler) releaseResources(ctx context.Context, serviceName, workersName, namespace string) error {
 	if err := r.deleteService(ctx, serviceName, namespace); err != nil {
 		return err
@@ -438,4 +574,73 @@ func isJobCompleteOrFailed(job batchv1.Job) bool {
 		}
 	}
 	return false
+}
+func isJobRunning(job batchv1.Job) bool {
+	return job.Status.Active > 0
+}
+
+func newHostPathType(pathType string) *corev1.HostPathType {
+	hostPathType := new(corev1.HostPathType)
+	*hostPathType = corev1.HostPathType(pathType)
+	return hostPathType
+}
+
+func (r *ElasticHorovodJobReconciler) podGroupExists(ctx context.Context, pgName string, namespace string) bool {
+	var pg sigsv1alpha1.PodGroup
+	key := types.NamespacedName{
+		Namespace: namespace,
+		Name:      pgName,
+	}
+
+	if err := r.Get(ctx, key, &pg); err != nil {
+		return false
+	}
+
+	return true
+}
+
+func (r *ElasticHorovodJobReconciler) createAndPatchPodGroup(ctx context.Context, ehjob aiv1alpha1.ElasticHorovodJob, pgName string, applyOpts []client.PatchOption) bool {
+
+	pg, err := r.createPodGroup(ctx, ehjob, pgName)
+	if err != nil {
+		log.Info(fmt.Sprintf("Unable to create PodGroup: %s", err.Error()))
+		return false
+	}
+
+	if err = r.Patch(ctx, &pg, client.Apply, applyOpts...); err != nil {
+		log.Info(fmt.Sprintf("Error in patching PodGroup: %s.", err.Error()))
+		return false
+	}
+
+	if !r.podGroupExists(ctx, pg.Name, pg.Namespace) {
+		log.Info("PodGroup unavailable.")
+		return false
+	}
+
+	return true
+}
+
+func (r *ElasticHorovodJobReconciler) createPodGroup(ctx context.Context, ehjob aiv1alpha1.ElasticHorovodJob, pgName string) (sigsv1alpha1.PodGroup, error) {
+	pg := sigsv1alpha1.PodGroup{
+		TypeMeta: metav1.TypeMeta{APIVersion: "scheduling.sigs.k8s.io/v1alpha1", Kind: "PodGroup"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      pgName,
+			Namespace: ehjob.Namespace,
+		},
+		Spec: sigsv1alpha1.PodGroupSpec{
+			MinMember: *ehjob.Spec.WorkersSpec.TargetReplicas, //*ehjob.Spec.WorkersSpec.MinReplicas
+			MinResources: &corev1.ResourceList{
+				corev1.ResourceName("nvidia.com/gpu"): *resource.NewQuantity(int64(*ehjob.Spec.WorkersSpec.TargetReplicas), resource.DecimalSI),
+			},
+		},
+		Status: sigsv1alpha1.PodGroupStatus{
+			ScheduleStartTime: metav1.Now(),
+		},
+	}
+
+	if err := ctrl.SetControllerReference(&ehjob, &pg, r.Scheme); err != nil {
+		return pg, err
+	}
+
+	return pg, nil
 }

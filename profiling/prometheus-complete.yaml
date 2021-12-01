@@ -94,6 +94,16 @@ data:
         # Extract some labels mzm
         - source_labels: [__meta_kubernetes_host_ip]
           target_label: node_ip
+#      - job_name: 'pushgateway'
+#        scrape_interval: 10s
+#        kubernetes_sd_configs:
+#          - role: pod
+#            namespaces: 
+#              names:
+#                - default
+#            selectors:
+#              - role: pod
+#                label: "function=pushgateway"
       - job_name: 'profiler-pods'
         scrape_interval: 1s # cannot scrape with higher frequency if some worker takes longer time to response
         #scrape_timeout: 5s #scrape timeout cannot less than scrape interval 
@@ -182,3 +192,10 @@ spec:
     port: 9090
     targetPort: 9090
     nodePort: 30909
+---
+#pushgateway deployment
+
+---
+# pushgateway service
+
+

@@ -115,7 +115,7 @@ func (r *HorovodJobReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, nil
 	}
 
-	ipAddresses, err := r.getWorkersIPAddresses(ctx, workers)
+	ipAddresses, _ := r.getWorkersIPAddresses(ctx, workers)
 	launcher, err := r.desiredLauncherJob(hjob, launcherName, ipAddresses)
 	if err != nil {
 		return ctrl.Result{}, err

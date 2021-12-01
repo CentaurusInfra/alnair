@@ -17,7 +17,7 @@ COMMONENVVAR=GOOS=$(shell uname -s | tr A-Z a-z)
 BUILDENVVAR=CGO_ENABLED=0
 
 LOCAL_REGISTRY=localhost:5000/scheduler-plugins
-LOCAL_IMAGE=kube-scheduler:test
+LOCAL_IMAGE=kube-scheduler:latest
 LOCAL_CONTROLLER_IMAGE=controller:latest
 
 # RELEASE_REGISTRY is the container registry to push

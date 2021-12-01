@@ -2,7 +2,7 @@
 
 ## Initial GPU Allocator 
 
-When an ElasticHorovodJob is first submitted by the user, the [Initial GPU allocator](../elastic-training/controllers/scheduler.go) will calculate the most suitable number of GPUs the job should use. Afterwards, the implemented scheduler endpoints will be invoked as per the Kubernetes [scheduling-framework](https://github.com/kubernetes/enhancements/blob/master/keps/sig-scheduling/20180409-scheduling-framework.md). As a sub-project of [Alnair](https://github.com/CentaurusInfra/alnair).
+When an ElasticHorovodJob is first submitted by the user, the [Initial GPU allocator](../elastic-training/controllers/scheduler.go) will calculate the most suitable number of GPUs the job should use. Afterwards, the implemented scheduler endpoints will be invoked as per the Kubernetes [scheduling-framework](https://github.com/kubernetes/enhancements/blob/master/keps/sig-scheduling/20180409-scheduling-framework.md). 
 
 ## Coscheduling 
 
