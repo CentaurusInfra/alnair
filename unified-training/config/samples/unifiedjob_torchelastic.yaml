@@ -1,0 +1,19 @@
+apiVersion: ai.centauruscloud.io/v1alpha1
+kind: UnifiedJob
+metadata:
+  name: torchelasticsample
+jobType: EPJob
+spec:
+  jobSpec:
+    image: torchelastic/examples:0.2.0
+    unifiedArgs:
+      - "/workspace/examples/imagenet/main.py"
+      - "--arch=resnet18"
+      - "--epochs=20"
+      - "--batch-size=32"
+      - "--workers=0"
+      - "/workspace/data/tiny-imagenet-200"
+  replicaSpec:
+    minReplicas: 2
+    maxReplicas: 5
+  reschedulable: true
