@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: 1gpu-pod
+spec:
+  containers:
+  - name: 1gpu-pod
+    image: torchelastic/examples:0.2.0
+    command: 
+    - /bin/sh
+    args: 
+    - -c 
+      python3 
+      
+    volumeMounts: 
+    - mountPath: /scripts 
+      name: scripts
+    resources: 
+      limits: 
+        'nvidia.com/gpu' : 1 
+  nodeName: titan34
+  volumes: 
+  - name: scripts
+    hostPath: 
+      path: /nfs_3/elastic-pyscripts 
+      type: Directory
