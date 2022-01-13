@@ -45,5 +45,5 @@ spec:
           - name: mongo-temp-storage
             mountPath: /data/db
       volumes:
-        - name: mongo-pv-storage
+        - name: mongo-temp-storage
           emptyDir: {}
