@@ -1,13 +1,4 @@
-from kubernetes import client, config
-from prometheus_api_client import PrometheusConnect, MetricsList
 from prometheus_api_client.utils import parse_datetime
-from prometheus_client import start_http_server, Summary
-import os
-import random
-import time
-from prometheus_client import CollectorRegistry, Gauge, push_to_gateway
-import math
-import requests
 from pymongo import MongoClient
 from datetime import datetime
 import pytz
@@ -88,7 +79,17 @@ def get_pod_records(pod_name, start_time, end_time, url):
     return all_metrics
 
 
-def get_job_metrics(crd_api, batch_api, col) :
+def update_job_metrics_to_db(crd_api, batch_api, url, client_connect) :
+    # Force a call to check if current connection is valid
+    try:
+        info = client_connect.server_info()
+    except Exception as e:
+        logging.warning(e)
+        client_connect = MongoClient(url, serverSelectionTimeoutMS = 5000)
+
+    db = client_connect['alnair']
+    col = db['collection1']
+
     # Get Mpijob metrics
     ret = crd_api.list_cluster_custom_object(group="kubeflow.org", version="v1", plural="mpijobs")
     for item in ret["items"]:
@@ -111,8 +112,12 @@ def get_job_metrics(crd_api, batch_api, col) :
 
         # Check if job_key currently exists in the database collection
         # If True, delete the existing job_key data, and update with new data
-        if (col.count_documents({job_key: {"$exists": True}}) > 0):
-            col.delete_one({job_key : {"$exists": True}})
+        try:
+            if (col.count_documents({job_key: {"$exists": True}}) > 0):
+                col.delete_one({job_key : {"$exists": True}})
+        except Exception as e:
+            logging.warning(e)
+
 
         # Check status, completion time and duration
         failed = False
@@ -169,7 +174,12 @@ def get_job_metrics(crd_api, batch_api, col) :
 
         # Store [job_key, job_metric] into database collection
         all_metrics[job_key] = job_metric
-        x = col.insert_one(all_metrics)
+
+        try:
+            x = col.insert_one(all_metrics)
+        except Exception as e:
+            logging.warning(e)
+        
 
     # Get Batch job metrics
     ret2 = batch_api.list_job_for_all_namespaces(watch=False)
@@ -193,8 +203,11 @@ def get_job_metrics(crd_api, batch_api, col) :
 
         # Check if job_key currently exists in the database collection
         # If True, delete the existing job_key data, and update with new data
-        if (col.count_documents({job_key: {"$exists": True}}) > 0):
-            col.delete_one({job_key : {"$exists": True}})
+        try:
+            if (col.count_documents({job_key: {"$exists": True}}) > 0):
+                col.delete_one({job_key : {"$exists": True}})
+        except Exception as e:
+            logging.warning(e)
 
         # Check status, completion time and duration
         failed = False
@@ -252,8 +265,10 @@ def get_job_metrics(crd_api, batch_api, col) :
 
         # Store [job_key, job_metric] into database collection
         all_metrics[job_key] = job_metric
-        x = col.insert_one(all_metrics)
 
-    for i in col.find():
-        print(i)
+        try:
+            x = col.insert_one(all_metrics)
+        except Exception as e:
+            logging.warning(e)
+
 

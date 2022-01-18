@@ -13,9 +13,10 @@ from pynvml import *
 import math
 import ast
 from pymongo import MongoClient
+import pymongo
 from datetime import datetime
 import pytz
-from metadata import get_job_metrics
+from metadata import update_job_metrics_to_db
 
 MEM_UTIL = "DCGM_FI_DEV_MEM_COPY_UTIL"
 GPU_UTIL = "DCGM_FI_DEV_GPU_UTIL"
@@ -367,11 +368,13 @@ def app_top():
         logging.error("Not all environment variables are avaliable in the profiler pod")
         exit(1)
     
-    # 0) load kubernetes configure
+    # 0) load kubernetes configure & connect to MongoDB
     config.load_incluster_config() 
     core_api = client.CoreV1Api()
     crd_api = client.CustomObjectsApi()
     batch_api = client.BatchV1Api()
+    CONNECTION_STRING = "mongodb://mongo:27017/"
+    client_connect = MongoClient(CONNECTION_STRING, serverSelectionTimeoutMS = 5000)
 
     # 1) init stage, get gpu static attribute, remove pod annotation from previous run
     gpu_attributes, err = collect_gpu_attributes() 
@@ -409,12 +412,8 @@ def app_top():
                     remove_annotation(core_api,env_var['node_name'],pod_name, namespace)
             pods_ann_cur = pods_ann_new
 
-        ## Connect to MongoDB and store job metrics
-        CONNECTION_STRING = "mongodb://mongo:27017/"
-        client_connect = MongoClient(CONNECTION_STRING, connectTimeoutMS = 5000)
-        db = client_connect['alnair']
-        col = db['collection1']
-        get_job_metrics(crd_api, batch_api, col)
+        ## Store job metrics into MongoDB
+        update_job_metrics_to_db(crd_api, batch_api, CONNECTION_STRING, client_connect)
         
         time.sleep(30)
     
