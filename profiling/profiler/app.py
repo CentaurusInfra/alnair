@@ -12,6 +12,11 @@ import copy
 from pynvml import *
 import math
 import ast
+from pymongo import MongoClient
+import pymongo
+from datetime import datetime
+import pytz
+from metadata import update_job_metrics_to_db
 
 MEM_UTIL = "DCGM_FI_DEV_MEM_COPY_UTIL"
 GPU_UTIL = "DCGM_FI_DEV_GPU_UTIL"
@@ -363,10 +368,13 @@ def app_top():
         logging.error("Not all environment variables are avaliable in the profiler pod")
         exit(1)
     
-    # 0) load kubernetes configure
+    # 0) load kubernetes configure & connect to MongoDB
     config.load_incluster_config() 
     core_api = client.CoreV1Api()
     crd_api = client.CustomObjectsApi()
+    batch_api = client.BatchV1Api()
+    CONNECTION_STRING = "mongodb://mongo:27017/"
+    client_connect = MongoClient(CONNECTION_STRING, serverSelectionTimeoutMS = 5000)
 
     # 1) init stage, get gpu static attribute, remove pod annotation from previous run
     gpu_attributes, err = collect_gpu_attributes() 
@@ -403,6 +411,10 @@ def app_top():
                     logging.info("Remove pod {} annotation for finished process \n".format(pod_name))
                     remove_annotation(core_api,env_var['node_name'],pod_name, namespace)
             pods_ann_cur = pods_ann_new
+
+        ## Store job metrics into MongoDB
+        update_job_metrics_to_db(crd_api, batch_api, CONNECTION_STRING, client_connect)
+        
         time.sleep(30)
     
     
