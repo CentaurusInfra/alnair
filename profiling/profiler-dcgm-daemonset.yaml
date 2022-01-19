@@ -22,7 +22,7 @@ spec:
       containers:
         - name: profiler-container
           image: centaurusinfra/profiler  
-          # command: ["bash", "-c", "while true; do sleep 10;done"] # for debug purpose 
+          # command: ["bash", "-c", "while true; do sleep 10; done;"] # for debug purpose 
           resources:
               limits:
                 memory: "2Gi"
