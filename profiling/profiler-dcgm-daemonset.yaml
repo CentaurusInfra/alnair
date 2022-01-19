@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: profiler
+  name: profiler-daemonset
 #  namespace: monitoring
 spec:
   selector:
@@ -21,7 +21,8 @@ spec:
       serviceAccountName: admin-pod
       containers:
         - name: profiler-container
-          image: centaurusinfra/profiler   
+          image: centaurusinfra/profiler  
+          # command: ["bash", "-c", "while true; do sleep 10; done;"] # for debug purpose 
           resources:
               limits:
                 memory: "2Gi"
