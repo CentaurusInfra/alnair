@@ -1,0 +1,49 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: maskrcnn-image-seg
+spec:
+  template:
+    spec:
+      containers:
+      - name: image-seg 
+        image: centaurusinfra/test1_maskrcnn
+        command: 
+        - python
+        #args: ["-c", "while true; do sleep 10; done;"]
+        args:
+        - -m
+        - torch.distributed.launch
+        - --nproc_per_node
+        - "2"
+        - tools/train_net.py
+        - --config-file
+        - configs/e2e_mask_rcnn_R_50_FPN_1x.yaml
+        - --max_steps
+        - "100"
+        - OUTPUT_DIR
+        - /results
+        resources:
+          limits:
+            nvidia.com/gpu: 2
+        volumeMounts:
+        - mountPath: /datasets/data
+          name: remote-data
+        - mountPath: /results
+          name: remote-results
+        - mountPath: /dev/shm
+          name: dshm
+      volumes:
+      - name: remote-data
+        hostPath:
+          path: /nfs_3/alnair/pytorch/segmentation/maskrcnn/coco_dataset/
+          type: Directory
+      - name: remote-results
+        hostPath:
+          path: /nfs_3/alnair/results # network drive
+          type: Directory
+      - name: dshm
+        emptyDir:
+          medium: Memory
+      restartPolicy: Never
+  backoffLimit: 0
