@@ -2,6 +2,7 @@ from prometheus_api_client.utils import parse_datetime
 from pymongo import MongoClient
 from datetime import datetime
 import pytz
+import logging
 
 
 def get_pod_records(pod_name, start_time, end_time, url):
@@ -80,6 +81,8 @@ def get_pod_records(pod_name, start_time, end_time, url):
 
 
 def update_job_metrics_to_db(crd_api, batch_api, url, client_connect) :
+    logging.basicConfig(format='%(asctime)s [%(levelname)s]: %(message)s',level=logging.INFO)
+
     # Force a call to check if current connection is valid
     try:
         info = client_connect.server_info()
@@ -120,34 +123,35 @@ def update_job_metrics_to_db(crd_api, batch_api, url, client_connect) :
 
 
         # Check status, completion time and duration
-        failed = False
-        for condition in item["status"]["conditions"]:
-            if (condition["type"] == "Failed") :
-                job_metric["status"] = "Failed"
-                failed = True
-        if not failed:
-            if ("completionTime" not in item["status"]):
-                job_metric["status"] = "Running" 
+        if (item["status"]["conditions"] is not None):
+            failed = False
+            for condition in item["status"]["conditions"]:
+                if (condition["type"] == "Failed") :
+                    job_metric["status"] = "Failed"
+                    failed = True
+            if not failed:
+                if ("completionTime" not in item["status"]):
+                    job_metric["status"] = "Running" 
 
-                duration = datetime.now(tz=pytz.utc) - parse_datetime(start_time)
+                    duration = datetime.now(tz=pytz.utc) - parse_datetime(start_time)
 
-                days, seconds = duration.days, duration.seconds
-                hours = seconds // 3600
-                minutes = (seconds % 3600) // 60
-                seconds = seconds % 60 
-                job_metric["duration"] = str(days) + " days, " + str(hours) + " hours, " + str(minutes) + " minutes, " + str(seconds) + " seconds"
-            else:
-                job_metric["status"] = "Completed"
-                completion_time = item["status"]["completionTime"]
-                job_metric["completion_time"] = completion_time
+                    days, seconds = duration.days, duration.seconds
+                    hours = seconds // 3600
+                    minutes = (seconds % 3600) // 60
+                    seconds = seconds % 60 
+                    job_metric["duration"] = str(days) + " days, " + str(hours) + " hours, " + str(minutes) + " minutes, " + str(seconds) + " seconds"
+                else:
+                    job_metric["status"] = "Completed"
+                    completion_time = item["status"]["completionTime"]
+                    job_metric["completion_time"] = completion_time
 
-                duration = parse_datetime(completion_time) - parse_datetime(start_time)
-                        
-                days, seconds = duration.days, duration.seconds
-                hours = seconds // 3600
-                minutes = (seconds % 3600) // 60
-                seconds = seconds % 60
-                job_metric["duration"] = str(days) + " days, " + str(hours) + " hours, " + str(minutes) + " minutes, " + str(seconds) + " seconds"
+                    duration = parse_datetime(completion_time) - parse_datetime(start_time)
+                            
+                    days, seconds = duration.days, duration.seconds
+                    hours = seconds // 3600
+                    minutes = (seconds % 3600) // 60
+                    seconds = seconds % 60
+                    job_metric["duration"] = str(days) + " days, " + str(hours) + " hours, " + str(minutes) + " minutes, " + str(seconds) + " seconds"
                             
         # Get pod metrics
         pod_metrics = {}
@@ -210,34 +214,35 @@ def update_job_metrics_to_db(crd_api, batch_api, url, client_connect) :
             logging.warning(e)
 
         # Check status, completion time and duration
-        failed = False
-        for condition in item.status.conditions:
-            if (condition.type == "Failed"):
-                job_metric["status"] = "Failed"
-                failed = True
-        if not failed:
-            if (item.status.completion_time is None):
-                job_metric["status"] = "Running"
+        if (item.status.conditions is not None):
+            failed = False
+            for condition in item.status.conditions:
+                if (condition.type == "Failed"):
+                    job_metric["status"] = "Failed"
+                    failed = True
+            if not failed:
+                if (item.status.completion_time is None):
+                    job_metric["status"] = "Running"
 
-                duration = datetime.now(tz=pytz.utc) - parse_datetime(start_time)
+                    duration = datetime.now(tz=pytz.utc) - parse_datetime(start_time)
 
-                days, seconds = duration.days, duration.seconds
-                hours = seconds // 3600
-                minutes = (seconds % 3600) // 60
-                seconds = seconds % 60 
-                job_metric["duration"] = str(days) + " days, " + str(hours) + " hours, " + str(minutes) + " minutes, " + str(seconds) + " seconds"
-            else :
-                job_metric["status"] = "Completed"
-                completion_time = format(item.status.completion_time)
-                job_metric["completion_time"] = completion_time
+                    days, seconds = duration.days, duration.seconds
+                    hours = seconds // 3600
+                    minutes = (seconds % 3600) // 60
+                    seconds = seconds % 60 
+                    job_metric["duration"] = str(days) + " days, " + str(hours) + " hours, " + str(minutes) + " minutes, " + str(seconds) + " seconds"
+                else :
+                    job_metric["status"] = "Completed"
+                    completion_time = format(item.status.completion_time)
+                    job_metric["completion_time"] = completion_time
 
-                duration = parse_datetime(completion_time) - parse_datetime(start_time)
+                    duration = parse_datetime(completion_time) - parse_datetime(start_time)
 
-                days, seconds = duration.days, duration.seconds
-                hours = seconds // 3600
-                minutes = (seconds % 3600) // 60
-                seconds = seconds % 60 
-                job_metric["duration"] = str(days) + " days, " + str(hours) + " hours, " + str(minutes) + " minutes, " + str(seconds) + " seconds"
+                    days, seconds = duration.days, duration.seconds
+                    hours = seconds // 3600
+                    minutes = (seconds % 3600) // 60
+                    seconds = seconds % 60 
+                    job_metric["duration"] = str(days) + " days, " + str(hours) + " hours, " + str(minutes) + " minutes, " + str(seconds) + " seconds"
             
         # Get pod metrics
         pod_metrics = {}
