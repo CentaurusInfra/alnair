@@ -42,8 +42,8 @@ spec:
           - containerPort: 27017
             hostPort: 27017
         volumeMounts:
-          - name: mongo-pv-storage
+          - name: mongo-temp-storage
             mountPath: /data/db
       volumes:
-        - name: mongo-pv-storage
+        - name: mongo-temp-storage
           emptyDir: {}
