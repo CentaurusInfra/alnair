@@ -189,8 +189,7 @@ def update_job_metrics_to_db(crd_api, batch_api, mongo_url, client_connect, prom
                             pod_metric = get_pod_records(pod_name, start_time, completion_time, prom_url)
                             pod_metrics[pod_name] = pod_metric
                     except Exception as e:
-                        logging.warning(e)
-                        print("Pod failing: " + pod_name)
+                        logging.warning("Failed to get metrics from pod {}".format(pod_name))
 
             job_metric["pod_count"] = len(pod_metrics)
             job_metric["pod_metrics"] = pod_metrics
@@ -281,8 +280,7 @@ def update_job_metrics_to_db(crd_api, batch_api, mongo_url, client_connect, prom
                             pod_metric = get_pod_records(pod_name, start_time, completion_time, prom_url)
                             pod_metrics[pod_name] = pod_metric
                     except Exception as e:
-                        logging.warning(e)
-                        print("Pod failing: " + pod_name)
+                        logging.warning("Failed to get metrics from pod {}".format(pod_name))
 
             job_metric["pod_count"] = len(pod_metrics)
             job_metric["pod_metrics"] = pod_metrics
@@ -294,8 +292,3 @@ def update_job_metrics_to_db(crd_api, batch_api, mongo_url, client_connect, prom
             x = col.insert_one(all_metrics)
         except Exception as e:
             logging.warning(e)
-
-    for i in col.find():
-        print(i)
-
-
