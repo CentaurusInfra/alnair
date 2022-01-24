@@ -16,7 +16,7 @@ from pymongo import MongoClient
 import pymongo
 from datetime import datetime
 import pytz
-from metadata import update_job_metrics_to_db
+from metadata_store import update_job_metrics_to_db
 
 MEM_UTIL = "DCGM_FI_DEV_MEM_COPY_UTIL"
 GPU_UTIL = "DCGM_FI_DEV_GPU_UTIL"
@@ -413,7 +413,7 @@ def app_top():
             pods_ann_cur = pods_ann_new
 
         ## Store job metrics into MongoDB
-        update_job_metrics_to_db(crd_api, batch_api, CONNECTION_STRING, client_connect)
+        update_job_metrics_to_db(crd_api, batch_api, CONNECTION_STRING, client_connect, env_var['url'])
         
         time.sleep(30)
     
