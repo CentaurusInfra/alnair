@@ -413,7 +413,7 @@ def app_top():
             pods_ann_cur = pods_ann_new
 
         ## Store job metrics into MongoDB
-        update_job_metrics_to_db(crd_api, batch_api, CONNECTION_STRING, client_connect)
+        update_job_metrics_to_db(crd_api, batch_api, CONNECTION_STRING, client_connect, env_var['url'])
         
         time.sleep(30)
     
