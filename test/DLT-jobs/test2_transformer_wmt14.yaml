@@ -1,0 +1,61 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: transformer-translation-wmt14
+spec:
+  template:
+    spec:
+      containers:
+      - name: transformer 
+        image: centaurusinfra/test2_transformer
+        #command: ["/bin/bash", "-c", "sleep infinity"]
+        command:
+        - python
+        args:
+        - -m
+        - torch.distributed.launch
+        - --nproc_per_node
+        - "4"
+        - /workspace/translation/train.py
+        - /datasets/data
+        - --arch
+        - transformer_wmt_en_de_big_t2t
+        - --share-all-embeddings
+        - --max-tokens
+        - "2000"
+        - --optimizer 
+        - adam
+        - --lr-scheduler
+        - inverse_sqrt
+        - --lr
+        - "0.000846"
+        - --dropout
+        - "0.1"
+        - --max-epoch
+        - "1"
+        - --save-dir
+        - /results
+        resources:
+          limits:
+            nvidia.com/gpu: 4
+        volumeMounts:
+        - mountPath: /datasets/data
+          name: remote-data
+        - mountPath: /results
+          name: remote-results
+        - mountPath: /dev/shm
+          name: dshm
+      volumes:
+      - name: remote-data
+        hostPath:
+          path: /nfs_3/alnair/pytorch/translation/transformer/wmt14_en_de_joined_dict
+          type: Directory
+      - name: remote-results
+        hostPath:
+          path: /nfs_3/alnair/results/test2 # network drive
+          type: Directory
+      - name: dshm
+        emptyDir:
+          medium: Memory
+      restartPolicy: Never
+  backoffLimit: 0
