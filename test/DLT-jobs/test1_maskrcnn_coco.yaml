@@ -36,11 +36,11 @@ spec:
       volumes:
       - name: remote-data
         hostPath:
-          path: /nfs_3/alnair/pytorch/segmentation/maskrcnn/coco_dataset/
+          path: /nfs_1/alnair/pytorch/segmentation/maskrcnn/coco_dataset/
           type: Directory
       - name: remote-results
         hostPath:
-          path: /nfs_3/alnair/results # network drive
+          path: /nfs_1/alnair/results # network drive
           type: Directory
       - name: dshm
         emptyDir:

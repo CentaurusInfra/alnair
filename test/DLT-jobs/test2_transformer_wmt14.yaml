@@ -35,6 +35,7 @@ spec:
         - "1"
         - --save-dir
         - /results
+        - --no-save
         resources:
           limits:
             nvidia.com/gpu: 4
@@ -48,11 +49,11 @@ spec:
       volumes:
       - name: remote-data
         hostPath:
-          path: /nfs_3/alnair/pytorch/translation/transformer/wmt14_en_de_joined_dict
+          path: /nfs_1/alnair/pytorch/translation/transformer/wmt14_en_de_joined_dict
           type: Directory
       - name: remote-results
         hostPath:
-          path: /nfs_3/alnair/results/test2 # network drive
+          path: /nfs_1/alnair/results/test2 # network drive
           type: Directory
       - name: dshm
         emptyDir:
