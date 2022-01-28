@@ -35,6 +35,7 @@ spec:
         - "1"
         - --save-dir
         - /results
+        - --no-save
         resources:
           limits:
             nvidia.com/gpu: 4
