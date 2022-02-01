@@ -1,7 +1,7 @@
 apiVersion: ai.centauruscloud.io/v1alpha1
 kind: UnifiedJob
 metadata:
-  name: basesample
+  name: basesample3
 jobType: BaseJob
 spec:
   jobSpec:
