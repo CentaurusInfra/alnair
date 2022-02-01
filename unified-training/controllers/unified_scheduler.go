@@ -25,7 +25,6 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/prometheus/common/log"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -47,7 +46,6 @@ type UnifiedSchedulerReconciler struct {
 
 func (r *UnifiedSchedulerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := r.Log.WithValues("UnifiedJob", req.NamespacedName)
-
 	var ujob aiv1alpha1.UnifiedJob
 	if err := r.Get(ctx, req.NamespacedName, &ujob); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
@@ -71,7 +69,7 @@ func (r *UnifiedSchedulerReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	if ujob.Spec.ReplicaSpec.TargetReplicas != nil {
 
-		log.Info("Target replicas already specified, do nothing")
+		log.Info(fmt.Sprintf("Target replicas already specified to %s, do nothing", mapAsString(ujob.Spec.ReplicaSpec.TargetReplicas)))
 		// requeue for rescheduling
 		// requeue even if not primary job as the primary job may change
 		return ctrl.Result{RequeueAfter: TIME_REQUEUE * time.Second}, nil
@@ -96,7 +94,7 @@ func (r *UnifiedSchedulerReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{RequeueAfter: TIME_REQUEUE * time.Second}, nil
 	}
 
-	log.Info(fmt.Sprintf("Target Replicas for job %s updated to %s (nodeConfig)", ujob.Name, mapAsString(currNodeConfig)))
+	log.Info(fmt.Sprintf("Target Replicas for job %s updated to %s", ujob.Name, mapAsString(currNodeConfig)))
 
 	// cannot find enough GPU even after preemption, wait for some time and try again
 	return ctrl.Result{RequeueAfter: TIME_REQUEUE * time.Second}, nil
@@ -109,7 +107,17 @@ func (r *UnifiedSchedulerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		aiv1alpha1.ElasticPytorchJobType: true,
 		aiv1alpha1.ElasticHorovodJobType: true,
 	}
-
+	// add Index field for later select running pods by node
+	// use a custom field name, not real path, so it wont shallow existing index
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &corev1.Pod{}, ".meta.runningPodNode", func(rawObj client.Object) []string {
+		pod := rawObj.(*corev1.Pod)
+		if pod.Status.Phase != "Running" {
+			return nil
+		}
+		return []string{pod.Spec.NodeName}
+	}); err != nil {
+		return err
+	}
 	r.primaryJob = ""
 
 	//set up clock
@@ -127,7 +135,7 @@ func (r *UnifiedSchedulerReconciler) CheckPrimaryJob(ctx context.Context, ujob a
 
 	if r.primaryJob == "" { // if no primary job, set curr one as
 		r.primaryJob = ujob.Name
-		log.Info(fmt.Sprintf("Changed primary job to %s", r.primaryJob))
+		r.Log.Info(fmt.Sprintf("Changed primary job to %s", r.primaryJob))
 	}
 
 	if ujob.Name == r.primaryJob { // is primary job
@@ -135,16 +143,16 @@ func (r *UnifiedSchedulerReconciler) CheckPrimaryJob(ctx context.Context, ujob a
 		if ujob.Status.UnifiedJobStatus == aiv1alpha1.JobCompleted || ujob.Status.UnifiedJobStatus == aiv1alpha1.JobFailed {
 			changed, err := r.changePrimaryJob(ctx, ujob.Namespace)
 			if err != nil {
-				log.Info("Could not change primary job.")
+				r.Log.Info("Could not change primary job.")
 				return false, err
 			}
 
 			if !changed {
-				log.Info("Job lists are empty")
+				r.Log.Info("Job lists are empty")
 				return false, nil
 			}
 
-			log.Info(fmt.Sprintf("Changed primary job to %s", r.primaryJob))
+			r.Log.Info(fmt.Sprintf("Changed primary job to %s", r.primaryJob))
 
 			return false, nil
 		}
@@ -156,7 +164,7 @@ func (r *UnifiedSchedulerReconciler) CheckPrimaryJob(ctx context.Context, ujob a
 }
 
 func (r *UnifiedSchedulerReconciler) RescheduleJobs(ctx context.Context, namespace string) {
-	log.Info("Rescheduling Jobs")
+	r.Log.Info("Rescheduling Jobs")
 	queuedJobs, runningJobs := r.BuildJobLists(ctx, []client.ListOption{client.InNamespace(namespace)})
 	if len(queuedJobs) == 0 {
 		return
@@ -234,11 +242,34 @@ func (r *UnifiedSchedulerReconciler) AllocatableNodeMap(ctx context.Context) (ma
 	nodeMap := map[string]int64{}
 
 	for _, node := range nodeList.Items {
-		gpus := node.Status.Allocatable["nvidia.com/gpu"]
-		numGpus, ok := gpus.AsInt64()
+		//total gpu
+		var totalGPU int64 = 0
+		gpuCap := node.Status.Allocatable["nvidia.com/gpu"]
+		tmpTotal, ok := gpuCap.AsInt64()
 		if ok {
-			nodeMap[node.ObjectMeta.Name] = numGpus
+			totalGPU = tmpTotal
 		}
+
+		var podList corev1.PodList
+		//used gpu, iterate all the running pods on this node, add requested gpu
+		//select running pods only, for those completed(success/fail) no gpu used any more
+		// the following selection wont work, because the field is not matchable by default, you must create the index first
+		//_ = r.List(ctx, &podList, client.MatchingFields{"spec.nodeName": node.Name, "status.phase": "Running"})
+
+		// ".meta.alnairPodNode" is a field in setup with manager added for this searching
+		_ = r.List(ctx, &podList, client.MatchingFields{".meta.runningPodNode": node.ObjectMeta.Name})
+		var usedGPU int64 = 0
+		for _, pod := range podList.Items {
+			//running pods are considered from the selection, complete pods wont consume gpus
+			for _, ctnr := range pod.Spec.Containers {
+				reqGPUs := ctnr.Resources.Limits["nvidia.com/gpu"] //if this field does not exist, return is 0
+				reqGPUQuantity, ok := reqGPUs.AsInt64()
+				if ok {
+					usedGPU += reqGPUQuantity
+				}
+			}
+		}
+		nodeMap[node.ObjectMeta.Name] = totalGPU - usedGPU
 	}
 
 	//get sorted keys by some criteria (ie number of GPU)
@@ -273,7 +304,6 @@ func (r *UnifiedSchedulerReconciler) BuildJobLists(ctx context.Context, listOpts
 
 func (r *UnifiedSchedulerReconciler) AssignToNewJob(ctx context.Context, ujob aiv1alpha1.UnifiedJob) map[string]int64 {
 	//New job, find available resources
-	log.Info("Looking for resources")
 
 	//assign by a simple greedy algorithm
 	// keep track of a gpusLeft; iterate through the nodes
@@ -281,7 +311,10 @@ func (r *UnifiedSchedulerReconciler) AssignToNewJob(ctx context.Context, ujob ai
 	// otherwise, have gpusleft = gpusleft - currNodeGpuCount and iterate again
 	nodeMap, sortedKeys := r.AllocatableNodeMap(ctx)
 
+	r.Log.Info(fmt.Sprintf("Current avaliability for new job %s is %s ", ujob.Name, mapAsString(nodeMap)))
+
 	if getTotalGPU(nodeMap) < int(*ujob.Spec.ReplicaSpec.MinReplicas) {
+		r.Log.Info("total available GPU in the cluster is smaller than the min request Cannot schedule")
 		return nil
 	}
 
@@ -314,7 +347,7 @@ func assignSimpleGreedy(nodeMap map[string]int64, sortedKeys []string, ujob aiv1
 				break
 			}
 			if !multiNode {
-				if nodeMap[nodeName] > *ujob.Spec.ReplicaSpec.MinReplicas {
+				if nodeMap[nodeName] >= *ujob.Spec.ReplicaSpec.MinReplicas { //fix bug from > to >=
 					currNodeConfig[nodeName] = nodeMap[nodeName]
 				}
 				break
