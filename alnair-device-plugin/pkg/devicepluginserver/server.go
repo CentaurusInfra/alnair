@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+    "kubelet/client"
 	"github.com/NVIDIA/gpu-monitoring-tools/bindings/go/nvml"
 	"google.golang.org/grpc"
 	utilrand "k8s.io/apimachinery/pkg/util/rand"
@@ -26,12 +27,16 @@ const (
 
 type DevicePluginServer struct {
 	pluginapi.UnimplementedDevicePluginServer
+	queryKubelet         bool
+	kubeletClient        *client.KubeletClient
 	server *grpc.Server
 	stop   chan interface{}
 }
 
 func NewDevicePluginServer() *DevicePluginServer {
 	return &DevicePluginServer{
+		queryKubelet:         queryKubelet,
+		kubeletClient:        client,
 		server: grpc.NewServer(),
 		stop:   make(chan interface{}),
 	}
