@@ -7,6 +7,7 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/kubernetes/pkg/scheduler/framework"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
@@ -113,4 +114,11 @@ func (g *vGPUSched) NormalizeScore(_ context.Context, _ *framework.CycleState, p
 
 func (g *vGPUSched) ScoreExtensions() framework.ScoreExtensions {
 	return g
+}
+
+func (g *vGPUSched) Reserve(ctx context.Context, cycleState *framework.CycleState, pod *v1.Pod, nodeName string) *framework.Status {
+    klog.Infof("Reserve success: pod %s on node %s", pod.Name, nodeName)
+    // PatchPodAnnotation according to the deviceplugin format
+	return framework.NewStatus(framework.Success)
+
 }
