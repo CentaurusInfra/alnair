@@ -30,10 +30,17 @@ spec:
         hostPath:
           path: /var/lib/kubelet/device-plugins
 ---
-kind: ClusterRole
-apiVersion: rbac.authorization.k8s.io/v1
+apiVersion: v1
+kind: ServiceAccount
 metadata:
   name: alnair-device-plugin
+  namespace: kube-system
+---
+#ClusterRole and ClusterRoleBinding don't have namespaces, the access is granted to all namespaces, Choose Role and RoleBinding for specific namespaces
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: patch-node-pod-role
 rules:
 - apiGroups: [""]
   resources: ["pods"]
@@ -42,21 +49,16 @@ rules:
   resources: ["nodes"]
   verbs: ["get", "list", "watch", "update", "patch"]
 ---
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: alnair-device-plugin
-  namespace: kube-system
----
-kind: ClusterRoleBinding
+#command to verify $kubectl auth can-i patch pods --as system:serviceaccount:kube-system:alnair-device-plugin
 apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding    
 metadata:
-  name: alnair-device-plugin
+  name: alnair-device-plugin-patch-node-pod
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: alnair-device-plugin
+  name: patch-node-pod-role
 subjects:
-- apiGroup: rbac.authorization.k8s.io
-  kind: User
-  name: system:serviceaccount:kube-system:alnair-device-plugin
+- kind: ServiceAccount
+  name: alnair-device-plugin
+  namespace: kube-system
