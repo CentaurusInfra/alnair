@@ -73,6 +73,12 @@ func StartDevicePluginServers() error {
 		return err
 	}
 
+	//only call once during the initalization process, patch static GPU info to the Node annotations
+	err := PatchNode()
+	if err != nil {
+		return err
+	}
+	log.Println("successfully patch the static GPU info to node annotations.")
 	return nil
 }
 
@@ -146,7 +152,7 @@ func (s *DevicePluginServer) registerWithKubelet() error {
 	if _, err = client.Register(context.Background(), request); err != nil {
 		return err
 	}
-
+	log.Printf("register device %s to kubelet successfully.\n", s.resourceName)
 	return nil
 }
 
@@ -165,6 +171,8 @@ func (s *GPUMemoryDPServer) ListAndWatch(e *pluginapi.Empty, lws pluginapi.Devic
 
 func (s *GPUMemoryDPServer) Allocate(ctx context.Context, req *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
 	var resp pluginapi.AllocateResponse
+	var totalDeviceIDs []string
+	totalDeviceCnt := 0
 	for _, creq := range req.ContainerRequests {
 		devIDs := getRealDeviceIDs(creq.DevicesIDs)
 
@@ -202,7 +210,11 @@ func (s *GPUMemoryDPServer) Allocate(ctx context.Context, req *pluginapi.Allocat
 			},
 		}
 		resp.ContainerResponses = append(resp.ContainerResponses, &cresp)
+		totalDeviceCnt += len(creq.DevicesIDs)
+		totalDeviceIDs = append(totalDeviceIDs, creq.DevicesIDs...)
+
 	}
+	PatchPod(strings.Join(totalDeviceIDs[:], ","), totalDeviceCnt)
 	return &resp, nil
 }
 
@@ -291,6 +303,7 @@ func getRealDeviceIDs(syntheticIDs []string) []string {
 }
 
 func getPreferredDeviceIDs(availableDeviceIDs []string, allocationSize int32) []string {
+	sort.Strings(availableDeviceIDs) //sort DeviceID, so that return devices are likely to have the same prefix (phyical GPU ID)
 	return availableDeviceIDs[0:allocationSize]
 }
 
@@ -315,6 +328,23 @@ func getDevices(t resourceType) []*pluginapi.Device {
 	}
 
 	return devs
+}
+
+func GetPhysicalDeivces() (n uint, uuids []string, vDeviceSize []string) {
+	n, err := nvml.GetDeviceCount()
+	if err != nil {
+		panic(err)
+	}
+	for i := uint(0); i < n; i++ {
+		d, err := nvml.NewDevice(i)
+		if err != nil {
+			panic(err)
+		}
+		uuids = append(uuids, d.UUID)
+		vDevices := getPluginApiMemoryDevice(d)
+		vDeviceSize = append(vDeviceSize, fmt.Sprint(len(vDevices)))
+	}
+	return n, uuids, vDeviceSize
 }
 
 func getPluginApiMemoryDevice(d *nvml.Device) []*pluginapi.Device {
