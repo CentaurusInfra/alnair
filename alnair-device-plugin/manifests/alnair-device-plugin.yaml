@@ -16,6 +16,7 @@ spec:
       containers:
         - name: alnair-device-plugin
           image: centaurusinfra/alnair-device-plugin:ann
+          #command: ["/bin/sh", "-c", "sleep infinity"]
           imagePullPolicy: Always
           env:
             - name: NODE_NAME

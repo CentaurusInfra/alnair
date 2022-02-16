@@ -17,6 +17,7 @@ import (
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 const (
@@ -42,9 +43,15 @@ func clientsetInit() (*kubernetes.Clientset, error) {
 		err    error
 	)
 	config, err = rest.InClusterConfig()
-	// if err != nil {
-	// 	config, err = clientcmd.BuildConfigFromFlags("", "/etc/kubernetes/scheduler.conf") //use the default path for now, pass through arg later
-	// }
+	if err != nil {
+		nodeName, _ = os.Hostname()
+		log.Printf("InClusterConfig failed, assume test env, retry env KUBECONFIG and use hostname %s as nodeName", nodeName)
+		kubeconfigFile := os.Getenv("KUBECONFIG")
+		if kubeconfigFile == "" {
+			return nil, errors.New("environment variable KUBECONFIG is empty, please set with kube config file path")
+		}
+		config, err = clientcmd.BuildConfigFromFlags("", kubeconfigFile) //use the default path for now, pass through arg later
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -67,10 +74,12 @@ func PatchNode() error {
 	}
 
 	// step 1: get node name from environment variable passed down from the deployment yaml file
-	nodeName = os.Getenv("NODE_NAME")
 	if nodeName == "" {
-		log.Printf("Error: patch node, failed to get node name.")
-		return errors.New("please pass node name as NODE_NAME env through downward API in yaml")
+		nodeName = os.Getenv("NODE_NAME")
+		if nodeName == "" {
+			log.Printf("Error: patch node, failed to get node name.")
+			return errors.New("please pass node name as NODE_NAME env through downward API in yaml")
+		}
 	}
 
 	//step 2: get physical device info
@@ -86,6 +95,7 @@ func PatchNode() error {
 		log.Printf("Error: patch node, failed to patch node annotation: %v", err)
 		return err
 	}
+	log.Println("successfully patch the static gpu info to the annotations of node", nodeName)
 	return nil
 }
 

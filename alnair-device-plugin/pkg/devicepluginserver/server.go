@@ -78,7 +78,6 @@ func StartDevicePluginServers() error {
 	if err != nil {
 		return err
 	}
-	log.Println("successfully patch the static GPU info to node annotations.")
 	return nil
 }
 
