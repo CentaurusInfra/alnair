@@ -1,2 +1,0 @@
-# vGPUScheduler
-Scheduling vGPU
