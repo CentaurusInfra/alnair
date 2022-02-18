@@ -302,8 +302,31 @@ func getRealDeviceIDs(syntheticIDs []string) []string {
 }
 
 func getPreferredDeviceIDs(availableDeviceIDs []string, allocationSize int32) []string {
+	//preferred devices are all the vGPUs from the same physcial ones,
+	//sort the device ID and scan the prefix, make sure prefix are the same
 	sort.Strings(availableDeviceIDs) //sort DeviceID, so that return devices are likely to have the same prefix (phyical GPU ID)
-	return availableDeviceIDs[0:allocationSize]
+	startIdx := int32(0)
+	notFound := true
+	for notFound && (startIdx+allocationSize <= int32(len(availableDeviceIDs))) {
+		notFound = false
+		firstId := strings.SplitN(availableDeviceIDs[startIdx], "_", 2)[0]
+		var id string
+		for i := startIdx; i < startIdx+allocationSize; i++ {
+			id = strings.SplitN(availableDeviceIDs[i], "_", 2)[0]
+			if id != firstId {
+				log.Println("reach the corner, start from a new gpu")
+				startIdx = i //restart checking from the next physical card
+				notFound = true
+				break
+			}
+		}
+
+	}
+	if notFound { //just pick what we have, but this should not happen, scheduler is supposed to filter this node out
+		startIdx = 0
+		log.Println("warning: cannot find enough vGPU within one phyiscal GPU, assign mixed vGPUs", "available vGPU:", len(availableDeviceIDs), "request count:", allocationSize)
+	}
+	return availableDeviceIDs[startIdx : startIdx+allocationSize]
 }
 
 func getDevices(t resourceType) []*pluginapi.Device {
