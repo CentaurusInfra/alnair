@@ -1,94 +1,97 @@
 package utils
 
 import (
-	"fmt"
 	"log"
 	"strconv"
-	"strings"
-
+    "strings"
 	v1 "k8s.io/api/core/v1"
-
-	"k8s.io/apimachinery/pkg/types"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 )
 
-// NodeInfo is node level aggregated information.
-
-const gpuCount == 8
-
-type NodeInfo struct {
+// NodeInfos is node level aggregated information.
+type NodeInfos struct {
 	name           string
 	node           *v1.Node
-	devs           map[int]*DeviceInfo
-// 	gpuCount       int
-	gpuTotalMemory int
+	devs           map[int]*DeviceInfos
+ 	gpuCount       int
+// 	gpuTotalMemory int
 }
 
-func NewNodeInfo(node *v1.Node) *NodeInfo {
-	log.Printf("debug: NewNodeInfo() creates nodeInfo for %s", node.Name)
+// get Physical gpuCount from node annotation
+func GetPhysicalGPUCountFromNodeAnno(node *v1.Node) int {
+    val := -1
 
-	devMap := map[int]*DeviceInfo{}
-	for i := 0; i < 8; i++ {
-		devMap[i] = newDeviceInfo(i, uint(GetTotalGPUMemory(node)/gpuCount)
+    if len(node.ObjectMeta.Annotations) > 0 {
+        vet, found := node.ObjectMeta.Annotations["ai.centaurus.io/physical-gpu-count"]
+        if found {
+            var err error
+			val, err = strconv.Atoi(vet)
+			if err != nil {
+				log.Printf("warn: Failed obtain node annotation due to %v for node %s", err, node.Name)
+				val = -1
+			}
+        }
+    }
+    return val
+}
+
+func GetVirtualGPUCountFromNodeAnno(node *v1.Node) int {
+    val := -1
+    if len(node.ObjectMeta.Annotations) > 0 {
+        vet, found := node.ObjectMeta.Annotations["ai.centaurus.io/virtual-gpu-count"]
+        vGPU_count := strings.Split(vet,",")
+        if found {
+            var err error
+            val, err = strconv.Atoi(vGPU_count[0])
+            if err != nil {
+	            log.Printf("warn: Failed obtain node annotation due to %v for node %s", err, node.Name)
+			    val = -1
+			}
+        }
+    }
+    return val
+}
+
+func NewNodeInfos(node *v1.Node) *NodeInfos {
+    gpuCount := GetPhysicalGPUCountFromNodeAnno(node)
+    if gpuCount == -1 {
+        log.Printf("debug: cannot get Physical GPU count from node annotation")
+    }
+
+	log.Printf("debug: NewNodeInfos() creates nodeInfos for %s", node.Name)
+	devMap := map[int]*DeviceInfos{}
+	for i := 0; i < int(gpuCount); i++ {
+		devMap[i] = NewDeviceInfos(i, uint(GetVirtualGPUCountFromNodeAnno(node)))
 	}
 
 	if len(devMap) == 0 {
-		log.Printf("warn: node %s with nodeinfo %v has no devices",
+		log.Printf("warn: node %s with nodeinfos %v has no devices",
 			node.Name,
 			node)
 	}
 
-	return &NodeInfo{
+	return &NodeInfos{
 		name:           node.Name,
 		node:           node,
 		devs:           devMap,
-// 		gpuCount:       GetGPUCountInNode(node),
-		gpuTotalMemory: GetTotalGPUMemory(node),
+ 		gpuCount:       gpuCount,
+// 		gpuTotalMemory: GetTotalGPUMemory(node),
 	}
 }
 
-func GetTotalGPUMemory(node *v1.Node) int {
-	val, ok := node.Status.Capacity[ResourceName]
-	if !ok {
-		return 0
+func (n *NodeInfos) GetDevs() []*DeviceInfos {
+	devs := make([]*DeviceInfos, n.gpuCount)
+	for i, dev := range n.devs {
+		devs[i] = dev
 	}
-	return int(val.Value())
+	return devs
 }
 
-// device index: gpu memory
-func (n *NodeInfo) getUsedGPUs() (usedGPUs map[int]uint) {
-	usedGPUs = map[int]uint{}
-	for _, dev := range n.devs {
-		usedGPUs[dev.idx] = dev.GetUsedGPUMemory()
-	}
-	log.Printf("info: getUsedGPUs: %v in node %s, and devs %v", usedGPUs, n.name, n.devs)
-	return usedGPUs
-}
-
-func (n *NodeInfo) getAvailableGPUs() (availableGPUs map[int]uint) {
-	allGPUs := n.getAllGPUs()
-	usedGPUs := n.getUsedGPUs()
-// 	unhealthyGPUs := n.getUnhealthyGPUs()
-	availableGPUs = map[int]uint{}
-	for id, totalGPUMem := range allGPUs {
-		if usedGPUMem, found := usedGPUs[id]; found {
-			availableGPUs[id] = totalGPUMem - usedGPUMem
-		}
-	}
-	log.Printf("info: available GPU list %v before removing unhealty GPUs", availableGPUs)
-// 	for id, _ := range unhealthyGPUs {
-// 		log.Printf("info: delete dev %d from availble GPU list", id)
-// 		delete(availableGPUs, id)
-// 	}
-// 	log.Printf("info: available GPU list %v after removing unhealty GPUs", availableGPUs)
-
-	return availableGPUs
+func (n *NodeInfos) GetNode() *v1.Node {
+	return n.node
 }
 
 // device index: gpu memory
-func (n *NodeInfo) getAllGPUs() (allGPUs map[int]uint) {
+func (n *NodeInfos) getAllGPUs() (allGPUs map[int]uint) {
 	allGPUs = map[int]uint{}
 	for _, dev := range n.devs {
 		allGPUs[dev.idx] = dev.totalGPUMem
@@ -97,12 +100,49 @@ func (n *NodeInfo) getAllGPUs() (allGPUs map[int]uint) {
 	return allGPUs
 }
 
-func (n *NodeInfo) Assume(pod *v1.Pod) (allocatable bool) {
+func (n *NodeInfos) getUsedGPUs() (usedGPUs map[int]uint) {
+	usedGPUs = map[int]uint{}
+	for _, dev := range n.devs {
+		usedGPUs[dev.idx] = dev.GetUsedGPUMemory()
+	}
+	log.Printf("info: getUsedGPUs: %v in node %s, and devs %v", usedGPUs, n.name, n.devs)
+	return usedGPUs
+}
+
+
+
+func (n *NodeInfos) getAvailableGPUs() (availableGPUs map[int]uint) {
+	allGPUs := n.getAllGPUs()
+	usedGPUs := n.getUsedGPUs()
+	availableGPUs = map[int]uint{}
+	for id, totalGPUMem := range allGPUs {
+		if usedGPUMem, found := usedGPUs[id]; found {
+			availableGPUs[id] = totalGPUMem - usedGPUMem
+		}
+	}
+	log.Printf("info: available GPU list %v", availableGPUs)
+
+	return availableGPUs
+}
+
+// GetGPUMemoryFromPodResource gets GPU Memory of the Pod
+func GetGPUMemoryFromPodResource(pod *v1.Pod) int {
+	var total int
+	containers := pod.Spec.Containers
+	for _, container := range containers {
+		if val, ok := container.Resources.Limits["alnair/vgpu-memory"]; ok {
+			total += int(val.Value())
+		}
+	}
+	return total
+}
+
+func (n *NodeInfos) Assume(pod *v1.Pod) (allocatable bool) {
 	allocatable = false
 
 	availableGPUs := n.getAvailableGPUs()
-	reqGPU := uint(GetGPUMemoryFromPodResource(pod))
 	log.Printf("debug: AvailableGPUs: %v in node %s", availableGPUs, n.name)
+	reqGPU := uint(GetGPUMemoryFromPodResource(pod))
 
 	if len(availableGPUs) > 0 {
 		for devID := 0; devID < len(n.devs); devID++ {
@@ -120,95 +160,16 @@ func (n *NodeInfo) Assume(pod *v1.Pod) (allocatable bool) {
 
 }
 
-// GetGPUMemoryFromPodResource gets GPU Memory of the Pod
-func GetGPUMemoryFromPodResource(pod *v1.Pod) int {
-	var total int
-	containers := pod.Spec.Containers
-	for _, container := range containers {
-		if val, ok := container.Resources.Limits[ResourceName]; ok {
-			total += int(val.Value())
-		}
-	}
-	return total
-}
 
-func (n *NodeInfo) GetName() string {
-	return n.name
-}
-
-func (n *NodeInfo) GetDevs() []*DeviceInfo {
-	devs := make([]*DeviceInfo, gpuCount)
-	for i, dev := range n.devs {
-		devs[i] = dev
-	}
-	return devs
-}
-
-func (n *NodeInfo) GetNode() *v1.Node {
-	return n.node
-}
-
-func (n *NodeInfo) GetTotalGPUMemory() int {
-	return n.gpuTotalMemory
-}
-
-func (n *NodeInfo) GetGPUCount() int {
-	return n.gpuCount
-}
-
-func (n *NodeInfo) removePod(pod *v1.Pod) {
-
-	id := GetGPUIDFromAnnotation(pod)
-	if id >= 0 {
-		dev, found := n.devs[id]
-		if !found {
-			log.Printf("warn: Pod %s in ns %s failed to find the GPU ID %d in node %s", pod.Name, pod.Namespace, id, n.name)
-		} else {
-			dev.removePod(pod)
-		}
-	} else {
-		log.Printf("warn: Pod %s in ns %s is not set the GPU ID %d in node %s", pod.Name, pod.Namespace, id, n.name)
-	}
-}
-
-func GetGPUIDFromAnnotation(pod *v1.Pod) int {
-	id := -1
-	if len(pod.ObjectMeta.Annotations) > 0 {
-		vGPU_ID, found := pod.ObjectMeta.Annotations[vGPU_IDX]
-		value = GetvGPUID(vGPU_ID)
-		if found {
-			var err error
-			id, err = strconv.Atoi(value)
-			if err != nil {
-				log.Printf("warn: Failed due to %v for pod %s in ns %s", err, pod.Name, pod.Namespace)
-				id = -1
-			}
-		}
-	}
-
-	return id
-}
-
-// Add the Pod which has the GPU id to the node
-func (n *NodeInfo) addOrUpdatePod(pod *v1.Pod) (added bool) {
-	n.rwmu.Lock()
-	defer n.rwmu.Unlock()
-
-	id := utils.GetGPUIDFromAnnotation(pod)
-	log.Printf("debug: addOrUpdatePod() Pod %s in ns %s with the GPU ID %d should be added to device map",
-		pod.Name,
-		pod.Namespace,
-		id)
-	if id >= 0 {
-		dev, found := n.devs[id]
-		if !found {
-			log.Printf("warn: Pod %s in ns %s failed to find the GPU ID %d in node %s", pod.Name, pod.Namespace, id, n.name)
-		} else {
-			dev.addPod(pod)
-			added = true
-		}
-	} else {
-		log.Printf("warn: Pod %s in ns %s is not set the GPU ID %d in node %s", pod.Name, pod.Namespace, id, n.name)
-	}
-	return added
+// get assumed timestamp from the pod
+func getAssumeTimeFromPodAnnotation(pod *v1.Pod) (assumeTime uint64) {
+    if assumeTimeStr, ok := pod.ObjectMeta.Annotations["scheduler-timestamp"]; ok {
+        u64, err := strconv.ParseUint(assumeTimeStr, 10, 64)
+        if err != nil {
+            log.Printf("Failed to parse assume Timestamp %s due to %v", assumeTimeStr, err)
+        } else {
+            assumeTime = u64
+        }
+    }
+    return assumeTime
 }

@@ -6,9 +6,11 @@ import (
 	"os"
 	"time"
 
-	"vGPUSched/pkg/vGPUSched"
+	"vGPUScheduler/pkg/vGPUScheduler"
 	"k8s.io/component-base/logs"
 	"k8s.io/kubernetes/cmd/kube-scheduler/app"
+
+	_ "sigs.k8s.io/scheduler-plugins/pkg/apis/config/scheme"
 )
 
 func main() {
@@ -17,7 +19,7 @@ func main() {
 	defer logs.FlushLogs()
 
 	cmd := app.NewSchedulerCommand(
-		app.WithPlugin(vGPUSched.Name, vGPUSched.New),
+		app.WithPlugin(vGPUScheduler.Name, vGPUScheduler.New),
 	)
 
 	if err := cmd.Execute(); err != nil {

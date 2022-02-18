@@ -4,69 +4,70 @@ import (
 	"log"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"strconv"
-	"time"
+    "strings"
+    "sort"
 )
 
-// DeviceInfo is pod level aggregated information
-// Here I assume a running pod has annotation like vGPU_IDX: GPU_XXX_XXX_0, GPU_XXX_XXX_1
+// DeviceInfos is pod level aggregated information
 
-type DeviceInfo struct {
+type DeviceInfos struct {
 	idx    int
 	podMap map[types.UID]*v1.Pod
-	// usedGPUMem  uint
+// 	usedGPUMem  uint
 	totalGPUMem uint
 }
 
-func newDeviceInfo(index int, totalGPUMem uint) *DeviceInfo {
-	return &DeviceInfo{
+func NewDeviceInfos(index int, totalGPUMem uint) *DeviceInfos {
+	return &DeviceInfos{
 		idx:         index,
 		totalGPUMem: totalGPUMem,
 		podMap:      map[types.UID]*v1.Pod{},
 	}
 }
 
-func (d *DeviceInfo) GetPods() []*v1.Pod {
-	pods := []*v1.Pod{}
-	for _, pod := range d.podMap {
-		pods = append(pods, pod)
-	}
-	return pods
-}
 
-func (d *DeviceInfo) GetTotalGPUMemory() uint {
-	return d.totalGPUMem
-}
 
-func (d *DeviceInfo) GetUsedGPUMemory() (gpuMem uint) {
+func (d *DeviceInfos) GetUsedGPUMemory() (gpuMem uint) {
 	log.Printf("debug: GetUsedGPUMemory() podMap %v, and its address is %p", d.podMap, d)
 // 	d.rwmu.RLock()
 // 	defer d.rwmu.RUnlock()
 	for _, pod := range d.podMap {
-		if pod.Status.Phase == v1.PodSucceeded || pod.Status.Phase == v1.PodFailed {
-			log.Printf("debug: skip the pod %s in ns %s due to its status is %s", pod.Name, pod.Namespace, pod.Status.Phase)
-			continue
-		}
-		// gpuMem += utils.GetGPUMemoryFromPodEnv(pod)
-		gpuMem += GetGPUMemoryFromPodAnnotation(pod)
+		if pod.Status.Phase == v1.PodRunning || pod.Status.Phase == v1.PodPending{
+			log.Printf("debug: the pod %s in ns %s is counted as used due to its status in %s", pod.Name, pod.Namespace, pod.Status.Phase)
+			gpuMem += GetGPUMemoryFromPodAnnotation(pod)
+	    }
 	}
 	return gpuMem
 }
 
+// func (d *DeviceInfos) GetUsedGPUMemory() (gpuMem uint) {
+// 	log.Printf("debug: GetUsedGPUMemory() podMap %+v, and its address is %p", d.podMap, d)
+// 	for _, pod := range d.podMap {
+// // 		if pod.Status.Phase == v1.PodSucceeded || pod.Status.Phase == v1.PodFailed {
+// // 			log.Printf("debug: skip the pod %s in ns %s due to its status is %s", pod.Name, pod.Namespace, pod.Status.Phase)
+// // 			continue
+// // 		}
+// 		gpuMem += GetGPUMemoryFromPodAnnotation(pod)
+// 		log.Printf("debug: skip the pod %s in ns %s due to its status is %s", pod.Name, pod.Namespace, pod.Status.Phase)
+// 	}
+// 	return gpuMem
+// }
+
 // GetGPUMemoryFromPodAnnotation gets the GPU Memory of the pod
 func GetGPUMemoryFromPodAnnotation(pod *v1.Pod) (gpuMemory uint) {
 	if len(pod.ObjectMeta.Annotations) > 0 {
-		vGPU_ID, found := pod.ObjectMeta.Annotations[vGPU_IDX] //need to confirm the annotation format
-		value := GetvGPUID(vGPU_ID) //according to vGPU_IDX format, convert it to a number
+		vet, found := pod.ObjectMeta.Annotations["ai.centaurus.io/alnair-gpu-id"]
+		vGPU_ID := strings.Split(vet,",")
+		idx := GetvGPUIDX(vGPU_ID)
 		if found {
-			s, _ := len(value)
+			s := len(idx)
 			if s < 0 {
 				s = 0
 			}
 			gpuMemory += uint(s)
 		}
 	}
-	log.Printf("debug: pod %s in ns %s with status %v has GPU Mem %d",
+	log.Printf("debug: pod %s in ns %s with status %v has vGPU Mem %d",
 		pod.Name,
 		pod.Namespace,
 		pod.Status.Phase,
@@ -74,67 +75,15 @@ func GetGPUMemoryFromPodAnnotation(pod *v1.Pod) (gpuMemory uint) {
 	return gpuMemory
 }
 
-// need to confirm with the annotation format
-func GetvGPUID(vGPU_ID []string) []string {
-    var ret []string
-    for _, sid := range vGPU_ID {
-        id := string.SplitN(sid, "_", 2)[1]
-        if len(ret) == 0 || id != ret[len(ret)-1]{
-            ret = append(ret, id)
-        }
-    }
-    return ret
-}
-
-// get assumed timestamp
-func getAssumeTimeFromPodAnnotation(pod *v1.Pod) (assumeTime uint64) {
-	if assumeTimeStr, ok := pod.ObjectMeta.Annotations[ResourceAssumeTime]; ok {
-		u64, err := strconv.ParseUint(assumeTimeStr, 10, 64)
-		if err != nil {
-			log.Warningf("Failed to parse assume Timestamp %s due to %v", assumeTimeStr, err)
-		} else {
-			assumeTime = u64
+// get vGPU index
+func GetvGPUIDX(vGPU_ID []string) []string {
+	var ret []string
+	sort.Strings(vGPU_ID)
+	for _, sid := range vGPU_ID {
+		id := strings.SplitN(sid, "_", 2)[1]
+		if len(ret) == 0 || id != ret[len(ret)-1]{
+			ret = append(ret, id)
 		}
 	}
-
-	return assumeTime
-}
-
-// get GPU ID from pod annotation
-func GetGPUIDFromPodAnnotation(pod *v1.Pod) (id int) {
-    var err error
-    id := -1
-    if len(pod.ObjectMeta.Annotations) > 0 {
-        value, found := pod.ObjectMeta.Annotations[ResourceIndex] // upon to annotation definition
-        if found {
-			id, err = strconv.Atoi(value)
-			if err != nil {
-			    log.Printf("warn: Failed due to %v for pod %s in ns %s", err, pod.Name, pod.Namespace)
-				id = -1
-			}
-		}
-	}
-	return id
-}
-
-func (d *DeviceInfo) addPod(pod *v1.Pod) {
-	log.Printf("debug: dev.addPod() Pod %s in ns %s with the GPU ID %d will be added to device map",
-		pod.Name,
-		pod.Namespace,
-		d.idx)
-	d.podMap[pod.UID] = pod
-	log.Printf("debug: dev.addPod() after updated is %v, and its address is %p",
-		d.podMap,
-		d)
-}
-
-func (d *DeviceInfo) removePod(pod *v1.Pod) {
-	log.Printf("debug: dev.removePod() Pod %s in ns %s with the GPU ID %d will be removed from device map",
-		pod.Name,
-		pod.Namespace,
-		d.idx)
-	delete(d.podMap, pod.UID)
-	log.Printf("debug: dev.removePod() after updated is %v, and its address is %p",
-		d.podMap,
-		d)
+	return ret
 }
