@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: alnair-device-plugin-daemonset
+  namespace: kube-system
+spec:
+  selector:
+    matchLabels:
+      device-plugin: alnair
+  template:
+    metadata:
+      labels:
+        device-plugin: alnair
+    spec:
+      serviceAccountName: alnair-device-plugin
+      containers:
+        - name: alnair-device-plugin
+          image: centaurusinfra/alnair-device-plugin:ann
+          #command: ["/bin/sh", "-c", "sleep infinity"]
+          imagePullPolicy: Always
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          volumeMounts:
+          - name: device-plugin
+            mountPath: /var/lib/kubelet/device-plugins
+      volumes:
+      - name: device-plugin
+        hostPath:
+          path: /var/lib/kubelet/device-plugins
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: alnair-device-plugin
+  namespace: kube-system
+---
+#ClusterRole and ClusterRoleBinding don't have namespaces, the access is granted to all namespaces, Choose Role and RoleBinding for specific namespaces
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: patch-node-pod-role
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch", "update", "patch"]
+- apiGroups: [""]
+  resources: ["nodes"]
+  verbs: ["get", "list", "watch", "update", "patch"]
+---
+#command to verify $kubectl auth can-i patch pods --as system:serviceaccount:kube-system:alnair-device-plugin
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding    
+metadata:
+  name: alnair-device-plugin-patch-node-pod
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: patch-node-pod-role
+subjects:
+- kind: ServiceAccount
+  name: alnair-device-plugin
+  namespace: kube-system

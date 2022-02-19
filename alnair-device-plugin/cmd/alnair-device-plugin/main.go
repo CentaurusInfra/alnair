@@ -1,14 +1,13 @@
 package main
 
 import (
-	ds "alnair-device-plugin/pkg/devicepluginserver"
+	dps "alnair-device-plugin/pkg/devicepluginserver"
 	"log"
 	"time"
 )
 
 func main() {
-	devicePluginServer := ds.NewDevicePluginServer()
-	if err := devicePluginServer.Start(); err != nil {
+	if err := dps.StartDevicePluginServers(); err != nil {
 		log.Fatalf("failed to start device plugin server: %v", err)
 	}
 
