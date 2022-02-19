@@ -10,7 +10,8 @@ import (
 	"sort"
 	"strings"
 	"time"
-	"encoding/json"
+
+	vs "alnair-device-plugin/pkg/vgpuserver"
 
 	"github.com/NVIDIA/gpu-monitoring-tools/bindings/go/nvml"
 	"google.golang.org/grpc"
@@ -19,10 +20,12 @@ import (
 )
 
 const (
-	devicePluginServerSocket = "alnair-gpu.sock"
-	devicePluginResourceName = "alnair/vgpu-mem"
-	gpuMemoryChunkSize       = 1073741824 // GiB
-	alnairInterposeLibPath   = "/opt/alnair/libcuinterpose.so"
+	serverSocketGPUMemory  = "alnair-gpu-mem.sock"
+	resourceNameGPUMemory  = "alnair/vgpu-memory"
+	serverSocketGPUCompute = "alnair-gpu-compute.sock"
+	resourceNameGPUCompute = "alnair/vgpu-compute"
+	gpuMemoryChunkSize     = 1073741824 // GiB
+	alnairInterposeLibPath = "/opt/alnair/libcuinterpose.so"
 )
 
 type resourceType int
@@ -32,13 +35,64 @@ const (
 	compute
 )
 
-func (s *DevicePluginServer) Start() error {
+// StartDevicePluginServers starts both GPU memory and GPU compute device plugin servers
+func StartDevicePluginServers() error {
 	if err := nvml.Init(); err != nil {
 		return err
 	}
 
+	gpuMemServerImpl := &GPUMemoryDPServer{
+		stop: make(chan interface{}),
+	}
+
+	gpuMemServer := DevicePluginServer{
+		socketName:   serverSocketGPUMemory,
+		resourceName: resourceNameGPUMemory,
+		serverImpl:   gpuMemServerImpl,
+		grpcServer:   grpc.NewServer(),
+		stop:         gpuMemServerImpl.stop,
+	}
+
+	if err := gpuMemServer.Start(); err != nil {
+		return err
+	}
+
+	gpuComputeServerImpl := &GPUComputeDPServer{
+		stop: make(chan interface{}),
+	}
+
+	gpuComputeServer := DevicePluginServer{
+		socketName:   serverSocketGPUCompute,
+		resourceName: resourceNameGPUCompute,
+		serverImpl:   gpuComputeServerImpl,
+		grpcServer:   grpc.NewServer(),
+		stop:         gpuComputeServerImpl.stop,
+	}
+
+	if err := gpuComputeServer.Start(); err != nil {
+		return err
+	}
+
+	//only call once during the initalization process, patch static GPU info to the Node annotations
+	err := PatchNode()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// DevicePluginServer encapsulates all the information to run a device plugin server for a single resource
+type DevicePluginServer struct {
+	socketName   string
+	resourceName string
+	serverImpl   pluginapi.DevicePluginServer
+	grpcServer   *grpc.Server
+	stop         chan interface{}
+}
+
+func (s *DevicePluginServer) Start() error {
 	// Start grpc server
-	sock := path.Join(pluginapi.DevicePluginPath, devicePluginServerSocket)
+	sock := path.Join(pluginapi.DevicePluginPath, s.socketName)
 
 	if err := os.RemoveAll(sock); err != nil && err != os.ErrNotExist {
 		return err
@@ -49,9 +103,9 @@ func (s *DevicePluginServer) Start() error {
 		return err
 	}
 
-	pluginapi.RegisterDevicePluginServer(s.server, s)
+	pluginapi.RegisterDevicePluginServer(s.grpcServer, s.serverImpl)
 	go func() {
-		if err := s.server.Serve(l); err != nil {
+		if err := s.grpcServer.Serve(l); err != nil {
 			log.Fatalf("failed to serve grpc: %v", err)
 		}
 	}()
@@ -64,7 +118,7 @@ func (s *DevicePluginServer) Start() error {
 	conn.Close()
 
 	// register with kubelet
-	if err := s.RegisterWithKubelet(); err != nil {
+	if err := s.registerWithKubelet(); err != nil {
 		log.Println("failed to register with kubelet")
 		return err
 	}
@@ -74,10 +128,10 @@ func (s *DevicePluginServer) Start() error {
 
 func (s *DevicePluginServer) Stop() {
 	close(s.stop)
-	s.server.Stop()
+	s.grpcServer.Stop()
 }
 
-func (s *DevicePluginServer) RegisterWithKubelet() error {
+func (s *DevicePluginServer) registerWithKubelet() error {
 	conn, err := dialGrpc(pluginapi.KubeletSocket)
 	if err != nil {
 		log.Println("failed to dail kubelet grpc endpoint")
@@ -87,8 +141,8 @@ func (s *DevicePluginServer) RegisterWithKubelet() error {
 	client := pluginapi.NewRegistrationClient(conn)
 	request := &pluginapi.RegisterRequest{
 		Version:      pluginapi.Version,
-		Endpoint:     devicePluginServerSocket,
-		ResourceName: devicePluginResourceName,
+		Endpoint:     s.socketName,
+		ResourceName: s.resourceName,
 		Options: &pluginapi.DevicePluginOptions{
 			GetPreferredAllocationAvailable: true,
 		},
@@ -97,44 +151,37 @@ func (s *DevicePluginServer) RegisterWithKubelet() error {
 	if _, err = client.Register(context.Background(), request); err != nil {
 		return err
 	}
-
+	log.Printf("register device %s to kubelet successfully.\n", s.resourceName)
 	return nil
 }
 
-func (s *DevicePluginServer) ListAndWatch(e *pluginapi.Empty, lws pluginapi.DevicePlugin_ListAndWatchServer) error {
-	devs := getDevices()
+// GPUMemoryDPServer implements the device plugin server for vGPU memory
+type GPUMemoryDPServer struct {
+	pluginapi.UnimplementedDevicePluginServer
+	stop chan interface{}
+}
+
+func (s *GPUMemoryDPServer) ListAndWatch(e *pluginapi.Empty, lws pluginapi.DevicePlugin_ListAndWatchServer) error {
+	devs := getDevices(memory)
 	lws.Send(&pluginapi.ListAndWatchResponse{Devices: devs})
 	<-s.stop
 	return nil
 }
 
-func (s *DevicePluginServer) Allocate(ctx context.Context, req *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
+func (s *GPUMemoryDPServer) Allocate(ctx context.Context, req *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
 	var resp pluginapi.AllocateResponse
-	log.Infoln("----Allocating GPU for gpu mem is started----")
-
-	var (
-		podReqGPU uint
-		assumePod *v1.Pod
-	)
-    for _, creq := range req.ContainerRequests {
-		podReqGPU += uint(len(creq.DevicesIDs))
-	}
-	log.Infof("RequestPodGPUs: %d", podReqGPU)
-	s.Lock()
-	defer s.Unlock()
-	log.Infoln("checking...")
-	pods, err := getCandidatePods(s.queryKubelet, s.kubeletClient)
-
+	var totalDeviceIDs []string
+	totalDeviceCnt := 0
 	for _, creq := range req.ContainerRequests {
 		devIDs := getRealDeviceIDs(creq.DevicesIDs)
 
 		alnairID := utilrand.String(5)
-		hostWorkspacePath := path.Join("/var/lib/alnair/workspace", alnairID)
+		hostWorkspacePath := path.Join(vs.AlnairContainerWorkspaceRoot, alnairID)
 		if err := os.MkdirAll(hostWorkspacePath, 0700); err != nil {
 			log.Printf("ERROR: failed to create alnair workspace %s: %v", hostWorkspacePath, err)
 		}
 		limitsFilepath := path.Join(hostWorkspacePath, "limits")
-		limits := fmt.Sprintf("vmem:%d", len(creq.DevicesIDs))
+		limits := fmt.Sprintf("vmem:%v", len(creq.DevicesIDs)*gpuMemoryChunkSize)
 		if err := os.WriteFile(limitsFilepath, []byte(limits), 0644); err != nil {
 			log.Printf("ERROR: failed to write alnair resource limits")
 		}
@@ -143,63 +190,34 @@ func (s *DevicePluginServer) Allocate(ctx context.Context, req *pluginapi.Alloca
 		cresp.Envs = map[string]string{
 			"NVIDIA_VISIBLE_DEVICES": strings.Join(devIDs, ","),
 			"ALNAIR_ID":              alnairID,
-			"ALNAIR_WORKSPACE_PATH":  "/var/lib/alnair/workspace",
-			"ALNAIR_SOCKET":          "/run/alnair.sock",
+			"ALNAIR_WORKSPACE_PATH":  vs.AlnairContainerWorkspaceRoot,
+			"ALNAIR_SOCKET":          vs.AlnairCgroupServerSocket,
 			"LD_PRELOAD":             alnairInterposeLibPath,
 		}
 		cresp.Mounts = []*pluginapi.Mount{
 			{
-				ContainerPath: "/var/lib/alnair/workspace",
+				ContainerPath: vs.AlnairContainerWorkspaceRoot,
 				HostPath:      hostWorkspacePath,
+			},
+			{
+				ContainerPath: alnairInterposeLibPath,
+				HostPath:      alnairInterposeLibPath,
+			},
+			{
+				ContainerPath: vs.AlnairCgroupServerSocket,
+				HostPath:      vs.AlnairCgroupServerSocket,
 			},
 		}
 		resp.ContainerResponses = append(resp.ContainerResponses, &cresp)
+		totalDeviceCnt += len(creq.DevicesIDs)
+		totalDeviceIDs = append(totalDeviceIDs, creq.DevicesIDs...)
+
 	}
-
-	patchedAnnotationBytes, err := patchPodAnnotationSpecAssigned()
-	_, err = clientset.CoreV1().Pods(assumePod.Namespace).Patch(assumePod.Name, types.StrategicMergePatchType, patchedAnnotationBytes)
-
-
+	PatchPod(strings.Join(totalDeviceIDs[:], ","), totalDeviceCnt)
 	return &resp, nil
 }
 
-func patchPodAnnotationSpecAssigned() ([]byte, error) {
-	now := time.Now()
-	patchAnnotations := map[string]interface{}{
-		"metadata": map[string]map[string]string{"annotations": {
-			EnvAssignedFlag:       "true",
-			EnvResourceAssumeTime: fmt.Sprintf("%d", now.UnixNano()),
-		}}}
-	return json.Marshal(patchAnnotations)
-}
-
-// pick up the gpushare pod with assigned status is false, and
-func getCandidatePods(queryKubelet bool, client *client.KubeletClient) ([]*v1.Pod, error) {
-	candidatePods := []*v1.Pod{}
-	allPods, err := getPendingPodsInNode(queryKubelet, client)
-	if err != nil {
-		return candidatePods, err
-	}
-	for _, pod := range allPods {
-		current := pod
-		if isGPUMemoryAssumedPod(&current) {
-			candidatePods = append(candidatePods, &current)
-		}
-	}
-
-	if log.V(4) {
-		for _, pod := range candidatePods {
-			log.Infof("candidate pod %s in ns %s with timestamp %d is found.",
-				pod.Name,
-				pod.Namespace,
-				getAssumeTimeFromPodAnnotation(pod))
-		}
-	}
-
-	return makePodOrderdByAge(candidatePods), nil
-}
-
-func (s *DevicePluginServer) GetPreferredAllocation(ctx context.Context, req *pluginapi.PreferredAllocationRequest) (*pluginapi.PreferredAllocationResponse, error) {
+func (s *GPUMemoryDPServer) GetPreferredAllocation(ctx context.Context, req *pluginapi.PreferredAllocationRequest) (*pluginapi.PreferredAllocationResponse, error) {
 	var ret pluginapi.PreferredAllocationResponse
 	for _, creq := range req.ContainerRequests {
 		preferredDeviceIDs := getPreferredDeviceIDs(creq.AvailableDeviceIDs, creq.AllocationSize)
@@ -213,10 +231,62 @@ func (s *DevicePluginServer) GetPreferredAllocation(ctx context.Context, req *pl
 	return &ret, nil
 }
 
-func (s *DevicePluginServer) GetDevicePluginOptions(ctx context.Context, e *pluginapi.Empty) (*pluginapi.DevicePluginOptions, error) {
+func (s *GPUMemoryDPServer) GetDevicePluginOptions(ctx context.Context, e *pluginapi.Empty) (*pluginapi.DevicePluginOptions, error) {
 	return &pluginapi.DevicePluginOptions{
 		GetPreferredAllocationAvailable: true,
 	}, nil
+}
+
+// GPUComputeDPServer implements the device plugin server for GPU memory
+type GPUComputeDPServer struct {
+	pluginapi.UnimplementedDevicePluginServer
+	stop chan interface{}
+}
+
+func (s *GPUComputeDPServer) ListAndWatch(e *pluginapi.Empty, lws pluginapi.DevicePlugin_ListAndWatchServer) error {
+	devs := getDevices(compute)
+	lws.Send(&pluginapi.ListAndWatchResponse{Devices: devs})
+	<-s.stop
+	return nil
+}
+
+func (s *GPUComputeDPServer) Allocate(ctx context.Context, req *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
+	var resp pluginapi.AllocateResponse
+	for _, creq := range req.ContainerRequests {
+		var cresp pluginapi.ContainerAllocateResponse
+
+		computePerc := len(creq.DevicesIDs)
+		if computePerc > 100 {
+			computePerc = 100
+		}
+
+		cresp.Envs = map[string]string{
+			"ALNAIR_VGPU_COMPUTE_PERCENTILE": fmt.Sprintf("%d", computePerc),
+		}
+
+		resp.ContainerResponses = append(resp.ContainerResponses, &cresp)
+	}
+	return &resp, nil
+}
+
+func (s *GPUComputeDPServer) GetDevicePluginOptions(ctx context.Context, e *pluginapi.Empty) (*pluginapi.DevicePluginOptions, error) {
+	return &pluginapi.DevicePluginOptions{
+		GetPreferredAllocationAvailable: true,
+	}, nil
+}
+
+func (s *GPUComputeDPServer) GetPreferredAllocation(ctx context.Context, req *pluginapi.PreferredAllocationRequest) (*pluginapi.PreferredAllocationResponse, error) {
+	var ret pluginapi.PreferredAllocationResponse
+	for _, creq := range req.ContainerRequests {
+		preferredDeviceIDs := getPreferredDeviceIDs(creq.AvailableDeviceIDs, creq.AllocationSize)
+		ret.ContainerResponses = append(ret.ContainerResponses,
+			&pluginapi.ContainerPreferredAllocationResponse{
+				DeviceIDs: preferredDeviceIDs,
+			},
+		)
+	}
+
+	return &ret, nil
 }
 
 func getRealDeviceIDs(syntheticIDs []string) []string {
@@ -232,10 +302,34 @@ func getRealDeviceIDs(syntheticIDs []string) []string {
 }
 
 func getPreferredDeviceIDs(availableDeviceIDs []string, allocationSize int32) []string {
-	return availableDeviceIDs[0:allocationSize]
+	//preferred devices are all the vGPUs from the same physcial ones,
+	//sort the device ID and scan the prefix, make sure prefix are the same
+	sort.Strings(availableDeviceIDs) //sort DeviceID, so that return devices are likely to have the same prefix (phyical GPU ID)
+	startIdx := int32(0)
+	notFound := true
+	for notFound && (startIdx+allocationSize <= int32(len(availableDeviceIDs))) {
+		notFound = false
+		firstId := strings.SplitN(availableDeviceIDs[startIdx], "_", 2)[0]
+		var id string
+		for i := startIdx; i < startIdx+allocationSize; i++ {
+			id = strings.SplitN(availableDeviceIDs[i], "_", 2)[0]
+			if id != firstId {
+				log.Println("reach the corner, start from a new gpu")
+				startIdx = i //restart checking from the next physical card
+				notFound = true
+				break
+			}
+		}
+
+	}
+	if notFound { //just pick what we have, but this should not happen, scheduler is supposed to filter this node out
+		startIdx = 0
+		log.Println("warning: cannot find enough vGPU within one phyiscal GPU, assign mixed vGPUs", "available vGPU:", len(availableDeviceIDs), "request count:", allocationSize)
+	}
+	return availableDeviceIDs[startIdx : startIdx+allocationSize]
 }
 
-func getDevices() []*pluginapi.Device {
+func getDevices(t resourceType) []*pluginapi.Device {
 	n, err := nvml.GetDeviceCount()
 	if err != nil {
 		panic(err)
@@ -248,13 +342,34 @@ func getDevices() []*pluginapi.Device {
 			panic(err)
 		}
 
-		devs = append(devs, getPluginApiDevice(d)...)
+		if t == memory {
+			devs = append(devs, getPluginApiMemoryDevice(d)...)
+		} else {
+			devs = append(devs, getPluginApiComputeDevice(d)...)
+		}
 	}
 
 	return devs
 }
 
-func getPluginApiDevice(d *nvml.Device) []*pluginapi.Device {
+func GetPhysicalDeivces() (n uint, uuids []string, vDeviceSize []string) {
+	n, err := nvml.GetDeviceCount()
+	if err != nil {
+		panic(err)
+	}
+	for i := uint(0); i < n; i++ {
+		d, err := nvml.NewDevice(i)
+		if err != nil {
+			panic(err)
+		}
+		uuids = append(uuids, d.UUID)
+		vDevices := getPluginApiMemoryDevice(d)
+		vDeviceSize = append(vDeviceSize, fmt.Sprint(len(vDevices)))
+	}
+	return n, uuids, vDeviceSize
+}
+
+func getPluginApiMemoryDevice(d *nvml.Device) []*pluginapi.Device {
 	var ret []*pluginapi.Device
 	chunkSzInMiB := gpuMemoryChunkSize / 1024 / 1024
 	numChunks := (int(*d.Memory) + chunkSzInMiB/2) / chunkSzInMiB
@@ -269,6 +384,17 @@ func getPluginApiDevice(d *nvml.Device) []*pluginapi.Device {
 				},
 			}
 		}
+		ret = append(ret, &t)
+	}
+	return ret
+}
+
+func getPluginApiComputeDevice(d *nvml.Device) []*pluginapi.Device {
+	var ret []*pluginapi.Device
+	for i := 0; i < 100; i++ {
+		var t pluginapi.Device
+		t.ID = fmt.Sprintf("%s_%d", d.UUID, i)
+		t.Health = pluginapi.Healthy
 		ret = append(ret, &t)
 	}
 	return ret
