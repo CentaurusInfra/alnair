@@ -1,0 +1,15 @@
+apiVersion: kubescheduler.config.k8s.io/v1beta2
+kind: KubeSchedulerConfiguration
+clientConnection:
+  kubeconfig: "/etc/kubernetes/scheduler.conf"
+profiles:
+- schedulerName: default-scheduler
+  plugins:
+    filter:
+      enabled:
+      - name: vGPUScheduler
+    score:
+      enabled:
+      - name: vGPUScheduler
+      disabled:
+      - name: "*"
