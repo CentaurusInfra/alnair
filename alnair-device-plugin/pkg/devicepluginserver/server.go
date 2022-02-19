@@ -10,8 +10,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"encoding/json"
 
-    "kubelet/client"
 	"github.com/NVIDIA/gpu-monitoring-tools/bindings/go/nvml"
 	"google.golang.org/grpc"
 	utilrand "k8s.io/apimachinery/pkg/util/rand"
@@ -25,22 +25,12 @@ const (
 	alnairInterposeLibPath   = "/opt/alnair/libcuinterpose.so"
 )
 
-type DevicePluginServer struct {
-	pluginapi.UnimplementedDevicePluginServer
-	queryKubelet         bool
-	kubeletClient        *client.KubeletClient
-	server *grpc.Server
-	stop   chan interface{}
-}
+type resourceType int
 
-func NewDevicePluginServer() *DevicePluginServer {
-	return &DevicePluginServer{
-		queryKubelet:         queryKubelet,
-		kubeletClient:        client,
-		server: grpc.NewServer(),
-		stop:   make(chan interface{}),
-	}
-}
+const (
+	memory resourceType = iota
+	compute
+)
 
 func (s *DevicePluginServer) Start() error {
 	if err := nvml.Init(); err != nil {
@@ -120,6 +110,21 @@ func (s *DevicePluginServer) ListAndWatch(e *pluginapi.Empty, lws pluginapi.Devi
 
 func (s *DevicePluginServer) Allocate(ctx context.Context, req *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
 	var resp pluginapi.AllocateResponse
+	log.Infoln("----Allocating GPU for gpu mem is started----")
+
+	var (
+		podReqGPU uint
+		assumePod *v1.Pod
+	)
+    for _, creq := range req.ContainerRequests {
+		podReqGPU += uint(len(creq.DevicesIDs))
+	}
+	log.Infof("RequestPodGPUs: %d", podReqGPU)
+	s.Lock()
+	defer s.Unlock()
+	log.Infoln("checking...")
+	pods, err := getCandidatePods(s.queryKubelet, s.kubeletClient)
+
 	for _, creq := range req.ContainerRequests {
 		devIDs := getRealDeviceIDs(creq.DevicesIDs)
 
@@ -150,7 +155,48 @@ func (s *DevicePluginServer) Allocate(ctx context.Context, req *pluginapi.Alloca
 		}
 		resp.ContainerResponses = append(resp.ContainerResponses, &cresp)
 	}
+
+	patchedAnnotationBytes, err := patchPodAnnotationSpecAssigned()
+	_, err = clientset.CoreV1().Pods(assumePod.Namespace).Patch(assumePod.Name, types.StrategicMergePatchType, patchedAnnotationBytes)
+
+
 	return &resp, nil
+}
+
+func patchPodAnnotationSpecAssigned() ([]byte, error) {
+	now := time.Now()
+	patchAnnotations := map[string]interface{}{
+		"metadata": map[string]map[string]string{"annotations": {
+			EnvAssignedFlag:       "true",
+			EnvResourceAssumeTime: fmt.Sprintf("%d", now.UnixNano()),
+		}}}
+	return json.Marshal(patchAnnotations)
+}
+
+// pick up the gpushare pod with assigned status is false, and
+func getCandidatePods(queryKubelet bool, client *client.KubeletClient) ([]*v1.Pod, error) {
+	candidatePods := []*v1.Pod{}
+	allPods, err := getPendingPodsInNode(queryKubelet, client)
+	if err != nil {
+		return candidatePods, err
+	}
+	for _, pod := range allPods {
+		current := pod
+		if isGPUMemoryAssumedPod(&current) {
+			candidatePods = append(candidatePods, &current)
+		}
+	}
+
+	if log.V(4) {
+		for _, pod := range candidatePods {
+			log.Infof("candidate pod %s in ns %s with timestamp %d is found.",
+				pod.Name,
+				pod.Namespace,
+				getAssumeTimeFromPodAnnotation(pod))
+		}
+	}
+
+	return makePodOrderdByAge(candidatePods), nil
 }
 
 func (s *DevicePluginServer) GetPreferredAllocation(ctx context.Context, req *pluginapi.PreferredAllocationRequest) (*pluginapi.PreferredAllocationResponse, error) {
