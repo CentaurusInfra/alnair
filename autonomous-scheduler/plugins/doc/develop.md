@@ -36,7 +36,7 @@ By default debug information is stripped, to keep it in the binary you need to r
 ldflags in the Makefile.
 You can run all unit tests by **make unit-test** command or if you would like to run exact unit test
 ```shell
-GOFLAGS="-v" go test ./pkg/utils/podgroup.go ./pkg/utils/constants.go ./pkg/utils/podgroup_test.go
+GOFLAGS="-v" go test ./pkg/util/podgroup.go ./pkg/util/constants.go ./pkg/util/podgroup_test.go
 ```
 -v in GOFLAGS was used for verbosity
 You can also run integration test locally, but etcd port 2379 on your system should be free.
