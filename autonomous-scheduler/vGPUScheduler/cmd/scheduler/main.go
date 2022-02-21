@@ -6,9 +6,9 @@ import (
 	"os"
 	"time"
 
-	"vGPUScheduler/pkg/vGPUScheduler"
 	"k8s.io/component-base/logs"
 	"k8s.io/kubernetes/cmd/kube-scheduler/app"
+	"vGPUScheduler/pkg/vGPUScheduler"
 
 	_ "sigs.k8s.io/scheduler-plugins/pkg/apis/config/scheme"
 )

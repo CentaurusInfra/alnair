@@ -1,61 +1,61 @@
 package utils
 
 import (
+	v1 "k8s.io/api/core/v1"
 	"log"
 	"strconv"
-    "strings"
-	v1 "k8s.io/api/core/v1"
+	"strings"
 )
 
 // NodeInfos is node level aggregated information.
 type NodeInfos struct {
-	name           string
-	node           *v1.Node
-	devs           map[int]*DeviceInfos
- 	gpuCount       int
-// 	gpuTotalMemory int
+	name     string
+	node     *v1.Node
+	devs     map[int]*DeviceInfos
+	gpuCount int
+	// 	gpuTotalMemory int
 }
 
 // get Physical gpuCount from node annotation
 func GetPhysicalGPUCountFromNodeAnno(node *v1.Node) int {
-    val := -1
+	val := -1
 
-    if len(node.ObjectMeta.Annotations) > 0 {
-        vet, found := node.ObjectMeta.Annotations["ai.centaurus.io/physical-gpu-count"]
-        if found {
-            var err error
+	if len(node.ObjectMeta.Annotations) > 0 {
+		vet, found := node.ObjectMeta.Annotations["ai.centaurus.io/physical-gpu-count"]
+		if found {
+			var err error
 			val, err = strconv.Atoi(vet)
 			if err != nil {
 				log.Printf("warn: Failed obtain node annotation due to %v for node %s", err, node.Name)
 				val = -1
 			}
-        }
-    }
-    return val
+		}
+	}
+	return val
 }
 
 func GetVirtualGPUCountFromNodeAnno(node *v1.Node) int {
-    val := -1
-    if len(node.ObjectMeta.Annotations) > 0 {
-        vet, found := node.ObjectMeta.Annotations["ai.centaurus.io/virtual-gpu-count"]
-        vGPU_count := strings.Split(vet,",")
-        if found {
-            var err error
-            val, err = strconv.Atoi(vGPU_count[0])
-            if err != nil {
-	            log.Printf("warn: Failed obtain node annotation due to %v for node %s", err, node.Name)
-			    val = -1
+	val := -1
+	if len(node.ObjectMeta.Annotations) > 0 {
+		vet, found := node.ObjectMeta.Annotations["ai.centaurus.io/virtual-gpu-count"]
+		vGPU_count := strings.Split(vet, ",")
+		if found {
+			var err error
+			val, err = strconv.Atoi(vGPU_count[0])
+			if err != nil {
+				log.Printf("warn: Failed obtain node annotation due to %v for node %s", err, node.Name)
+				val = -1
 			}
-        }
-    }
-    return val
+		}
+	}
+	return val
 }
 
 func NewNodeInfos(node *v1.Node) *NodeInfos {
-    gpuCount := GetPhysicalGPUCountFromNodeAnno(node)
-    if gpuCount == -1 {
-        log.Printf("debug: cannot get Physical GPU count from node annotation")
-    }
+	gpuCount := GetPhysicalGPUCountFromNodeAnno(node)
+	if gpuCount == -1 {
+		log.Printf("debug: cannot get Physical GPU count from node annotation")
+	}
 
 	log.Printf("debug: NewNodeInfos() creates nodeInfos for %s", node.Name)
 	devMap := map[int]*DeviceInfos{}
@@ -70,11 +70,11 @@ func NewNodeInfos(node *v1.Node) *NodeInfos {
 	}
 
 	return &NodeInfos{
-		name:           node.Name,
-		node:           node,
-		devs:           devMap,
- 		gpuCount:       gpuCount,
-// 		gpuTotalMemory: GetTotalGPUMemory(node),
+		name:     node.Name,
+		node:     node,
+		devs:     devMap,
+		gpuCount: gpuCount,
+		// 		gpuTotalMemory: GetTotalGPUMemory(node),
 	}
 }
 
@@ -108,8 +108,6 @@ func (n *NodeInfos) getUsedGPUs() (usedGPUs map[int]uint) {
 	log.Printf("info: getUsedGPUs: %v in node %s, and devs %v", usedGPUs, n.name, n.devs)
 	return usedGPUs
 }
-
-
 
 func (n *NodeInfos) getAvailableGPUs() (availableGPUs map[int]uint) {
 	allGPUs := n.getAllGPUs()
@@ -160,16 +158,15 @@ func (n *NodeInfos) Assume(pod *v1.Pod) (allocatable bool) {
 
 }
 
-
 // get assumed timestamp from the pod
 func getAssumeTimeFromPodAnnotation(pod *v1.Pod) (assumeTime uint64) {
-    if assumeTimeStr, ok := pod.ObjectMeta.Annotations["scheduler-timestamp"]; ok {
-        u64, err := strconv.ParseUint(assumeTimeStr, 10, 64)
-        if err != nil {
-            log.Printf("Failed to parse assume Timestamp %s due to %v", assumeTimeStr, err)
-        } else {
-            assumeTime = u64
-        }
-    }
-    return assumeTime
+	if assumeTimeStr, ok := pod.ObjectMeta.Annotations["scheduler-timestamp"]; ok {
+		u64, err := strconv.ParseUint(assumeTimeStr, 10, 64)
+		if err != nil {
+			log.Printf("Failed to parse assume Timestamp %s due to %v", assumeTimeStr, err)
+		} else {
+			assumeTime = u64
+		}
+	}
+	return assumeTime
 }

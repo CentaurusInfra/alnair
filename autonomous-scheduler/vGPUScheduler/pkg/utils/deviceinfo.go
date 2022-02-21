@@ -1,11 +1,11 @@
 package utils
 
 import (
-	"log"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-    "strings"
-    "sort"
+	"log"
+	"sort"
+	"strings"
 )
 
 // DeviceInfos is pod level aggregated information
@@ -13,7 +13,7 @@ import (
 type DeviceInfos struct {
 	idx    int
 	podMap map[types.UID]*v1.Pod
-// 	usedGPUMem  uint
+	// 	usedGPUMem  uint
 	totalGPUMem uint
 }
 
@@ -25,17 +25,15 @@ func NewDeviceInfos(index int, totalGPUMem uint) *DeviceInfos {
 	}
 }
 
-
-
 func (d *DeviceInfos) GetUsedGPUMemory() (gpuMem uint) {
 	log.Printf("debug: GetUsedGPUMemory() podMap %v, and its address is %p", d.podMap, d)
-// 	d.rwmu.RLock()
-// 	defer d.rwmu.RUnlock()
+	// 	d.rwmu.RLock()
+	// 	defer d.rwmu.RUnlock()
 	for _, pod := range d.podMap {
-		if pod.Status.Phase == v1.PodRunning || pod.Status.Phase == v1.PodPending{
+		if pod.Status.Phase == v1.PodRunning || pod.Status.Phase == v1.PodPending {
 			log.Printf("debug: the pod %s in ns %s is counted as used due to its status in %s", pod.Name, pod.Namespace, pod.Status.Phase)
 			gpuMem += GetGPUMemoryFromPodAnnotation(pod)
-	    }
+		}
 	}
 	return gpuMem
 }
@@ -57,7 +55,7 @@ func (d *DeviceInfos) GetUsedGPUMemory() (gpuMem uint) {
 func GetGPUMemoryFromPodAnnotation(pod *v1.Pod) (gpuMemory uint) {
 	if len(pod.ObjectMeta.Annotations) > 0 {
 		vet, found := pod.ObjectMeta.Annotations["ai.centaurus.io/alnair-gpu-id"]
-		vGPU_ID := strings.Split(vet,",")
+		vGPU_ID := strings.Split(vet, ",")
 		idx := GetvGPUIDX(vGPU_ID)
 		if found {
 			s := len(idx)
@@ -81,7 +79,7 @@ func GetvGPUIDX(vGPU_ID []string) []string {
 	sort.Strings(vGPU_ID)
 	for _, sid := range vGPU_ID {
 		id := strings.SplitN(sid, "_", 2)[1]
-		if len(ret) == 0 || id != ret[len(ret)-1]{
+		if len(ret) == 0 || id != ret[len(ret)-1] {
 			ret = append(ret, id)
 		}
 	}
