@@ -45,7 +45,7 @@ def add_pod_info_to_crd(api, crd_api, pod_name, namespace, ann, node_name):
     """1)get pod's owner by ownereference, 2)patch pod info to owner's annotation for persistent record, 
     sinces pods often got deleted after *job is done
     assume owner is crd, not native k8s object for now, since different api group will be used
-    save the max utilization only for now, only patch if current utils is greater than the existing annotations
+    save the max utilization only for now, only patch if current util is greater than the existing annotations
     """
     # 1) get owner reference 
     owner_kind, owner_name, owner_group, owner_version = "","","",""
@@ -255,7 +255,7 @@ def profiling(api, url, pod_ip, node_name, ana_window='2m', metrics=MEM_UTIL):
         cur_usage = collect_gpu_usage_nvml(int(id)) # nvml access GPU usage
         # ip = item.label_config['instance']
         key = DOMAIN + "/gpu-" + id
-        # analyze mem utils curve
+        # analyze mem util curve
         ts = item.metric_values.iloc[:, 1]  # metrics_values are two row df, 1st is timestamp, 2nd is value
         cur_usage['cyclic_pattern'] = False
         if ts.max() > 0:
@@ -272,7 +272,7 @@ def profiling(api, url, pod_ip, node_name, ana_window='2m', metrics=MEM_UTIL):
                                               end_time=end_time)
         gpu_util_list = MetricsList(gpu_util_data)
         if len(gpu_util_list) != 1:
-            logging.error("gpu utils data read error, expect len {}, not equal to 1".format(len(gpu_util_list)))
+            logging.error("gpu util data read error, expect len {}, not equal to 1".format(len(gpu_util_list)))
         else:
             gpu_util_ts = gpu_util_list[0].metric_values.iloc[:, 1]
             cur_usage['max_gpu_util'] = gpu_util_ts.max()
