@@ -15,6 +15,9 @@ After the registration and remaining initializations, the CUDA driver API calls 
 
 ## Quick Start
 
+### Prerequisites
+* Build needs to be done on a GPU node.
+* The Nvidia driver and CUDA toolkit must be installed first.
 
 ### Steps
 
