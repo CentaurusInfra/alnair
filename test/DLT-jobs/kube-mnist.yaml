@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: kube-mnist
+spec:
+  containers:
+  - name: centaurusinfra
+    image: centaurusinfra/tensorflow:nightly-gpu-jupyter-tfds-profiler
+    workingDir: /root/test
+    command: ["sh", "-c", "cd /root/test; python mnist.py"]
+    volumeMounts:
+      - name: bin
+        mountPath: /root/test
+  volumes:
+    - name: bin
+      hostPath:
+         path: /nfs_3/tf_records/ml_tests/kubeshare
+  restartPolicy: OnFailure
