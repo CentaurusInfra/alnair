@@ -4,6 +4,7 @@ from pymongo import MongoClient
 from datetime import datetime
 import pytz
 import logging
+from nvml_gpu_watch import get_pod_gpu_metrics
 
 def get_pod_records(pod_name, start_time, end_time, url):
     prom = PrometheusConnect(url=url, disable_ssl=True)
@@ -69,7 +70,8 @@ def get_pod_records(pod_name, start_time, end_time, url):
     if (len(network_metric_data) != 0): 
         network_data = network_metric_data[0]["values"]
         if (len(network_data) < 9) :
-            network_info = network_data.copy()
+            for i in range(len(network_data)):
+                network_info.append(network_data[i][1])
         else :
             len_network_data = len(network_data)
             interval_network_data = len_network_data / 9
@@ -83,22 +85,23 @@ def get_pod_records(pod_name, start_time, end_time, url):
     if (len(io_metric_data) != 0):
         for i in range(len(io_metric_data)):
             io_data = io_metric_data[i]["values"]
-            if (len(io_info) < 9) :
-                io_info = io_info.copy()
+            if (len(io_data) < 9) :
+                for j in range(len(io_data)):
+                    io_info.append(io_data[j][1])
             else :  
                 len_io_data = len(io_data)
                 interval_io_data = len_io_data / 9
-                i = 0
-                while i < len_io_data:
-                    io_info.append(io_data[(int) (i)][1])
-                    i = i + interval_io_data
+                k = 0
+                while k < len_io_data:
+                    io_info.append(io_data[(int) (k)][1])
+                    k = k + interval_io_data
                 io_info.append(io_data[len_io_data - 1][1])
         all_metrics["io_usage"] = io_info
 
     return all_metrics
 
 
-def update_job_metrics_to_db(crd_api, batch_api, mongo_url, client_connect, prom_url) :
+def update_job_metrics_to_db(crd_api, batch_api, mongo_url, client_connect, prom_url, gpu_instance) :
     logging.basicConfig(format='%(asctime)s [%(levelname)s]: %(message)s',level=logging.INFO)
 
     # Force a call to check if current connection is valid
@@ -110,6 +113,13 @@ def update_job_metrics_to_db(crd_api, batch_api, mongo_url, client_connect, prom
 
     db = client_connect['alnair']
     col = db['collection1']
+
+    # Get GPU metrics, assign to pod later
+    pod_gpu_metrics = {}
+    try:
+        pod_gpu_metrics = get_pod_gpu_metrics(gpu_instance, "1d", "now", prom_url)
+    except Exception as e:
+        logging.warning("Failed to get GPU metrics")
 
     # Get Mpijob metrics
     ret = crd_api.list_cluster_custom_object(group="kubeflow.org", version="v1", plural="mpijobs")
@@ -138,7 +148,6 @@ def update_job_metrics_to_db(crd_api, batch_api, mongo_url, client_connect, prom
                 col.delete_one({job_key : {"$exists": True}})
         except Exception as e:
             logging.warning(e)
-
 
         # Check status, completion time and duration
         if (item["status"]["conditions"] is not None):
@@ -178,18 +187,30 @@ def update_job_metrics_to_db(crd_api, batch_api, mongo_url, client_connect, prom
             for key in keys:
                 if (key[:15] == "ai.centaurus.io"):
                     pod_name = key[16:]
+                    pod_metric = {}
                     # If job has not completed, then retrieve pod metrics from start_time to current timestamp;
                     # Otherwise, retrieve pod metrics from start_time to complete_time
                     try:
                         if ("completionTime" not in item["status"]):
                             pod_metric = get_pod_records(pod_name, start_time, datetime.now(tz=pytz.utc), prom_url)
-                            pod_metrics[pod_name] = pod_metric
                         else:
                             completion_time = item["status"]["completionTime"]
                             pod_metric = get_pod_records(pod_name, start_time, completion_time, prom_url)
-                            pod_metrics[pod_name] = pod_metric
                     except Exception as e:
                         logging.warning("Failed to get metrics from pod {}".format(pod_name))
+
+                    if pod_name in pod_gpu_metrics.keys():
+                        index_util = 0
+                        while index_util < len(pod_gpu_metrics[pod_name]["gpu_util"]) and pod_gpu_metrics[pod_name]["gpu_util"][index_util] == "0":
+                            index_util += 1
+                        pod_metric["gpu_util"] = pod_gpu_metrics[pod_name]["gpu_util"][index_util:]
+
+                        index_mem = 0
+                        while index_mem < len(pod_gpu_metrics[pod_name]["gmem"]) and pod_gpu_metrics[pod_name]["gmem"][index_mem] == "0":
+                            index_mem += 1
+                        pod_metric["gmem"] = pod_gpu_metrics[pod_name]["gmem"][index_mem:]
+                    pod_metrics[pod_name] = pod_metric
+
 
             job_metric["pod_count"] = len(pod_metrics)
             job_metric["pod_metrics"] = pod_metrics
@@ -244,6 +265,7 @@ def update_job_metrics_to_db(crd_api, batch_api, mongo_url, client_connect, prom
             minutes = (seconds % 3600) // 60
             seconds = seconds % 60 
             job_metric["duration"] = str(days) + " days, " + str(hours) + " hours, " + str(minutes) + " minutes, " + str(seconds) + " seconds"
+            
         elif (item.status.conditions is not None):
             for condition in item.status.conditions:
                 if (condition.type == "Failed") :
@@ -260,7 +282,7 @@ def update_job_metrics_to_db(crd_api, batch_api, mongo_url, client_connect, prom
                     minutes = (seconds % 3600) // 60
                     seconds = seconds % 60
                     job_metric["duration"] = str(days) + " days, " + str(hours) + " hours, " + str(minutes) + " minutes, " + str(seconds) + " seconds"
-            
+
         # Get pod metrics
         pod_metrics = {}
         if (item.metadata.annotations is not None):
@@ -269,18 +291,32 @@ def update_job_metrics_to_db(crd_api, batch_api, mongo_url, client_connect, prom
             for key in keys:
                 if (key[:15] == "ai.centaurus.io"):
                     pod_name = key[16:]
+                    pod_metric = {}
                     # If job has not completed, then retrieve pod metrics from start_time to current timestamp;
                     # Otherwise, retrieve pod metrics from start_time to complete_time
                     try:
                         if (item.status.completion_time is None):
                             pod_metric = get_pod_records(pod_name, start_time, datetime.now(tz=pytz.utc), prom_url)
-                            pod_metrics[pod_name] = pod_metric
                         else:
                             completion_time = item.status.completion_time
                             pod_metric = get_pod_records(pod_name, start_time, completion_time, prom_url)
-                            pod_metrics[pod_name] = pod_metric
                     except Exception as e:
                         logging.warning("Failed to get metrics from pod {}".format(pod_name))
+
+                    if pod_name in pod_gpu_metrics.keys():
+                        index_util = 0
+                        while index_util < len(pod_gpu_metrics[pod_name]["gpu_util"]) and pod_gpu_metrics[pod_name]["gpu_util"][index_util] == "0":
+                            index_util += 1
+                        pod_metric["gpu_util"] = pod_gpu_metrics[pod_name]["gpu_util"][index_util:]
+                        # pod_metric["gpu_util"] = pod_gpu_metrics[pod_name]["gpu_util"]
+
+                        index_mem = 0
+                        while index_mem < len(pod_gpu_metrics[pod_name]["gmem"]) and pod_gpu_metrics[pod_name]["gmem"][index_mem] == "0":
+                            index_mem += 1
+                        pod_metric["gmem"] = pod_gpu_metrics[pod_name]["gmem"][index_mem:]
+                        # pod_metric["gmem"] = pod_gpu_metrics[pod_name]["gmem"]
+                    
+                    pod_metrics[pod_name] = pod_metric
 
             job_metric["pod_count"] = len(pod_metrics)
             job_metric["pod_metrics"] = pod_metrics
