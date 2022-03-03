@@ -6,5 +6,6 @@ spec:
   containers:
   - name: tf-mnist-1gpu
     image: centaurusinfra/tf-onegpu-mnist:latest
-    workingDir: /root/test
+    workingDir: /tmp/test
+    command: ["sh", "-c", "python3 mnist.py"]
   restartPolicy: OnFailure
