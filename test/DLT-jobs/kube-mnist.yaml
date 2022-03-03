@@ -4,15 +4,7 @@ metadata:
   name: kube-mnist
 spec:
   containers:
-  - name: centaurusinfra
-    image: centaurusinfra/tensorflow:nightly-gpu-jupyter-tfds-profiler
+  - name: tf-mnist-1gpu
+    image: centaurusinfra/tf-onegpu-mnist:latest
     workingDir: /root/test
-    command: ["sh", "-c", "cd /root/test; python mnist.py"]
-    volumeMounts:
-      - name: bin
-        mountPath: /root/test
-  volumes:
-    - name: bin
-      hostPath:
-         path: /nfs_3/tf_records/ml_tests/kubeshare
   restartPolicy: OnFailure
