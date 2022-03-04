@@ -18,9 +18,10 @@ Detailed cluster installation guide can be refered [here](https://github.com/Cen
 
 ### 2. Install profiler
 
-To use profiler in a Kubernetes cluster, only two yaml files [prometheus-complete.yaml](https://github.com/CentaurusInfra/alnair/blob/main/profiling/prometheus-service/prometheus-complete.yaml), [profiler-dcgm-daemonset.yaml](https://github.com/CentaurusInfra/alnair/blob/main/profiling/profiler/profiler-dcgm-daemonset.yaml) need to be applied.
+To use profiler in a Kubernetes cluster, we install 3 yaml files: [prometheus-complete.yaml](https://github.com/CentaurusInfra/alnair/blob/main/profiling/prometheus-service/prometheus-complete.yaml) for collecting metrics, [mongo.yaml](https://raw.githubusercontent.com/CentaurusInfra/alnair/main/profiling/mongo.yaml) for storing the aggregated job execution results, and [profiler-dcgm-daemonset.yaml](https://github.com/CentaurusInfra/alnair/blob/main/profiling/profiler/profiler-dcgm-daemonset.yaml).
 1. Install prometheus service with ```kubectl apply -f https://raw.githubusercontent.com/CentaurusInfra/alnair/main/profiling/prometheus-complete.yaml```
-2. Install profiler daemon set with ```kubectl apply -f https://raw.githubusercontent.com/CentaurusInfra/alnair/main/profiling/profiler-dcgm-daemonset.yaml```
+2. Install mongo DB service with ```kubectl apply -f https://raw.githubusercontent.com/CentaurusInfra/alnair/main/profiling/mongo.yaml```
+3. Install profiler daemon set with ```kubectl apply -f https://raw.githubusercontent.com/CentaurusInfra/alnair/main/profiling/profiler-dcgm-daemonset.yaml```
 
 **Note**: Install the prometheus service first, since profiler needs to connect to Prometheus server and read metrics data.
 
