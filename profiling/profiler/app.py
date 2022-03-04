@@ -17,6 +17,7 @@ import pymongo
 from datetime import datetime
 import pytz
 from metadata_store import update_job_metrics_to_db
+import util
 
 MEM_UTIL = "DCGM_FI_DEV_MEM_COPY_UTIL"
 GPU_UTIL = "DCGM_FI_DEV_GPU_UTIL"
@@ -384,8 +385,8 @@ def app_top():
         gpu_attributes, err = collect_gpu_attributes() 
     patch_annotation(core_api, env_var['node_name'], gpu_attributes)
     logging.info("Init add gpu static attributes \n{}".format(gpu_attributes))                 
-    # remove pod annotations from ai.centaurus.io,
-    remove_annotation(core_api, env_var['node_name'])
+    # remove pod annotations from ai.centaurus.io, may need to add subdomain, only remove profier's ann, scheduler also has ann, turn off now
+    #remove_annotation(core_api, env_var['node_name'])
 
     # 3) infinit loop to monitor resource utilization and annonates to node, pod, and crds 
     # keep current annotatations, if no changes, no patch sent               
@@ -397,11 +398,13 @@ def app_top():
         # update node annotation if changes detected
         if node_ann_new != node_ann_cur:
             patch_annotation(core_api, env_var['node_name'], node_ann_new)
-            logging.info("Node change detected, update node's GPU utilization")
+            changes = util.dict_changes(node_ann_cur, node_ann_new)
+            logging.info("Node change detected, update node's GPU utilization. " + changes)
             node_ann_cur = node_ann_new
         # update pod annotation
         if pods_ann_new != pods_ann_cur:
-            logging.info("Pod change deteacted, update pods GPU utilization")
+            chagnes = util.dict_changes(pods_ann_cur, pods_ann_new)
+            logging.info("Pod change detected, update pods GPU utilization. " + changes)
             for name_ns, values in pods_ann_new.items(): # iterate all the pods needs to be annotated
                 pod_name, namespace = name_ns.split(":")
                 patch_annotation(core_api, pod_name, values, namespace, env_var['node_name'], crd_api) # patch pod and patch owner crd

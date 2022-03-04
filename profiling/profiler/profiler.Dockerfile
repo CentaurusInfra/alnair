@@ -14,4 +14,5 @@ WORKDIR /app
 COPY ./app.py .
 COPY ./metadata_store.py .
 COPY ./nvml_gpu_watch.py .
+COPY ./util.py .
 CMD ["bash", "-c", "python3 app.py"]

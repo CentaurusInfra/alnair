@@ -119,109 +119,115 @@ def update_job_metrics_to_db(crd_api, batch_api, mongo_url, client_connect, prom
     try:
         pod_gpu_metrics = get_pod_gpu_metrics(gpu_instance, "1d", "now", prom_url)
     except Exception as e:
-        logging.warning("Failed to get GPU metrics")
+        pass
+        #logging.warning("Failed to get GPU metrics")
 
     # Get Mpijob metrics
-    ret = crd_api.list_cluster_custom_object(group="kubeflow.org", version="v1", plural="mpijobs")
-    for item in ret["items"]:
-        all_metrics = {}
-        job_metric = {}
+    ret = None
+    try: # if the queried crd is not installed in the cluster, the list function cause exceptions
+        ret = crd_api.list_cluster_custom_object(group="kubeflow.org", version="v1", plural="mpijobs")
+    except Exception as e:
+        logging.info("no mpijobs crd installed in cluster")
+    if ret is not None: 
+        for item in ret["items"]:
+            all_metrics = {}
+            job_metric = {}
 
-        job_name = item["metadata"]["name"]
+            job_name = item["metadata"]["name"]
 
-        # Check job's start_time
-        start_time = ""
-        if (item["metadata"]["creationTimestamp"] is not None):
-            start_time = item["metadata"]["creationTimestamp"]
-            job_metric["start_time"] = start_time
-        
-        # Use [job_name + "_" + start_time] as the unique identifier for a job
-        job_key = job_name + "_" + start_time
+            # Check job's start_time
+            start_time = ""
+            if (item["metadata"]["creationTimestamp"] is not None):
+                start_time = item["metadata"]["creationTimestamp"]
+                job_metric["start_time"] = start_time
+            
+            # Use [job_name + "_" + start_time] as the unique identifier for a job
+            job_key = job_name + "_" + start_time
 
-        job_kind = item["kind"]
-        job_metric["kind"] = job_kind
+            job_kind = item["kind"]
+            job_metric["kind"] = job_kind
 
-        # Check if job_key currently exists in the database collection
-        # If True, delete the existing job_key data, and update with new data
-        try:
-            if (col.count_documents({job_key: {"$exists": True}}) > 0):
-                col.delete_one({job_key : {"$exists": True}})
-        except Exception as e:
-            logging.warning(e)
+            # Check if job_key currently exists in the database collection
+            # If True, delete the existing job_key data, and update with new data
+            try:
+                if (col.count_documents({job_key: {"$exists": True}}) > 0):
+                    col.delete_one({job_key : {"$exists": True}})
+            except Exception as e:
+                logging.warning(e)
 
-        # Check status, completion time and duration
-        if (item["status"]["conditions"] is not None):
-            failed = False
-            for condition in item["status"]["conditions"]:
-                if (condition["type"] == "Failed") :
-                    job_metric["status"] = "Failed"
-                    failed = True
-            if not failed:
-                if ("completionTime" not in item["status"]):
-                    job_metric["status"] = "Running" 
+            # Check status, completion time and duration
+            if (item["status"]["conditions"] is not None):
+                failed = False
+                for condition in item["status"]["conditions"]:
+                    if (condition["type"] == "Failed") :
+                        job_metric["status"] = "Failed"
+                        failed = True
+                if not failed:
+                    if ("completionTime" not in item["status"]):
+                        job_metric["status"] = "Running" 
 
-                    duration = datetime.now(tz=pytz.utc) - parse_datetime(start_time)
+                        duration = datetime.now(tz=pytz.utc) - parse_datetime(start_time)
 
-                    days, seconds = duration.days, duration.seconds
-                    hours = seconds // 3600
-                    minutes = (seconds % 3600) // 60
-                    seconds = seconds % 60 
-                    job_metric["duration"] = str(days) + " days, " + str(hours) + " hours, " + str(minutes) + " minutes, " + str(seconds) + " seconds"
-                else:
-                    job_metric["status"] = "Completed"
-                    completion_time = item["status"]["completionTime"]
-                    job_metric["completion_time"] = completion_time
+                        days, seconds = duration.days, duration.seconds
+                        hours = seconds // 3600
+                        minutes = (seconds % 3600) // 60
+                        seconds = seconds % 60 
+                        job_metric["duration"] = str(days) + " days, " + str(hours) + " hours, " + str(minutes) + " minutes, " + str(seconds) + " seconds"
+                    else:
+                        job_metric["status"] = "Completed"
+                        completion_time = item["status"]["completionTime"]
+                        job_metric["completion_time"] = completion_time
 
-                    duration = parse_datetime(completion_time) - parse_datetime(start_time)
-                            
-                    days, seconds = duration.days, duration.seconds
-                    hours = seconds // 3600
-                    minutes = (seconds % 3600) // 60
-                    seconds = seconds % 60
-                    job_metric["duration"] = str(days) + " days, " + str(hours) + " hours, " + str(minutes) + " minutes, " + str(seconds) + " seconds"
+                        duration = parse_datetime(completion_time) - parse_datetime(start_time)
+                                
+                        days, seconds = duration.days, duration.seconds
+                        hours = seconds // 3600
+                        minutes = (seconds % 3600) // 60
+                        seconds = seconds % 60
+                        job_metric["duration"] = str(days) + " days, " + str(hours) + " hours, " + str(minutes) + " minutes, " + str(seconds) + " seconds"
 
-        # Get pod metrics
-        pod_metrics = {}
-        if (item["metadata"]["annotations"] is not None):
-            keys = item["metadata"]["annotations"].keys()
-            for key in keys:
-                if (key[:15] == "ai.centaurus.io"):
-                    pod_name = key[16:]
-                    pod_metric = {}
-                    # If job has not completed, then retrieve pod metrics from start_time to current timestamp;
-                    # Otherwise, retrieve pod metrics from start_time to complete_time
-                    try:
-                        if ("completionTime" not in item["status"]):
-                            pod_metric = get_pod_records(pod_name, start_time, datetime.now(tz=pytz.utc), prom_url)
-                        else:
-                            completion_time = item["status"]["completionTime"]
-                            pod_metric = get_pod_records(pod_name, start_time, completion_time, prom_url)
-                    except Exception as e:
-                        logging.warning("Failed to get metrics from pod {}".format(pod_name))
+            # Get pod metrics
+            pod_metrics = {}
+            if (item["metadata"]["annotations"] is not None):
+                keys = item["metadata"]["annotations"].keys()
+                for key in keys:
+                    if (key[:15] == "ai.centaurus.io"):
+                        pod_name = key[16:]
+                        pod_metric = {}
+                        # If job has not completed, then retrieve pod metrics from start_time to current timestamp;
+                        # Otherwise, retrieve pod metrics from start_time to complete_time
+                        try:
+                            if ("completionTime" not in item["status"]):
+                                pod_metric = get_pod_records(pod_name, start_time, datetime.now(tz=pytz.utc), prom_url)
+                            else:
+                                completion_time = item["status"]["completionTime"]
+                                pod_metric = get_pod_records(pod_name, start_time, completion_time, prom_url)
+                        except Exception as e:
+                            logging.warning("Failed to get metrics from pod {}".format(pod_name))
 
-                    if pod_name in pod_gpu_metrics.keys():
-                        index_util = 0
-                        while index_util < len(pod_gpu_metrics[pod_name]["gpu_util"]) and pod_gpu_metrics[pod_name]["gpu_util"][index_util] == "0":
-                            index_util += 1
-                        pod_metric["gpu_util"] = pod_gpu_metrics[pod_name]["gpu_util"][index_util:]
+                        if pod_name in pod_gpu_metrics.keys():
+                            index_util = 0
+                            while index_util < len(pod_gpu_metrics[pod_name]["gpu_util"]) and pod_gpu_metrics[pod_name]["gpu_util"][index_util] == "0":
+                                index_util += 1
+                            pod_metric["gpu_util"] = pod_gpu_metrics[pod_name]["gpu_util"][index_util:]
 
-                        index_mem = 0
-                        while index_mem < len(pod_gpu_metrics[pod_name]["gmem"]) and pod_gpu_metrics[pod_name]["gmem"][index_mem] == "0":
-                            index_mem += 1
-                        pod_metric["gmem"] = pod_gpu_metrics[pod_name]["gmem"][index_mem:]
-                    pod_metrics[pod_name] = pod_metric
+                            index_mem = 0
+                            while index_mem < len(pod_gpu_metrics[pod_name]["gmem"]) and pod_gpu_metrics[pod_name]["gmem"][index_mem] == "0":
+                                index_mem += 1
+                            pod_metric["gmem"] = pod_gpu_metrics[pod_name]["gmem"][index_mem:]
+                        pod_metrics[pod_name] = pod_metric
 
 
-            job_metric["pod_count"] = len(pod_metrics)
-            job_metric["pod_metrics"] = pod_metrics
+                job_metric["pod_count"] = len(pod_metrics)
+                job_metric["pod_metrics"] = pod_metrics
 
-        # Store [job_key, job_metric] into database collection
-        all_metrics[job_key] = job_metric
+            # Store [job_key, job_metric] into database collection
+            all_metrics[job_key] = job_metric
 
-        try:
-            x = col.insert_one(all_metrics)
-        except Exception as e:
-            logging.warning(e)
+            try:
+                x = col.insert_one(all_metrics)
+            except Exception as e:
+                logging.warning(e)
         
 
     # Get Batch job metrics
