@@ -11,3 +11,4 @@ spec:
       #    alnair/vgpu-memory: 2
       #    alnair/vgpu-compute: 50 
       command: ["python", "/examples/tensorflow2_mnist.py"]
+  restartPolicy: OnFailure
