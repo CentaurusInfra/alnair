@@ -14,12 +14,13 @@ RUN mkdir /alnair-device-plugin
 WORKDIR /alnair-device-plugin
 COPY . .
 RUN go build -o /bin/alnair-device-plugin cmd/alnair-device-plugin/main.go
-
+RUN go build -o /bin/alnair-vgpu-server cmd/vgpu-server/main.go
 
 FROM debian:stretch-slim
 
 ENV NVIDIA_VISIBLE_DEVICES=all
 ENV NVIDIA_DRIVER_CAPABILITIES=utility
 COPY --from=build /bin/alnair-device-plugin /bin/alnair-device-plugin
+COPY --from=build /bin/alnair-vgpu-server /bin/alnair-vgpu-server
 WORKDIR /bin
 CMD ["alnair-device-plugin"]

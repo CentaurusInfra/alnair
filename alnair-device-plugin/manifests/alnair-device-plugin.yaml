@@ -15,7 +15,8 @@ spec:
       serviceAccountName: alnair-device-plugin
       containers:
         - name: alnair-device-plugin
-          image: centaurusinfra/alnair-device-plugin:ann
+          image: centaurusinfra/alnair-device-plugin:0.3.0
+          command: ["alnair-device-plugin"]
           #command: ["/bin/sh", "-c", "sleep infinity"]
           imagePullPolicy: Always
           env:
@@ -26,10 +27,32 @@ spec:
           volumeMounts:
           - name: device-plugin
             mountPath: /var/lib/kubelet/device-plugins
+        - name: alnair-vgpu-server
+          image: centaurusinfra/alnair-device-plugin:0.3.0
+          command: ["alnair-vgpu-server"]
+          imagePullPolicy: Always
+          securityContext:
+            privileged: true
+          volumeMounts:
+          - name: sockets
+            mountPath: /run
+          - name: cgroup
+            mountPath: /sys/fs/cgroup/ 
+          - name: workspace
+            mountPath: /var/lib/alnair/
       volumes:
       - name: device-plugin
         hostPath:
           path: /var/lib/kubelet/device-plugins
+      - name: sockets
+        hostPath:
+          path: /run
+      - name: cgroup
+        hostPath:
+          path: /sys/fs/cgroup/
+      - name: workspace
+        hostPath:
+          path: /var/lib/alnair/
 ---
 apiVersion: v1
 kind: ServiceAccount
