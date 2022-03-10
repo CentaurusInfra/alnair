@@ -1,5 +1,5 @@
 #use ubuntu as build image, golang alpine cause symbol not found, binary cannot executed
-FROM ubuntu:20.04 as build
+FROM nvidia/cuda:11.4.2-devel-ubuntu18.04 as build
 
 RUN apt-get update
 RUN apt-get install -y wget git gcc vim
@@ -10,11 +10,12 @@ ENV GOPATH /go
 ENV PATH $GOPATH/bin:/usr/local/go/bin:$PATH
 RUN mkdir -p "$GOPATH/src" "$GOPATH/bin" && chmod -R 777 "$GOPATH"
 
-RUN mkdir /alnair-device-plugin
-WORKDIR /alnair-device-plugin
-COPY . .
+RUN git clone https://github.com/CentaurusInfra/alnair.git
+WORKDIR /alnair/alnair-device-plugin
 RUN go build -o /bin/alnair-device-plugin cmd/alnair-device-plugin/main.go
 RUN go build -o /bin/alnair-vgpu-server cmd/vgpu-server/main.go
+RUN cd /alnair/intercept-lib && make
+
 
 FROM debian:stretch-slim
 
@@ -22,5 +23,7 @@ ENV NVIDIA_VISIBLE_DEVICES=all
 ENV NVIDIA_DRIVER_CAPABILITIES=utility
 COPY --from=build /bin/alnair-device-plugin /bin/alnair-device-plugin
 COPY --from=build /bin/alnair-vgpu-server /bin/alnair-vgpu-server
+RUN mkdir /opt/alnair/
+COPY --from=build /alnair/intercept-lib/build/lib/libcuinterpose.so /opt/alnair/libcuinterpose.so
 WORKDIR /bin
-CMD ["alnair-device-plugin"]
+CMD ["sh", "-c", "sleep infinity"]
