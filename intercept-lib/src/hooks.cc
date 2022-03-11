@@ -73,7 +73,7 @@ static struct token_bucket tb = {
     .max_burst = 0,
     .period = {
         .tv_sec = 0,
-        .tv_nsec = 100 * 1000000
+        .tv_nsec = 120 * 1000000
     }
 };
 
@@ -130,6 +130,8 @@ static pthread_once_t pre_cuinit_ctrl = PTHREAD_ONCE_INIT;
 static pthread_once_t post_cuinit_ctrl = PTHREAD_ONCE_INIT;
 static volatile bool pre_initialized = false;
 static volatile bool post_initialized = false;
+static int numSM;
+static int numThreadsPerSM;
 
 static std::string parse_containerID(const std::string& cgroup) 
 {
@@ -265,7 +267,11 @@ static void adjust_fill_Rate(unsigned int targetUsage, unsigned int curGroupUsag
 {
     
     int diff = targetUsage > curGroupUsage ? targetUsage - curGroupUsage : curGroupUsage - targetUsage;
-    unsigned int adjust = 25000 * diff;
+    diff = diff < 5 ? 5 : diff;
+    int adjust = numSM * numSM * numThreadsPerSM / 256 * diff / 10;
+
+    if(diff > targetUsage/2)
+        adjust = adjust * diff * 2 / (targetUsage+1);
 
     if(targetUsage > curGroupUsage)
         tb.fill_rate = tb.fill_rate + adjust > tb.fill_rate_cap ? tb.fill_rate_cap : tb.fill_rate + adjust;
@@ -327,7 +333,7 @@ static void post_cuinit(void)
 {
     CUresult cures = CUDA_SUCCESS;
     CUdevice dev;
-    int numSM, numThreadsPerSM, res;
+    int res;
 
     // No need to continue if user doesn't want to constrain the compute usage.
     if(gpuComputeLimit == 100) return;
@@ -350,7 +356,7 @@ static void post_cuinit(void)
         fprintf(stderr, "# of threads per SM query failed: %d\n", cures);
     }
 
-    tb.fill_rate_cap = numSM * numThreadsPerSM / (tb.period.tv_nsec / 1000000) * 1000000;
+    tb.fill_rate_cap = numSM * numThreadsPerSM * 32;
     tb.max_burst = tb.fill_rate_cap;
 
     // thread to fill the token bucket
@@ -454,7 +460,7 @@ CUresult cuLaunchKernel_hook(CUfunction f, unsigned int gridDimX, unsigned int g
                              void** kernelParams, void** extra)
 {
     CUresult cures = CUDA_SUCCESS;
-    unsigned int cost = gridDimX * gridDimY * gridDimZ * blockDimX * blockDimY * blockDimZ;
+    unsigned int cost = gridDimX * gridDimY * gridDimZ;
     if(gpuComputeLimit == 100) goto exit;
     if(!pre_initialized || !post_initialized) {
         fprintf(stderr, "pre_cuinit or post_cuinit not finished yet\n");
