@@ -13,9 +13,16 @@ spec:
         device-plugin: alnair
     spec:
       serviceAccountName: alnair-device-plugin
+      initContainers:
+        - name: copy-intercept-lib
+          image: centaurusinfra/alnair-device-plugin:0.3.1
+          command: ["sh", "-c", "cp /opt/alnair/libcuinterpose.so /tmp/lib/"]
+          volumeMounts:
+          - name: tmp-config
+            mountPath: /tmp/lib/
       containers:
         - name: alnair-device-plugin
-          image: centaurusinfra/alnair-device-plugin:0.3.0
+          image: centaurusinfra/alnair-device-plugin:0.3.1
           command: ["alnair-device-plugin"]
           #command: ["/bin/sh", "-c", "sleep infinity"]
           imagePullPolicy: Always
@@ -27,32 +34,37 @@ spec:
           volumeMounts:
           - name: device-plugin
             mountPath: /var/lib/kubelet/device-plugins
+          - name: workspace
+            mountPath: /var/lib/alnair/workspace
         - name: alnair-vgpu-server
-          image: centaurusinfra/alnair-device-plugin:0.3.0
+          image: centaurusinfra/alnair-device-plugin:0.3.1
           command: ["alnair-vgpu-server"]
           imagePullPolicy: Always
-          securityContext:
-            privileged: true
+          #securityContext:
+          #  privileged: true
           volumeMounts:
           - name: sockets
-            mountPath: /run
+            mountPath: /run/
           - name: cgroup
             mountPath: /sys/fs/cgroup/ 
           - name: workspace
-            mountPath: /var/lib/alnair/
+            mountPath: /var/lib/alnair/workspace
       volumes:
       - name: device-plugin
         hostPath:
           path: /var/lib/kubelet/device-plugins
       - name: sockets
         hostPath:
-          path: /run
+          path: /run/
       - name: cgroup
         hostPath:
           path: /sys/fs/cgroup/
       - name: workspace
         hostPath:
-          path: /var/lib/alnair/
+          path: /var/lib/alnair/workspace
+      - name: tmp-config
+        hostPath:
+          path: /opt/alnair/
 ---
 apiVersion: v1
 kind: ServiceAccount
