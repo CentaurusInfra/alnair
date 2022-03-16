@@ -16,7 +16,6 @@ const (
 )
 
 // VGPUServer listens to requests from containers, sets up a vGPU workspace for each container
-// TODO: remove the workspace after container is removed
 // TODO: add support for cgroup driver cgroupfs
 type VGPUServer struct {
 	stop chan interface{}
@@ -84,6 +83,14 @@ func registerCgroup(cgroup, alnairID string) error {
 		return err
 	}
 
+	_, containerId := parsePodIDContainerID(cgroup)
+	containerIdFilepath := path.Join(containerWorkspace, "containerID")
+
+	if err := os.WriteFile(containerIdFilepath, []byte(containerId), 0644); err != nil {
+		log.Printf("ERROR: failed to write container ID %v for alnair ID %v", containerId, alnairID)
+		return err
+	}
+
 	return nil
 }
 
@@ -97,4 +104,19 @@ func copyfile(src, dst string) error {
 		return err
 	}
 	return nil
+}
+
+func parsePodIDContainerID(cgroup string) (podId, containerId string) {
+	a := strings.Split(cgroup, "/")
+	for _, str := range a {
+		if strings.HasPrefix(str, "kubepods-besteffort-pod") {
+			r := strings.NewReplacer("kubepods-besteffort-pod", "", ".slice", "", "_", "-")
+			podId = r.Replace(str)
+		}
+		if strings.HasPrefix(str, "docker-") {
+			r := strings.NewReplacer("docker-", "", ".scope", "")
+			containerId = r.Replace(str)
+		}
+	}
+	return
 }

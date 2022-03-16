@@ -3,6 +3,7 @@ package devicepluginserver
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net"
 	"os"
@@ -14,6 +15,8 @@ import (
 	vs "alnair-device-plugin/pkg/vgpuserver"
 
 	"github.com/NVIDIA/gpu-monitoring-tools/bindings/go/nvml"
+	dockertypes "github.com/docker/docker/api/types"
+	dockerclient "github.com/docker/docker/client"
 	"google.golang.org/grpc"
 	utilrand "k8s.io/apimachinery/pkg/util/rand"
 	pluginapi "k8s.io/kubelet/pkg/apis/deviceplugin/v1beta1"
@@ -72,6 +75,8 @@ func StartDevicePluginServers() error {
 	if err := gpuComputeServer.Start(); err != nil {
 		return err
 	}
+
+	go alnairWorkspaceRecycle()
 
 	//only call once during the initalization process, patch static GPU info to the Node annotations
 	err := PatchNode()
@@ -415,4 +420,61 @@ func dialGrpc(sock string) (*grpc.ClientConn, error) {
 	}
 
 	return conn, nil
+}
+
+func alnairWorkspaceRecycle() {
+	for {
+		dentries, err := ioutil.ReadDir(vs.AlnairContainerWorkspaceRoot)
+		if err != nil {
+			log.Printf("cannot read workspace root dir: %v", vs.AlnairContainerWorkspaceRoot)
+			goto sleep
+		}
+
+		for _, de := range dentries {
+			if !de.IsDir() {
+				continue
+			}
+
+			filepath := path.Join(vs.AlnairContainerWorkspaceRoot, de.Name(), "containerID")
+
+			if _, err := os.Stat(filepath); os.IsNotExist(err) {
+				continue
+			}
+
+			in, err := ioutil.ReadFile(filepath)
+
+			if err != nil {
+				continue
+			}
+
+			containerID := string(in)
+
+			if !containerExists(containerID) {
+				os.RemoveAll(path.Join(vs.AlnairContainerWorkspaceRoot, de.Name()))
+			}
+		}
+	sleep:
+		time.Sleep(10 * time.Second)
+	}
+}
+
+func containerExists(containerID string) bool {
+	cli, err := dockerclient.NewClientWithOpts(dockerclient.FromEnv)
+	if err != nil {
+		panic(err)
+	}
+
+	containers, err := cli.ContainerList(context.Background(), dockertypes.ContainerListOptions{})
+	if err != nil {
+		panic(err)
+	}
+
+	for _, container := range containers {
+		if container.ID == containerID {
+			return true
+		}
+		fmt.Printf("%s %s\n", container.ID[:10], container.Image)
+	}
+
+	return false
 }
