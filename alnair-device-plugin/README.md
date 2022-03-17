@@ -49,9 +49,13 @@ spec:
   #### 1. Memory limit 
   Depends on ML framework, GPU with smaller memory size can be seen at the begining of the program. In the actual running, if program allocates more then permitted memory, a OOM error will be thrown.
   
-  ![memory](./images/memory_limits.png)
+  ![memory](./docs/images/memory_limits.png)
   
   #### 2. Compute limit
-  Combine with profiler, GPU utilization can be viewed. The actual utilization should be no greater than the limits. However, different types of GPU cards may behave differently. Fine tune is required when apply to new types of GPUs.
+  Combine with profiler, GPU utilization can be viewed. The actual utilization should be no greater than the limits. However, different types of GPU cards may behave differently. Fine tune is required when apply to new types of GPUs. 
   
-  ![compute](./image/compute_limits.png)
+  The chart below is vGPU Pod example running on a RTX 2080 card with different settings of vgpu-compute limits. The last red one is from running on physical GPU without limits.
+  
+  ![compute](./docs/images/compute_limits.png)
+  
+  
