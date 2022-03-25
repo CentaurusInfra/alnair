@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: sharing-pytorch
+spec:
+  containers:
+  - name: pytorch
+    image: centaurusinfra/pytorch-testing
+    command: ["python", "pyt-cf-inc-pack-high.py"]
+    #command: ["sh", "-c", "sleep infinity"]
+    volumeMounts:
+    - mountPath: /dev/shm
+      name: dshm
+  volumes:
+  - name: dshm  # this is to trick pytorch when large size of shared memory is needed
+    emptyDir:
+      medium: Memory
+
+  restartPolicy: OnFailure
