@@ -195,6 +195,8 @@ def collect_pod_metrics(api, cur_usage, node_name, gpu_id, pods_ann):
                     DOMAIN + "/" +node_name +"-gpu-" +str(gpu_id)+"_mem_mb":mem_used_float
                     }
                     pods_ann[key] = value
+                # add timestamp
+                pods_ann[key][DOMAIN + "/timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             else:
                 logging.error("pod name {} is not in listed all pods,{}".format(pod_name, pod_ns.keys)) # there was a podname key="" incident, not reproduced 
         else:
@@ -408,11 +410,12 @@ def app_top():
             for name_ns, values in pods_ann_new.items(): # iterate all the pods needs to be annotated
                 pod_name, namespace = name_ns.split(":")
                 patch_annotation(core_api, pod_name, values, namespace, env_var['node_name'], crd_api) # patch pod and patch owner crd
-            for name_ns, values in pods_ann_cur.items():
-                if name_ns not in pods_ann_new: # ended pods or processes
-                    pod_name, namespace = name_ns.split(":")
-                    logging.info("Remove pod {} annotation for finished process \n".format(pod_name))
-                    remove_annotation(core_api,env_var['node_name'],pod_name, namespace)
+            # add timestamp instead of remove annotation, Alnair scheduler and device plugin also add annotations, current removal removes all 
+            # for name_ns, values in pods_ann_cur.items():
+            #     if name_ns not in pods_ann_new: # ended pods or processes
+            #         pod_name, namespace = name_ns.split(":")
+            #         logging.info("Remove pod {} annotation for finished process \n".format(pod_name))
+            #         remove_annotation(core_api,env_var['node_name'],pod_name, namespace)
             pods_ann_cur = pods_ann_new
 
         ## Store job metrics into MongoDB
