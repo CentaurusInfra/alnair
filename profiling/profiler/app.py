@@ -19,7 +19,7 @@ import pytz
 from metadata_store import update_job_metrics_to_db
 import util
 
-MEM_UTIL = "DCGM_FI_DEV_MEM_COPY_UTIL"
+MEM_BW_UTIL = "DCGM_FI_DEV_MEM_COPY_UTIL"
 GPU_UTIL = "DCGM_FI_DEV_GPU_UTIL"
 DOMAIN = "ai.centaurus.io"
 def cyclic_pattern_detection(time_series):
@@ -190,9 +190,11 @@ def collect_pod_metrics(api, cur_usage, node_name, gpu_id, pods_ann):
                 if key in pods_ann:
                     pods_ann[key][DOMAIN + "/" +node_name + "-gpu-" +str(gpu_id)+"_mem_mb"] = mem_used_float 
                     pods_ann[key][DOMAIN + "/" +node_name + "-gpu-" +str(gpu_id)+"_util"] = cur_usage['max_gpu_util']
+                    pods_ann[key][DOMAIN + "/" +node_name + "-gpu-" +str(gpu_id)+"_mem_bw_util"] = cur_usage['max_mem_bw_util']
                 else:
                     value = {DOMAIN + "/" +node_name +"-gpu-" +str(gpu_id)+"_util":cur_usage['max_gpu_util'],
-                    DOMAIN + "/" +node_name +"-gpu-" +str(gpu_id)+"_mem_mb":mem_used_float
+                    DOMAIN + "/" +node_name +"-gpu-" +str(gpu_id)+"_mem_mb":mem_used_float,
+                    DOMAIN + "/" +node_name + "-gpu-" +str(gpu_id)+"_mem_bw_util": cur_usage['max_mem_bw_util']
                     }
                     pods_ann[key] = value
                 # add timestamp
@@ -225,7 +227,7 @@ def get_pod_resource_util(pod_name, ns, promi_connector, duration="30s"):
 
     return cpu_usage_value, memory_usage_value, network_usage_value, io_usage_value 
 
-def profiling(api, url, pod_ip, node_name, ana_window='2m', metrics=MEM_UTIL):
+def profiling(api, url, pod_ip, node_name, ana_window='2m', metrics=MEM_BW_UTIL):
     """if key exists, the value will be replaced,
        add dynamic status
        {ai.centaurus.io/gpu0:{cur_mem_used:4GB, max_gpu_util:60, max_mem_cpy_util:34, cyclic:True, process_cnt:1},
@@ -266,7 +268,7 @@ def profiling(api, url, pod_ip, node_name, ana_window='2m', metrics=MEM_UTIL):
             if cyclic:
                 cur_usage['cyclic_pattern'] = True
                 cur_usage['period'] = str(period)       
-        cur_usage['max_mem_util'] = ts.max()
+        cur_usage['max_mem_bw_util'] = ts.max()
         # add gpu id to query condition, query again get the max_gpu_util
         my_label_config['gpu'] = id
         gpu_util_data = promi.get_metric_range_data(metric_name=GPU_UTIL,
