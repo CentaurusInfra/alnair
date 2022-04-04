@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	AlnairCgroupServerSocket     = "/run/alnair.sock"
+	AlnairCgroupServerSocket     = "/run/alnair/alnair.sock"
 	AlnairContainerWorkspaceRoot = "/var/lib/alnair/workspace"
 )
 
@@ -36,6 +36,7 @@ func (cs *VGPUServer) Start() {
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
+        log.Printf("Listen to unix socket: %v", AlnairCgroupServerSocket)
 	defer l.Close()
 
 	for {

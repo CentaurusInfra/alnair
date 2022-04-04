@@ -44,7 +44,7 @@ spec:
           #  privileged: true
           volumeMounts:
           - name: sockets
-            mountPath: /run/
+            mountPath: /run/alnair/
           - name: cgroup
             mountPath: /sys/fs/cgroup/ 
           - name: workspace
@@ -55,7 +55,7 @@ spec:
           path: /var/lib/kubelet/device-plugins
       - name: sockets
         hostPath:
-          path: /run/
+          path: /run/alnair/
       - name: cgroup
         hostPath:
           path: /sys/fs/cgroup/

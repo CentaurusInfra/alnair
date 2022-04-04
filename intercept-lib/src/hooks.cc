@@ -457,7 +457,7 @@ CUresult cuLaunchKernel_hook(CUfunction f, unsigned int gridDimX, unsigned int g
     unsigned int cost = gridDimX * gridDimY * gridDimZ * blockDimX * blockDimY * blockDimZ;
     if(gpuComputeLimit == 100) goto exit;
     if(!pre_initialized || !post_initialized) {
-        fprintf(stderr, "pre_cuinit or post_cuinit not finished yet\n");
+        fprintf(stderr, "pre_cuinit %d or post_cuinit %d not finished yet\n", pre_initialized, post_initialized);
         goto exit;
     }
     
