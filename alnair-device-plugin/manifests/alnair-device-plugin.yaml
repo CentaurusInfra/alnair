@@ -13,13 +13,13 @@ spec:
         device-plugin: alnair
     spec:
       serviceAccountName: alnair-device-plugin
-      #initContainers:
-      #  - name: copy-intercept-lib
-      #    image: centaurusinfra/alnair-device-plugin:0.3.1
-      #    command: ["sh", "-c", "cp /opt/alnair/libcuinterpose.so /tmp/lib/"]
-      #    volumeMounts:
-      #    - name: tmp-config
-      #      mountPath: /tmp/lib/
+      initContainers:
+        - name: copy-intercept-lib
+          image: centaurusinfra/alnair-device-plugin:0.3.1
+          command: ["sh", "-c", "cp /opt/alnair/libcuinterpose.so /tmp/lib/"]
+          volumeMounts:
+          - name: tmp-config
+            mountPath: /tmp/lib/
       containers:
         - name: alnair-device-plugin
           image: centaurusinfra/alnair-device-plugin:0.3.1
@@ -44,7 +44,7 @@ spec:
           #  privileged: true
           volumeMounts:
           - name: sockets
-            mountPath: /run/alnair/
+            mountPath: /run/
           - name: cgroup
             mountPath: /sys/fs/cgroup/ 
           - name: workspace
@@ -55,7 +55,7 @@ spec:
           path: /var/lib/kubelet/device-plugins
       - name: sockets
         hostPath:
-          path: /run/alnair/
+          path: /run/
       - name: cgroup
         hostPath:
           path: /sys/fs/cgroup/
