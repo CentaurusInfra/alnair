@@ -265,7 +265,9 @@ static void adjust_fill_Rate(unsigned int targetUsage, unsigned int curGroupUsag
 {
     
     int diff = targetUsage > curGroupUsage ? targetUsage - curGroupUsage : curGroupUsage - targetUsage;
-    unsigned int adjust = 25000 * diff;
+    unsigned int adjust = 50000 * diff;
+    if(diff > targetUsage/2)
+        adjust = adjust * diff * 2 / (targetUsage+1);
 
     if(targetUsage > curGroupUsage)
         tb.fill_rate = tb.fill_rate + adjust > tb.fill_rate_cap ? tb.fill_rate_cap : tb.fill_rate + adjust;
@@ -286,6 +288,7 @@ static void* tb_thread_start(void *arg)
         ret = get_current_group_usage(&curGroupUsage);
         if(!ret) adjust_fill_Rate(gpuComputeLimit, curGroupUsage);
 
+	//fprintf(stderr, "cur_tokens: %u, fill_rate: %u\n", tb.cur_tokens, tb.fill_rate);
         pthread_mutex_lock(&tb.mutex);
         tb.cur_tokens = (tb.cur_tokens + tb.fill_rate) > tb.max_burst ? tb.max_burst : tb.cur_tokens + tb.fill_rate;
         pthread_mutex_unlock(&tb.mutex);        
@@ -350,8 +353,11 @@ static void post_cuinit(void)
         fprintf(stderr, "# of threads per SM query failed: %d\n", cures);
     }
 
-    tb.fill_rate_cap = numSM * numThreadsPerSM / (tb.period.tv_nsec / 1000000) * 1000000;
+    tb.fill_rate_cap = numSM * numThreadsPerSM / (tb.period.tv_nsec / 1000000) * 1500000;
+    tb.fill_rate_cap = tb.fill_rate_cap >= 1u<<31 ? (1u<<31)-1 : tb.fill_rate_cap;
     tb.max_burst = tb.fill_rate_cap;
+    tb.cur_tokens = tb.fill_rate_cap;
+    //fprintf(stderr, "fill_rate_cap: %u, max_burst: %u\n", tb.fill_rate_cap, tb.max_burst);
 
     // thread to fill the token bucket
     pthread_t tb_thread;
