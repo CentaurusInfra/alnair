@@ -36,7 +36,7 @@ func (cs *VGPUServer) Start() {
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
-        log.Printf("Listen to unix socket: %v", AlnairCgroupServerSocket)
+    log.Printf("vGPU server starts, listening to unix socket: %v", AlnairCgroupServerSocket)
 	defer l.Close()
 
 	for {
