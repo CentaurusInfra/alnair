@@ -1,4 +1,4 @@
-package vGPUScheduler
+package alnaircostsaving
 
 import (
 	"context"
@@ -23,35 +23,35 @@ import (
 )
 
 const (
-	Name = "vGPUScheduler"
+	Name = "alnaircostsaving"
 )
 
 var (
-	_ framework.FilterPlugin    = &vGPUScheduler{}
-	_ framework.ScorePlugin     = &vGPUScheduler{}
-	_ framework.ScoreExtensions = &vGPUScheduler{}
+	_ framework.FilterPlugin    = &alnaircostsaving{}
+	_ framework.ScorePlugin     = &alnaircostsaving{}
+	_ framework.ScoreExtensions = &alnaircostsaving{}
 )
 
-type vGPUScheduler struct {
+type alnaircostsaving struct {
 	handle    framework.Handle
 	clientset *kubernetes.Clientset
 }
 
 func New(_ runtime.Object, handle framework.Handle) (framework.Plugin, error) {
-	klog.V(5).InfoS("Alnair vGPU Scheduling plugin is enabled")
+	klog.V(5).InfoS("Alnair vGPU Scheduling plugin for cost saving is enabled")
 
 	cs, err := clientsetInit()
 	if err != nil {
-		return nil, fmt.Errorf("Alnair Cannot initialize in-cluster kubernetes config")
+		return nil, fmt.Errorf("alnair-cost-saving cannot initialize in-cluster kubernetes config")
 	}
 
-	return &vGPUScheduler{
+	return &alnaircostsaving{
 		handle:    handle,
 		clientset: cs,
 	}, nil
 }
 
-func (g *vGPUScheduler) Name() string {
+func (g *alnaircostsaving) Name() string {
 	return Name
 }
 
@@ -98,7 +98,7 @@ func UpdatePodAnnotations(clientset *kubernetes.Clientset, pod *v1.Pod) error {
 	return nil
 }
 
-func (g *vGPUScheduler) Filter(ctx context.Context, state *framework.CycleState, pod *v1.Pod, node *framework.NodeInfo) *framework.Status {
+func (g *alnaircostsaving) Filter(ctx context.Context, state *framework.CycleState, pod *v1.Pod, node *framework.NodeInfo) *framework.Status {
 	klog.V(5).Infof("filter pod: %v, node: %v\n", pod.Name, node.Node().Name)
 	// write timestamp to every pod which comes to here
 
@@ -126,9 +126,9 @@ func (g *vGPUScheduler) Filter(ctx context.Context, state *framework.CycleState,
 // 	return newPod
 // }
 
-func (g *vGPUScheduler) Score(ctx context.Context, state *framework.CycleState, pod *v1.Pod, nodeName string) (int64, *framework.Status) {
-	klog.V(5).InfoS("Alnair scheduler is working on score plugin, pod name:", pod.Name)
-	klog.V(5).InfoS("Alnair add annotation to pod ", pod.Name)
+func (g *alnaircostsaving) Score(ctx context.Context, state *framework.CycleState, pod *v1.Pod, nodeName string) (int64, *framework.Status) {
+	klog.V(5).InfoS("alnair-cost-saving scheduler is working on score plugin, pod name:", pod.Name)
+	klog.V(5).InfoS("alnair-cost-saving add annotation to pod ", pod.Name)
 	nodeInfo, err := g.handle.SnapshotSharedLister().NodeInfos().Get(nodeName)
 	if err != nil {
 		return 0, framework.NewStatus(framework.Error, fmt.Sprintf("getting node %q from Snapshot: %v", nodeName, err))
@@ -194,7 +194,7 @@ func StrToInt64(str string) int64 {
 	}
 }
 
-func (g *vGPUScheduler) NormalizeScore(_ context.Context, _ *framework.CycleState, pod *v1.Pod, scores framework.NodeScoreList) *framework.Status {
+func (g *alnaircostsaving) NormalizeScore(_ context.Context, _ *framework.CycleState, pod *v1.Pod, scores framework.NodeScoreList) *framework.Status {
 	var (
 		highest int64 = 0
 		lowest        = scores[0].Score
@@ -221,6 +221,6 @@ func (g *vGPUScheduler) NormalizeScore(_ context.Context, _ *framework.CycleStat
 	return framework.NewStatus(framework.Success)
 }
 
-func (g *vGPUScheduler) ScoreExtensions() framework.ScoreExtensions {
+func (g *alnaircostsaving) ScoreExtensions() framework.ScoreExtensions {
 	return g
 }
