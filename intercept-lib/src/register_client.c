@@ -35,7 +35,7 @@ int register_cgroup(const char* cgroup, const char* alnairID)
 
     memset(&addr, 0, sizeof(addr));
     addr.sun_family = AF_UNIX;
-    strncpy(addr.sun_path, "/run/alnair.sock", sizeof(addr.sun_path) - 1);
+    strncpy(addr.sun_path, "/run/alnair/alnair.sock", sizeof(addr.sun_path) - 1);
     ret = connect(data_socket, (const struct sockaddr *) &addr, sizeof(addr));
 
     if(ret == -1) {
