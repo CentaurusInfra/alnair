@@ -9,14 +9,14 @@ import (
 	"strconv"
 
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/klog/v2"
-	"k8s.io/kubernetes/pkg/scheduler/framework"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/klog/v2"
+	"k8s.io/kubernetes/pkg/scheduler/framework"
 
 	"vGPUScheduler/pkg/utils"
 )
@@ -145,7 +145,7 @@ func (g *alnairhighperformance) Score(ctx context.Context, state *framework.Cycl
 
 func CalculateScore(info *framework.NodeInfo) (uint64, error) {
 	allocateMemorySum := uint64(0)
-    MemorySumLimits := uint64(10000)
+	MemorySumLimits := uint64(10000)
 	for _, pod := range info.Pods {
 		containers := pod.Pod.Spec.Containers
 		for _, container := range containers {
@@ -156,7 +156,7 @@ func CalculateScore(info *framework.NodeInfo) (uint64, error) {
 			}
 		}
 	}
-	return MemorySumLimits-allocateMemorySum, nil
+	return MemorySumLimits - allocateMemorySum, nil
 }
 
 // func CalculateScore(info *framework.NodeInfo) (uint64, error) {
