@@ -7,9 +7,29 @@ profiles:
   plugins:
     filter:
       enabled:
-      - name: vGPUScheduler
+      - name: alnaircostsaving
     score:
       enabled:
-      - name: vGPUScheduler
+      - name: alnaircostsaving
+      disabled:
+      - name: "*"
+- schedulerName: alnair-cost-saving
+  plugins:
+    filter:
+      enabled:
+      - name: alnaircostsaving
+    score:
+      enabled:
+      - name: alnaircostsaving
+      disabled:
+      - name: "*"
+- schedulerName: alnair-high-performance
+  plugins:
+    filter:
+      enabled:
+      - name: alnairhighperformance
+    score:
+      enabled:
+      - name: alnairhighperformance
       disabled:
       - name: "*"

@@ -27,13 +27,15 @@ make clean
 kubectl get pod -n kube-system | grep "scheduler"
 ```
 #### Deploy a Pod using vGPUScheduler
-- Create a pod which needs 4GB GPU memory
+- Create a pod which needs 4GB GPU memory.  
 ```shell
-kubectl create -f pod.yaml
+kubectl apply -f test/pod_1.yaml
 ```
-- Then create a pot which needs 10G GPU memory
+Note different scheduling policies (i.e., binpack and spread) are
+available via setting Pod's ".spec.schedulerName" to "alnair-cost-saving" or "alnair-high-performance".
+- Then create a pot which needs 6G GPU memory
 ```shell
-kubectl create -f pod2.yaml
+kubectl apply -f pod_2.yaml
 ```
 - Check the pods status and see which node and GPU they were bound to via the pod annotations. 
 ```shell
