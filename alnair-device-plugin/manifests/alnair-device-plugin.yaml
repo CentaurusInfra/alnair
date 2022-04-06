@@ -16,7 +16,7 @@ spec:
       initContainers:
         - name: copy-intercept-lib
           image: centaurusinfra/alnair-device-plugin:0.3.1
-          command: ["sh", "-c", "cp /opt/alnair/libcuinterpose.so /tmp/lib/"]
+          command: ["sh", "-c", "rm -r /tmp/lib/libcuinterpose.so; cp /opt/alnair/libcuinterpose.so /tmp/lib/"]
           volumeMounts:
           - name: tmp-config
             mountPath: /tmp/lib/
