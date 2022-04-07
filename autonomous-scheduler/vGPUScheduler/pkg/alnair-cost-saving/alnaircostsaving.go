@@ -108,10 +108,18 @@ func (g *alnaircostsaving) Filter(ctx context.Context, state *framework.CycleSta
 		return framework.NewStatus(framework.Error, fmt.Sprintf("cannot patch timestamp to pod %s, err: %v", pod.Name, err))
 	}
 
-	nodeinfos := utils.NewNodeInfos(node.Node())
-	if allocatable := nodeinfos.Assume(pod); allocatable {
-		return framework.NewStatus(framework.Success, "")
-	}
+    if sharing := utils.IsGPUsharingPod(pod); sharing {
+        klog.V(5).Infof("filter pod: %v with requests on GPU", pod.Name)
+	    nodeinfos := utils.NewNodeInfos(node.Node())
+	    if allocatable := nodeinfos.Assume(pod); allocatable {
+		    return framework.NewStatus(framework.Success, "")
+	    }
+
+    } else {
+        klog.V(5).Infof("filter pod: %v without requesting GPU", pod.Name)
+	    return framework.NewStatus(framework.Success, "")
+    }
+
 
 	return framework.NewStatus(framework.Unschedulable, "Node:"+node.Node().Name)
 }
