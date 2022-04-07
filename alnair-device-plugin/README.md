@@ -12,12 +12,8 @@ The CUDA driver API interpose library can be found [here](https://github.com/Cen
 
 ### 1. Prerequisites
 * Provision a Kubernetes cluster with at least one GPU node.
-* Install [nvidia-container-runtime](https://github.com/NVIDIA/nvidia-container-runtime) and configure it as the default docker runtime. 
+* Install Nvidia docker runtime [nvidia-docker2](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html#docker) and configure it as the default docker runtime.
 * A kubeconfig with enough permissions. 
-
-**NOTE**: Don't install nvidia-docker2. We mount host /run directory to vgpu-server container. Nvidia-docker2 has conflicts with mounting /run. Error is like ``` stderr: nvidia-container-cli: mount error: file creation failed: /var/lib/docker/overlay2/XXXX/merged/run/nvidia-persistenced/socket: no such device or address: unknown"```. If this happens, you can purge all nvidia* packages and reinstall.  
-
-
 
 ### 2. Single Yaml Installation:
 
@@ -52,10 +48,9 @@ spec:
   ![memory](./docs/images/memory_limits.png)
   
   #### 2. Compute limit
-  Combine with profiler, GPU utilization can be viewed. The actual utilization should be no greater than the limits. However, different types of GPU cards may behave differently. Fine tune is required when apply to new types of GPUs. 
+  Combine with profiler, GPU utilization can be viewed. The actual utilization should be no greater than the limits. However, different types of GPU cards may behave differently. Fine tune is required when apply to new types of GPUs.
   
-  The chart below is vGPU Pod example running on a RTX 2080 card with different settings of vgpu-compute limits. The last red one is from running on physical GPU without limits.
-  
-  ![compute](./docs/images/compute_limits.png)
+  The following graph shows the GPU utilization of the same deep learning job, but with different vgpu-compute limits specified: 
+  ![compute](./docs/images/vgpu-compute.png)
   
   
