@@ -12,3 +12,4 @@ spec:
         limits:
           alnair/vgpu-memory: 6
       command: ["sleep", "600"]
+
