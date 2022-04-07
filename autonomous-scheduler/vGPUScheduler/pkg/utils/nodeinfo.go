@@ -123,6 +123,10 @@ func (n *NodeInfos) getAvailableGPUs() (availableGPUs map[int]uint) {
 	return availableGPUs
 }
 
+func IsGPUsharingPod(pod *v1.Pod) bool {
+	return GetGPUMemoryFromPodResource(pod) > 0
+}
+
 // GetGPUMemoryFromPodResource gets GPU Memory of the Pod
 func GetGPUMemoryFromPodResource(pod *v1.Pod) int {
 	var total int
