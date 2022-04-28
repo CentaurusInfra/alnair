@@ -83,7 +83,7 @@ def add_pod_info_to_crd(api, crd_api, pod_name, namespace, ann, node_name):
         pod_ann = ast.literal_eval(res['metadata']['annotations'][key]) # convert string to dictionary
         for k, v in pod_ann.items(): 
             domain_k = DOMAIN + "/" + k  # the key in owner's annotation has no domain name
-            if k == "node":  # skip the node comparison
+            if k == "node" or k == "timestamp":  # skip comparison
                 continue
             if float(v) < ann[domain_k]:  # detect greater utilization, update
                 pod_ann[k] = ann[domain_k]
@@ -98,7 +98,7 @@ def add_pod_info_to_crd(api, crd_api, pod_name, namespace, ann, node_name):
         body = {'metadata':{'annotations':crd_ann}}
         res = crd_api.patch_namespaced_custom_object(owner_group,owner_version,namespace,
         plural=owner_kind+'s',name=owner_name,body=body)
-        logging.info("patch crd utilization done {}: {}".format(owner_name,res['metadata']['annotations'][key]))
+        logging.info("patch crd {} utilization done {}: {}".format(owner_kind, owner_name,res['metadata']['annotations'][key]))
     return True
 
 def patch_annotation(api, name, ann, namespace="", node_name="", crd_api=None):
