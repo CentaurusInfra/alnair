@@ -58,8 +58,6 @@ The solution is a workaround. See the code below.
 #include <dlfcn.h>
 #include <cuda.h>
 #include <string.h>
-#include <pthread.h>
-#include <errno.h>
 
 #define STRINGIFY(x) STRINGIFY_AUX(x)
 #define STRINGIFY_AUX(x) #x
@@ -136,33 +134,6 @@ static void* post_hooks[SYM_CU_SYMBOLS] = {
 static void* real_func[SYM_CU_SYMBOLS];
 static void* real_omp_get_num_threads = NULL;
 
-static pthread_once_t init_ctrl = PTHREAD_ONCE_INIT;
-static void init_real_func(void)
-{
-    void* handle = __libc_dlopen_mode("libcuda.so.1", RTLD_LAZY);
-    real_func[SYM_CU_INIT] = __libc_dlsym(handle, "cuInit");
-    real_func[SYM_CU_MEM_ALLOC] = __libc_dlsym(handle, "cuMemAlloc");
-    real_func[SYM_CU_MEM_ALLOC_MANAGED] = __libc_dlsym(handle, "cuMemAllocManaged");
-    real_func[SYM_CU_MEM_ALLOC_PITCH] = __libc_dlsym(handle, "cuMemAllocPitch");
-    real_func[SYM_CU_ARRAY_CREATE] = __libc_dlsym(handle, "cuArrayCreate");
-    real_func[SYM_CU_ARRAY_3D_CREATE] = __libc_dlsym(handle, "cuArray3DCreate");
-    real_func[SYM_CU_MIP_ARRAY_CREATE] = __libc_dlsym(handle, "cuMipmappedArrayCreate");
-    real_func[SYM_CU_LAUNCH_KERNEL] = __libc_dlsym(handle, "cuLaunchKernel");
-    real_func[SYM_CU_LAUNCH_COOP_KERNEL] = __libc_dlsym(handle, "cuLaunchCooperativeKernel");
-    real_func[SYM_CU_DEVICE_TOTAL_MEM] = __libc_dlsym(handle, "cuDeviceTotalMem");
-    real_func[SYM_CU_MEM_GET_INFO] = __libc_dlsym(handle, "cuMemGetInfo");
-}
-
-__attribute__((constructor))
-void init(void)
-{
-    int res=0;
-    res = pthread_once(&init_ctrl, init_real_func);
-    if(res < 0) {
-        fprintf(stderr,"init_real_func failed, errno=%d\n", errno);
-    }
-}
-
 typedef void* (*fnDlsym)(void*, const char*);
 static void* real_dlsym(void *handle, const char* symbol)
 {
@@ -172,7 +143,6 @@ static void* real_dlsym(void *handle, const char* symbol)
 
 void* dlsym(void *handle, const char *symbol) 
 {
-    void* funcptr = NULL;
     if (strcmp(symbol, "omp_get_num_threads") == 0) {
         if(real_omp_get_num_threads == NULL)
             real_omp_get_num_threads = (void*)__libc_dlsym(__libc_dlopen_mode("libgomp.so.1", RTLD_LAZY), "omp_get_num_threads");
@@ -184,78 +154,78 @@ void* dlsym(void *handle, const char *symbol)
     }
 
     if (strcmp(symbol, STRINGIFY(cuInit)) == 0) {
-        if((funcptr = real_dlsym(handle, symbol)) != NULL) {
-            real_func[SYM_CU_INIT] = funcptr;
+        if(real_func[SYM_CU_INIT] == NULL) {
+            real_func[SYM_CU_INIT] = real_dlsym(handle, symbol);
         }
         return (void*)(&cuInit);
     }
 
     if (strcmp(symbol, STRINGIFY(cuMemAlloc)) == 0) {
-        if((funcptr = real_dlsym(handle, symbol)) != NULL) {
-            real_func[SYM_CU_MEM_ALLOC] = funcptr;
+        if(real_func[SYM_CU_MEM_ALLOC] == NULL) {
+            real_func[SYM_CU_MEM_ALLOC] = real_dlsym(handle, symbol);
         }
         return (void*)(&cuMemAlloc);
     }
 
     if (strcmp(symbol, STRINGIFY(cuMemAllocManaged)) == 0) {
-        if((funcptr = real_dlsym(handle, symbol)) != NULL) {
-            real_func[SYM_CU_MEM_ALLOC_MANAGED] = funcptr;
+        if(real_func[SYM_CU_MEM_ALLOC_MANAGED] == NULL) {
+            real_func[SYM_CU_MEM_ALLOC_MANAGED] = real_dlsym(handle, symbol);
         }
         return (void*)(&cuMemAllocManaged);
     }
 
     if (strcmp(symbol, STRINGIFY(cuMemAllocPitch)) == 0) {
-        if((funcptr = real_dlsym(handle, symbol)) != NULL) {
-            real_func[SYM_CU_MEM_ALLOC_PITCH] = funcptr;
+        if(real_func[SYM_CU_MEM_ALLOC_PITCH] == NULL) {
+            real_func[SYM_CU_MEM_ALLOC_PITCH] = real_dlsym(handle, symbol);
         }
         return (void*)(&cuMemAllocPitch);
     }
 
     if (strcmp(symbol, STRINGIFY(cuArrayCreate)) == 0) {
-        if((funcptr = real_dlsym(handle, symbol)) != NULL) {
-            real_func[SYM_CU_ARRAY_CREATE] = funcptr;
+        if(real_func[SYM_CU_ARRAY_CREATE] == NULL) {
+            real_func[SYM_CU_ARRAY_CREATE] = real_dlsym(handle, symbol);
         }
         return (void*)(&cuArrayCreate);
     }
 
     if (strcmp(symbol, STRINGIFY(cuArray3DCreate)) == 0) {
         if(real_func[SYM_CU_ARRAY_3D_CREATE] == NULL) {
-            real_func[SYM_CU_ARRAY_3D_CREATE] = funcptr;
+            real_func[SYM_CU_ARRAY_3D_CREATE] = real_dlsym(handle, symbol);
         }
         return (void*)(&cuArray3DCreate);
     }
 
     if (strcmp(symbol, STRINGIFY(cuMipmappedArrayCreate)) == 0) {
-        if((funcptr = real_dlsym(handle, symbol)) != NULL) {
-            real_func[SYM_CU_MIP_ARRAY_CREATE] = funcptr;
+        if(real_func[SYM_CU_MIP_ARRAY_CREATE] == NULL) {
+            real_func[SYM_CU_MIP_ARRAY_CREATE] = real_dlsym(handle, symbol);
         }
         return (void*)(&cuMipmappedArrayCreate);
     }
 
     if (strcmp(symbol, STRINGIFY(cuLaunchKernel)) == 0) {
-        if((funcptr = real_dlsym(handle, symbol)) != NULL) {
-            real_func[SYM_CU_LAUNCH_KERNEL] = funcptr;
+        if(real_func[SYM_CU_LAUNCH_KERNEL] == NULL) {
+            real_func[SYM_CU_LAUNCH_KERNEL] = real_dlsym(handle, symbol);
         }
         return (void*)(&cuLaunchKernel);
     }
 
     if (strcmp(symbol, STRINGIFY(cuLaunchCooperativeKernel)) == 0) {
-        if((funcptr = real_dlsym(handle, symbol)) != NULL) {
-            real_func[SYM_CU_LAUNCH_COOP_KERNEL] = funcptr;
+        if(real_func[SYM_CU_LAUNCH_COOP_KERNEL] == NULL) {
+            real_func[SYM_CU_LAUNCH_COOP_KERNEL] = real_dlsym(handle, symbol);
         }
         return (void*)(&cuLaunchCooperativeKernel);
     }
 
     if (strcmp(symbol, STRINGIFY(cuDeviceTotalMem)) == 0) {
-        if((funcptr = real_dlsym(handle, symbol)) != NULL) {
-            real_func[SYM_CU_DEVICE_TOTAL_MEM] = funcptr;
+        if(real_func[SYM_CU_DEVICE_TOTAL_MEM] == NULL) {
+            real_func[SYM_CU_DEVICE_TOTAL_MEM] = real_dlsym(handle, symbol);
         }
         return (void*)(&cuDeviceTotalMem);
     }
 
     if (strcmp(symbol, STRINGIFY(cuMemGetInfo)) == 0) {
-        if((funcptr = real_dlsym(handle, symbol)) != NULL) {
-            real_func[SYM_CU_MEM_GET_INFO] = funcptr;
+        if(real_func[SYM_CU_MEM_GET_INFO] == NULL) {
+            real_func[SYM_CU_MEM_GET_INFO] = real_dlsym(handle, symbol);
         }
         return (void*)(&cuMemGetInfo);
     }
@@ -271,6 +241,8 @@ void* dlsym(void *handle, const char *symbol)
             res = ((CUresult (*)params)hooks[hooksymbol])(__VA_ARGS__);                    \
         }                                                                                  \
         if(CUDA_SUCCESS != res) return res;                                                \
+        if(real_func[hooksymbol] == NULL)                                                  \
+            real_func[hooksymbol] = real_dlsym(RTLD_NEXT, STRINGIFY(funcname));            \
         res = ((CUresult (*)params)real_func[hooksymbol])(__VA_ARGS__);                    \
         if(CUDA_SUCCESS == res && post_hooks[hooksymbol]) {                                \
             res = ((CUresult (*)params)post_hooks[hooksymbol])(__VA_ARGS__);               \
