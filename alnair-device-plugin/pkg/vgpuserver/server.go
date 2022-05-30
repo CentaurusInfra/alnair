@@ -67,7 +67,7 @@ func handleConnection(c net.Conn) {
 	}
 }
 
-// implements registercgroup in another way, contact docker socket, with containerTop to get all the pids
+// Register implements registration.Register, contact docker socket, with containerTop to get all the pids
 // based on the registed cgroup process, write PIDs and ContainerID two files in container's Alnair workspace
 func registerCgroup(cgroup, alnairID string) error {
 	log.Printf("Received registration request for cgroup: %v", cgroup)
