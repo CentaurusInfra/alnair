@@ -77,6 +77,8 @@ static struct token_bucket tb = {
     }
 };
 
+//example line, k8s v1.21 format
+//6:memory:/kubepods/besteffort/podb494d806-bfe7-4c33-8e23-032da1434a90/06b159b3f1cb4c021766a97e5ac82d18284c381223e5539aa510269ee5eed4d3
 static std::string get_cgroup() 
 {
     std::ifstream fs("/proc/self/cgroup");
@@ -131,7 +133,7 @@ static pthread_once_t post_cuinit_ctrl = PTHREAD_ONCE_INIT;
 static volatile bool pre_initialized = false;
 static volatile bool post_initialized = false;
 
-static std::string parse_containerID(const std::string& cgroup) 
+static std::string parse_containerID(const std::string& cgroup) // func not used, and the "docker-" may not exist due to different k8s version
 {
     std::size_t begin = cgroup.find("docker-");
     return cgroup.substr(begin+7, cgroup.size()-13-begin);
@@ -139,7 +141,7 @@ static std::string parse_containerID(const std::string& cgroup)
 
 static void read_pids(std::set<unsigned int>& pids)
 {
-    std::string containerID = parse_containerID(cgroup);
+    //std::string containerID = parse_containerID(cgroup); // not in use
     std::ifstream fs("/var/lib/alnair/workspace/cgroup.procs");
     for(std::string line; std::getline(fs, line); ) {
         pids.insert(atoi(line.c_str()));
@@ -238,7 +240,7 @@ static int get_current_group_usage(unsigned int* groupUsage)
     std::set<unsigned int> pids;
     read_pids(pids);
 
-    ret = nvmlDeviceGetHandleByIndex(0, &device);
+    ret = nvmlDeviceGetHandleByIndex(0, &device);   //limits: only assume this container mount 1 GPU
     if(NVML_SUCCESS != ret) {
         fprintf(stderr, "Failed nvmlDeviceGetHandleByIndex: %s\n", nvmlErrorString(ret));
         return -1;
@@ -313,8 +315,10 @@ static void pre_cuinit(void)
     }
 
     res = register_cgroup(cgroup.c_str(), alnairID);
-    if(res != 0) return;
-    
+    if(res != 0) {
+        fprintf(stderr, "pre_cuinit, register cgroup failed, alnairID %s, cgroup string: %s\n", alnairID, cgroup.c_str());
+        return;
+    }
     // init nvml library
     nvmlReturn_t ret;
     ret = nvmlInit();
@@ -462,11 +466,14 @@ CUresult cuLaunchKernel_hook(CUfunction f, unsigned int gridDimX, unsigned int g
     CUresult cures = CUDA_SUCCESS;
     unsigned int cost = gridDimX * gridDimY * gridDimZ * blockDimX * blockDimY * blockDimZ;
     if(gpuComputeLimit == 100) goto exit;
-    if(!pre_initialized || !post_initialized) {
-        fprintf(stderr, "pre_cuinit %d or post_cuinit %d not finished yet\n", pre_initialized, post_initialized);
+    if(!pre_initialized) {
+        fprintf(stderr, "pre_cuinit not finished yet\n");
         goto exit;
     }
-    
+    if(!post_initialized) {
+        fprintf(stderr, "post_cuinit not finished yet\n");
+        goto exit;
+    }
     while(true) {
         pthread_mutex_lock(&tb.mutex);
         if(tb.cur_tokens >= cost) {
