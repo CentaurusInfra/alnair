@@ -116,28 +116,32 @@ func containerTopPids(containerID string) (pids []string) {
 	return
 }
 
-//limits: besteffort pod, should support burstable as well
-//example cgroup path kubernetes v 1.21.X:
+//ID parsing to support both cgroupfs and systemd path format
+//1. example path written by cgroupfs driver
 //kubepods/besteffort/podb494d806-bfe7-4c33-8e23-032da1434a90/06b159b3f1cb4c021766a97e5ac82d18284c381223e5539aa510269ee5eed4d3
-//example cgroup path kubernetes v 1.20.X:
+//2. example path written by systemd driver
 //kubepods.slice/kubepods-besteffort.slice/kubepods-besteffort-pod227905f8_727f_4a84_9883_25880640c810.slice/docker-70b480ffcc00feec75639fdecdf105ebcbb115fa30f78ae16b380f450d8dc7b0.scope
 func parsePodIDContainerID(cgroup string) (podId, containerId string) {
 	a := strings.Split(cgroup, "/")
 	for _, str := range a {
-		if strings.HasPrefix(str, "kubepods-besteffort-pod") { //k8s v1.20
+		if strings.HasPrefix(str, "kubepods-besteffort-pod") { //systemd besteffort pod ID
 			r := strings.NewReplacer("kubepods-besteffort-pod", "", ".slice", "", "_", "-")
 			podId = r.Replace(str)
 		}
-		if strings.HasPrefix(str, "pod") { //k8s v1.21
+		if strings.HasPrefix(str, "kubepods-burstable-pod") { //systemd burstable pod ID
+			r := strings.NewReplacer("kubepods-burstable-pod", "", ".slice", "", "_", "-")
+			podId = r.Replace(str)
+		}
+		if strings.HasPrefix(str, "pod") { //cgroupfs pod ID
 			r := strings.NewReplacer("pod", "")
 			podId = r.Replace(str)
 		}
-		if strings.HasPrefix(str, "docker-") { //k8s v1.20
+		if strings.HasPrefix(str, "docker-") { //systemd container ID
 			r := strings.NewReplacer("docker-", "", ".scope", "")
 			containerId = r.Replace(str)
 		}
 	}
-	if len(containerId) == 0 { //k8s v1.21, use the last element of the cgroup after split by
+	if len(containerId) == 0 { //cgroupfs container ID, last element after split
 		containerId = a[len(a)-1]
 	}
 
