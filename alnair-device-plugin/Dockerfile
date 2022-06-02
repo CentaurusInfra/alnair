@@ -11,9 +11,10 @@ ENV PATH $GOPATH/bin:/usr/local/go/bin:$PATH
 RUN mkdir -p "$GOPATH/src" "$GOPATH/bin" && chmod -R 777 "$GOPATH"
 
 RUN git clone https://github.com/CentaurusInfra/alnair.git
-WORKDIR /alnair/alnair-device-plugin
-RUN go build -o /bin/alnair-device-plugin cmd/alnair-device-plugin/main.go
-RUN go build -o /bin/alnair-vgpu-server cmd/vgpu-server/main.go
+WORKDIR /alnair/
+#COPY . . #uncomment this and comment git clone if build locally
+RUN cd /alnair/alnair-device-plugin && go build -o /bin/alnair-device-plugin cmd/alnair-device-plugin/main.go
+RUN cd /alnair/alnair-device-plugin && go build -o /bin/alnair-vgpu-server cmd/vgpu-server/main.go
 RUN cd /alnair/intercept-lib && make
 
 
