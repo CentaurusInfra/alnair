@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hazelcast-jet-configuration
+data:
+  hazelcast.yaml: |-
+    hazelcast:
+      network:
+        join:
+          multicast:
+            enabled: false
+          kubernetes:
+            enabled: true
+            namespace: default
+            service-name: hazelcast-jet-service
+        rest-api:
+          enabled: true
+          endpoint-groups:
+            HEALTH_CHECK:
+              enabled: true
+      map:
+        default:
+          in-memory-format: BINARY
+        statistics-enabled: true
+      metrics:
+        enabled: true
+        collection-frequency-seconds: 5
+        jmx:
+          enabled: true
