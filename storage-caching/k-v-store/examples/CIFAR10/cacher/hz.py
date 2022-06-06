@@ -6,8 +6,6 @@ from typing import Any, Callable, Optional, Tuple
 import numpy as np
 from PIL import Image
 
-from torchvision.datasets.utils import download_url, check_integrity, download_and_extract_archive
-from torchvision.datasets.vision import VisionDataset
 from torch.utils.data import Dataset
 
 

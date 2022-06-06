@@ -8,8 +8,8 @@ import boto3
 import warnings
 warnings.filterwarnings('ignore')
 
-# logging.basicConfig()
-# logging.getLogger().setLevel(logging.DEBUG)
+logging.basicConfig()
+logging.getLogger().setLevel(logging.DEBUG)
 
 
 train_list = ["data_batch_1", "data_batch_2", "data_batch_3", "data_batch_4", "data_batch_5"]
