@@ -168,7 +168,8 @@ class Registration(object):
 
 
 class UpdatePolicyStub(object):
-    """Missing associated documentation comment in .proto file."""
+    """When key is not available, CC request GM to update policy
+    """
 
     def __init__(self, channel):
         """Constructor.
@@ -179,12 +180,13 @@ class UpdatePolicyStub(object):
         self.Update = channel.unary_unary(
                 '/databus.UpdatePolicy/Update',
                 request_serializer=databus__pb2.UpdatePolicyRequest.SerializeToString,
-                response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                response_deserializer=databus__pb2.UpdatePolicyResponse.FromString,
                 )
 
 
 class UpdatePolicyServicer(object):
-    """Missing associated documentation comment in .proto file."""
+    """When key is not available, CC request GM to update policy
+    """
 
     def Update(self, request, context):
         """Missing associated documentation comment in .proto file."""
@@ -198,7 +200,7 @@ def add_UpdatePolicyServicer_to_server(servicer, server):
             'Update': grpc.unary_unary_rpc_method_handler(
                     servicer.Update,
                     request_deserializer=databus__pb2.UpdatePolicyRequest.FromString,
-                    response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+                    response_serializer=databus__pb2.UpdatePolicyResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -208,7 +210,8 @@ def add_UpdatePolicyServicer_to_server(servicer, server):
 
  # This class is part of an EXPERIMENTAL API.
 class UpdatePolicy(object):
-    """Missing associated documentation comment in .proto file."""
+    """When key is not available, CC request GM to update policy
+    """
 
     @staticmethod
     def Update(request,
@@ -223,12 +226,12 @@ class UpdatePolicy(object):
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/databus.UpdatePolicy/Update',
             databus__pb2.UpdatePolicyRequest.SerializeToString,
-            google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+            databus__pb2.UpdatePolicyResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
 
-class LoggerStub(object):
+class HeartbeatStub(object):
     """Missing associated documentation comment in .proto file."""
 
     def __init__(self, channel):
@@ -237,42 +240,42 @@ class LoggerStub(object):
         Args:
             channel: A grpc.Channel.
         """
-        self.call = channel.unary_stream(
-                '/databus.Logger/call',
-                request_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
-                response_deserializer=databus__pb2.LogItem.FromString,
+        self.HB = channel.unary_unary(
+                '/databus.Heartbeat/HB',
+                request_serializer=databus__pb2.HearbeatMessage.SerializeToString,
+                response_deserializer=databus__pb2.HearbeatMessage.FromString,
                 )
 
 
-class LoggerServicer(object):
+class HeartbeatServicer(object):
     """Missing associated documentation comment in .proto file."""
 
-    def call(self, request, context):
+    def HB(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
 
-def add_LoggerServicer_to_server(servicer, server):
+def add_HeartbeatServicer_to_server(servicer, server):
     rpc_method_handlers = {
-            'call': grpc.unary_stream_rpc_method_handler(
-                    servicer.call,
-                    request_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
-                    response_serializer=databus__pb2.LogItem.SerializeToString,
+            'HB': grpc.unary_unary_rpc_method_handler(
+                    servicer.HB,
+                    request_deserializer=databus__pb2.HearbeatMessage.FromString,
+                    response_serializer=databus__pb2.HearbeatMessage.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
-            'databus.Logger', rpc_method_handlers)
+            'databus.Heartbeat', rpc_method_handlers)
     server.add_generic_rpc_handlers((generic_handler,))
 
 
  # This class is part of an EXPERIMENTAL API.
-class Logger(object):
+class Heartbeat(object):
     """Missing associated documentation comment in .proto file."""
 
     @staticmethod
-    def call(request,
+    def HB(request,
             target,
             options=(),
             channel_credentials=None,
@@ -282,8 +285,72 @@ class Logger(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_stream(request, target, '/databus.Logger/call',
-            google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
-            databus__pb2.LogItem.FromString,
+        return grpc.experimental.unary_unary(request, target, '/databus.Heartbeat/HB',
+            databus__pb2.HearbeatMessage.SerializeToString,
+            databus__pb2.HearbeatMessage.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+
+class LoggerStub(object):
+    """CC periodically sends log messages tO GM
+    """
+
+    def __init__(self, channel):
+        """Constructor.
+
+        Args:
+            channel: A grpc.Channel.
+        """
+        self.call = channel.stream_unary(
+                '/databus.Logger/call',
+                request_serializer=databus__pb2.LogItem.SerializeToString,
+                response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                )
+
+
+class LoggerServicer(object):
+    """CC periodically sends log messages tO GM
+    """
+
+    def call(self, request_iterator, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+
+def add_LoggerServicer_to_server(servicer, server):
+    rpc_method_handlers = {
+            'call': grpc.stream_unary_rpc_method_handler(
+                    servicer.call,
+                    request_deserializer=databus__pb2.LogItem.FromString,
+                    response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+            ),
+    }
+    generic_handler = grpc.method_handlers_generic_handler(
+            'databus.Logger', rpc_method_handlers)
+    server.add_generic_rpc_handlers((generic_handler,))
+
+
+ # This class is part of an EXPERIMENTAL API.
+class Logger(object):
+    """CC periodically sends log messages tO GM
+    """
+
+    @staticmethod
+    def call(request_iterator,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.stream_unary(request_iterator, target, '/databus.Logger/call',
+            databus__pb2.LogItem.SerializeToString,
+            google_dot_protobuf_dot_empty__pb2.Empty.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

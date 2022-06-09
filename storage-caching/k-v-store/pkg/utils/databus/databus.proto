@@ -4,15 +4,20 @@ import "google/protobuf/timestamp.proto";
 import "google/protobuf/empty.proto";
 
 
+message Credential {
+    string username = 1;
+    string password = 2;
+}
+
 // set up connection between user and GM
 service Connection {
     rpc Connect (ConnectRequest) returns (ConnectResponse);
 }
 message ConnectRequest {
     string host = 1;
-    string user = 2;
-    string password = 3;
-    optional int32 timeout = 4;
+    Credential cred = 2;
+    optional int32 timeout = 3;
+    optional bool createUser = 4
 }
 enum ConnectionRC {
     SUCCESSFUL = 0;
@@ -30,17 +35,24 @@ service Registration {
     rpc Register (RegisterRequest) returns (RegisterResponse);
     rpc Deresgister (DeregisterRequest) returns (DeregisterResponse);
 }
-message ResourceInfo { // Pod resource info
-    // TODO
+message Memory {
+    int64 MemTotal = 1;
+    int64 MemFree = 2;
+    int64 MemAvailable = 3;
+}
+message ResourceInfo { // Pod resource info, load from proc file system
+    Memory CPUMemory = 1;
+    Memory GPUMemory = 2;
 }
 message RegisterRequest {
-    string datasetURL = 1;
-    optional bool useCache = 2;
-    optional int32 flushFreq = 3;
-    optional int32 durability = 4;
-    optional int32 logFreq = 5; // frequency of collecting logs
-    optional int32 logLinger = 6; // batch log every `logLinger` seconds
-    optional int32 logBatchSize = 7; // batch log every `logBatchSize` items
+    Credential cred = 1;
+    string dataset = 2;
+    S3Connection s3conn = 3;
+    optional bool useCache = 4;
+    optional int32 flushFreq = 5;
+    optional int32 durabilityInMem = 6;
+    optional int32 durabilityInDisk = 7;
+    optional ResourceInfo resource = 8;
 }
 message RegisterResponse {
     oneof response {
@@ -48,42 +60,69 @@ message RegisterResponse {
         RegisterError regerr = 2;
     }
 }
+message S3Connection {
+    string aws_access_key_id = 1;
+    string aws_secret_access_key = 2;
+    string region_name = 3;
+    string bucket = 4;
+    repeated string keys = 5;
+}
+message RedisConnection {
+    string host = 1;
+    string password = 2;
+    int32 port = 3;
+    int32 chunkSize = 4;
+    repeated string chunkKeys = 5;
+}
 message Policy {
-    int32 chunkSize = 1;
-    repeated string chunkKeys = 2; // an array of chunk keys
+    oneof datastore {
+        S3Connection s3 = 1;
+        RedisConnection redis = 2;
+    }
+}
+message JobInfo {
+    string jobId = 1;
+    string token = 2;
+    optional google.protobuf.Timestamp createTime = 3;
+    optional google.protobuf.Timestamp tokenTimeout = 4;
 }
 message RegisterSuccess {
-    string jobID = 1;
-    string token = 2;
-    Policy policy = 3;
-    google.protobuf.Timestamp tokenTimeout = 4;
+    JobInfo jinfo = 1;
+    Policy policy = 2;
 }
 message RegisterError {
     string error = 1;
 }
-
+// actively evict memory when DLT job deregister
 message DeregisterRequest {
-    string jobID = 1;
-    string token = 2;
-    optional bool deleteDataset = 3;
+    JobInfo jinfo = 1;
+    optional bool deleteDataset = 2;
 }
-
 message DeregisterResponse {
     string response = 1;
 }
 
+// When key is not available, CC request GM to update policy
 service UpdatePolicy {
-    rpc Update (UpdatePolicyRequest) returns (google.protobuf.Empty) {};
+    rpc Update (UpdatePolicyRequest) returns (UpdatePolicyResponse) {};
 }
 message UpdatePolicyRequest {
-    string jobID = 1;
-    string token = 2;
-    Policy policy = 3;
+    JobInfo jinfo = 1;
+}
+message UpdatePolicyResponse {
+    Policy policy = 1;
 }
 
+service Heartbeat {
+    rpc HB (HearbeatMessage) returns (HearbeatMessage) {}; 
+}
+message HearbeatMessage {
+    JobInfo jinfo = 1;
+}
 
+// CC periodically sends log messages tO GM
 service Logger {
-    rpc call (google.protobuf.Empty) returns (stream LogItem) {};
+    rpc call (stream LogItem) returns (google.protobuf.Empty) {};
 }
 enum LogLevel {
     INFO = 0;
@@ -92,7 +131,7 @@ enum LogLevel {
 }
 message LogItem {
     google.protobuf.Timestamp time = 1;
-    string jobID = 2;
+    string jobId = 2;
     LogLevel level = 3;
     int32 epoch = 4;
     string details = 5;
