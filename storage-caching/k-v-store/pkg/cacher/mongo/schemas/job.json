@@ -14,7 +14,7 @@
             "required": [
                 "username",
                 "jobId",
-                "s3conn",
+                "s3auth",
                 "resourceInfo",
                 "dataset",
                 "createTime",
@@ -24,9 +24,9 @@
             "properties": {
                 "username": {"bsonType": "uuid"},
                 "jobId": {"bsonType": "uuid"},
-                "s3conn": {
+                "s3auth": {
                     "bsonType": "object",
-                    "title": "s3connect",
+                    "title": "s3auth",
                     "required": [
                         "aws_access_key_id",
                         "aws_secret_access_key",
@@ -44,7 +44,7 @@
                             "item": {"bsonType": "string"}
                         }
                     },
-                    "description": "S3 connection information"
+                    "description": "S3 authorization information"
                 },
                 "resourceInfo": {
                     "bsonType": "object",
@@ -104,14 +104,29 @@
             "required": [
                 "createTime",
                 "chunkSize",
-                "chunkKeys"
+                "chunks"
             ],
             "properties": {
                 "createTime": {"bsonType": "timestamp"},
                 "chunkSize": {"bsonType": "int"},
-                "chunkKeys": {
+                "chunks": {
                     "bsonType": "array",
-                    "item": {"bsonType": "string"}
+                    "item": {
+                        "bsonType": "object",
+                        "title": "chunk",
+                        "required": [
+                            "key",
+                            "totalAccessTime",
+                            "lastAccessTime",
+                            "location"
+                        ],
+                        "properties": {
+                            "key": {"bsonType": "uuid"},
+                            "totalAccessTime": {"bsonType": "int"},
+                            "lastAccessTime": {"bsonType": ["timestamp", "null"]},
+                            "location": {"bsonType": "string"}
+                        }
+                    }
                 }
             },
             "description": "caching policy of the job"

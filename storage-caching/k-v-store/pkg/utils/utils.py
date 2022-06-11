@@ -1,4 +1,5 @@
 import logging
+from google.protobuf.timestamp_pb2 import Timestamp
 
 
 def get_logger(name=__name__, level:str ='INFO', file=None):
@@ -19,3 +20,5 @@ def get_logger(name=__name__, level:str ='INFO', file=None):
         fl.setFormatter(formatter)
         logger.addHandler(fl)
     return logger
+
+grpc_ts = lambda ts: Timestamp(seconds=int(ts), nanos=int(ts % 1 * 1e9))

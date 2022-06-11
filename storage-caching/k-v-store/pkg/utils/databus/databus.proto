@@ -11,13 +11,13 @@ message Credential {
 
 // set up connection between user and GM
 service Connection {
-    rpc Connect (ConnectRequest) returns (ConnectResponse);
+    rpc connect (ConnectRequest) returns (ConnectResponse);
 }
 message ConnectRequest {
     string host = 1;
     Credential cred = 2;
     optional int32 timeout = 3;
-    optional bool createUser = 4
+    optional bool createUser = 4;
 }
 enum ConnectionRC {
     SUCCESSFUL = 0;
@@ -32,8 +32,8 @@ message ConnectResponse {
 
 // register a DLT Client (DLTC) to the Global Manager (GM)
 service Registration {
-    rpc Register (RegisterRequest) returns (RegisterResponse);
-    rpc Deresgister (DeregisterRequest) returns (DeregisterResponse);
+    rpc register (RegisterRequest) returns (RegisterResponse);
+    rpc deregister (DeregisterRequest) returns (DeregisterResponse);
 }
 message Memory {
     int64 MemTotal = 1;
@@ -44,10 +44,17 @@ message ResourceInfo { // Pod resource info, load from proc file system
     Memory CPUMemory = 1;
     Memory GPUMemory = 2;
 }
+message S3Auth {
+    string aws_access_key_id = 1;
+    string aws_secret_access_key = 2;
+    string region_name = 3;
+    string bucket = 4;
+    repeated string keys = 5;
+}
 message RegisterRequest {
     Credential cred = 1;
     string dataset = 2;
-    S3Connection s3conn = 3;
+    S3Auth s3auth = 3;
     optional bool useCache = 4;
     optional int32 flushFreq = 5;
     optional int32 durabilityInMem = 6;
@@ -60,31 +67,22 @@ message RegisterResponse {
         RegisterError regerr = 2;
     }
 }
-message S3Connection {
-    string aws_access_key_id = 1;
-    string aws_secret_access_key = 2;
-    string region_name = 3;
-    string bucket = 4;
-    repeated string keys = 5;
-}
-message RedisConnection {
-    string host = 1;
-    string password = 2;
-    int32 port = 3;
+message Policy {
     int32 chunkSize = 4;
     repeated string chunkKeys = 5;
 }
-message Policy {
-    oneof datastore {
-        S3Connection s3 = 1;
-        RedisConnection redis = 2;
-    }
+message RedisAuth {
+    string host = 1;
+    int32 port = 2;
+    string username = 3;
+    string password = 4;
 }
 message JobInfo {
     string jobId = 1;
     string token = 2;
     optional google.protobuf.Timestamp createTime = 3;
     optional google.protobuf.Timestamp tokenTimeout = 4;
+    optional RedisAuth redisauth = 5;
 }
 message RegisterSuccess {
     JobInfo jinfo = 1;
@@ -103,18 +101,18 @@ message DeregisterResponse {
 }
 
 // When key is not available, CC request GM to update policy
-service UpdatePolicy {
-    rpc Update (UpdatePolicyRequest) returns (UpdatePolicyResponse) {};
+service CacheMiss {
+    rpc call (CacheMissRequest) returns (CacheMissResponse) {};
 }
-message UpdatePolicyRequest {
-    JobInfo jinfo = 1;
+message CacheMissRequest {
+    string key = 1;
 }
-message UpdatePolicyResponse {
-    Policy policy = 1;
+message CacheMissResponse {
+    bool response = 1;
 }
 
 service Heartbeat {
-    rpc HB (HearbeatMessage) returns (HearbeatMessage) {}; 
+    rpc call (HearbeatMessage) returns (HearbeatMessage) {}; 
 }
 message HearbeatMessage {
     JobInfo jinfo = 1;

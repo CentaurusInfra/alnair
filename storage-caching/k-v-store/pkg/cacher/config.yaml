@@ -7,6 +7,7 @@ data:
     [manager]
     bind = 127.0.0.1
     port = 2220
+    backup_dir = /data/
 
     [mongodb]
     username = zhuangwei

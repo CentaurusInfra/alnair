@@ -16,8 +16,8 @@ class ConnectionStub(object):
         Args:
             channel: A grpc.Channel.
         """
-        self.Connect = channel.unary_unary(
-                '/databus.Connection/Connect',
+        self.connect = channel.unary_unary(
+                '/databus.Connection/connect',
                 request_serializer=databus__pb2.ConnectRequest.SerializeToString,
                 response_deserializer=databus__pb2.ConnectResponse.FromString,
                 )
@@ -27,7 +27,7 @@ class ConnectionServicer(object):
     """set up connection between user and GM
     """
 
-    def Connect(self, request, context):
+    def connect(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -36,8 +36,8 @@ class ConnectionServicer(object):
 
 def add_ConnectionServicer_to_server(servicer, server):
     rpc_method_handlers = {
-            'Connect': grpc.unary_unary_rpc_method_handler(
-                    servicer.Connect,
+            'connect': grpc.unary_unary_rpc_method_handler(
+                    servicer.connect,
                     request_deserializer=databus__pb2.ConnectRequest.FromString,
                     response_serializer=databus__pb2.ConnectResponse.SerializeToString,
             ),
@@ -53,7 +53,7 @@ class Connection(object):
     """
 
     @staticmethod
-    def Connect(request,
+    def connect(request,
             target,
             options=(),
             channel_credentials=None,
@@ -63,7 +63,7 @@ class Connection(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/databus.Connection/Connect',
+        return grpc.experimental.unary_unary(request, target, '/databus.Connection/connect',
             databus__pb2.ConnectRequest.SerializeToString,
             databus__pb2.ConnectResponse.FromString,
             options, channel_credentials,
@@ -80,13 +80,13 @@ class RegistrationStub(object):
         Args:
             channel: A grpc.Channel.
         """
-        self.Register = channel.unary_unary(
-                '/databus.Registration/Register',
+        self.register = channel.unary_unary(
+                '/databus.Registration/register',
                 request_serializer=databus__pb2.RegisterRequest.SerializeToString,
                 response_deserializer=databus__pb2.RegisterResponse.FromString,
                 )
-        self.Deresgister = channel.unary_unary(
-                '/databus.Registration/Deresgister',
+        self.deregister = channel.unary_unary(
+                '/databus.Registration/deregister',
                 request_serializer=databus__pb2.DeregisterRequest.SerializeToString,
                 response_deserializer=databus__pb2.DeregisterResponse.FromString,
                 )
@@ -96,13 +96,13 @@ class RegistrationServicer(object):
     """register a DLT Client (DLTC) to the Global Manager (GM)
     """
 
-    def Register(self, request, context):
+    def register(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def Deresgister(self, request, context):
+    def deregister(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -111,13 +111,13 @@ class RegistrationServicer(object):
 
 def add_RegistrationServicer_to_server(servicer, server):
     rpc_method_handlers = {
-            'Register': grpc.unary_unary_rpc_method_handler(
-                    servicer.Register,
+            'register': grpc.unary_unary_rpc_method_handler(
+                    servicer.register,
                     request_deserializer=databus__pb2.RegisterRequest.FromString,
                     response_serializer=databus__pb2.RegisterResponse.SerializeToString,
             ),
-            'Deresgister': grpc.unary_unary_rpc_method_handler(
-                    servicer.Deresgister,
+            'deregister': grpc.unary_unary_rpc_method_handler(
+                    servicer.deregister,
                     request_deserializer=databus__pb2.DeregisterRequest.FromString,
                     response_serializer=databus__pb2.DeregisterResponse.SerializeToString,
             ),
@@ -133,7 +133,7 @@ class Registration(object):
     """
 
     @staticmethod
-    def Register(request,
+    def register(request,
             target,
             options=(),
             channel_credentials=None,
@@ -143,14 +143,14 @@ class Registration(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/databus.Registration/Register',
+        return grpc.experimental.unary_unary(request, target, '/databus.Registration/register',
             databus__pb2.RegisterRequest.SerializeToString,
             databus__pb2.RegisterResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
-    def Deresgister(request,
+    def deregister(request,
             target,
             options=(),
             channel_credentials=None,
@@ -160,14 +160,14 @@ class Registration(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/databus.Registration/Deresgister',
+        return grpc.experimental.unary_unary(request, target, '/databus.Registration/deregister',
             databus__pb2.DeregisterRequest.SerializeToString,
             databus__pb2.DeregisterResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
 
-class UpdatePolicyStub(object):
+class CacheMissStub(object):
     """When key is not available, CC request GM to update policy
     """
 
@@ -177,44 +177,44 @@ class UpdatePolicyStub(object):
         Args:
             channel: A grpc.Channel.
         """
-        self.Update = channel.unary_unary(
-                '/databus.UpdatePolicy/Update',
-                request_serializer=databus__pb2.UpdatePolicyRequest.SerializeToString,
-                response_deserializer=databus__pb2.UpdatePolicyResponse.FromString,
+        self.call = channel.unary_unary(
+                '/databus.CacheMiss/call',
+                request_serializer=databus__pb2.CacheMissRequest.SerializeToString,
+                response_deserializer=databus__pb2.CacheMissResponse.FromString,
                 )
 
 
-class UpdatePolicyServicer(object):
+class CacheMissServicer(object):
     """When key is not available, CC request GM to update policy
     """
 
-    def Update(self, request, context):
+    def call(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
 
-def add_UpdatePolicyServicer_to_server(servicer, server):
+def add_CacheMissServicer_to_server(servicer, server):
     rpc_method_handlers = {
-            'Update': grpc.unary_unary_rpc_method_handler(
-                    servicer.Update,
-                    request_deserializer=databus__pb2.UpdatePolicyRequest.FromString,
-                    response_serializer=databus__pb2.UpdatePolicyResponse.SerializeToString,
+            'call': grpc.unary_unary_rpc_method_handler(
+                    servicer.call,
+                    request_deserializer=databus__pb2.CacheMissRequest.FromString,
+                    response_serializer=databus__pb2.CacheMissResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
-            'databus.UpdatePolicy', rpc_method_handlers)
+            'databus.CacheMiss', rpc_method_handlers)
     server.add_generic_rpc_handlers((generic_handler,))
 
 
  # This class is part of an EXPERIMENTAL API.
-class UpdatePolicy(object):
+class CacheMiss(object):
     """When key is not available, CC request GM to update policy
     """
 
     @staticmethod
-    def Update(request,
+    def call(request,
             target,
             options=(),
             channel_credentials=None,
@@ -224,9 +224,9 @@ class UpdatePolicy(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/databus.UpdatePolicy/Update',
-            databus__pb2.UpdatePolicyRequest.SerializeToString,
-            databus__pb2.UpdatePolicyResponse.FromString,
+        return grpc.experimental.unary_unary(request, target, '/databus.CacheMiss/call',
+            databus__pb2.CacheMissRequest.SerializeToString,
+            databus__pb2.CacheMissResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -240,8 +240,8 @@ class HeartbeatStub(object):
         Args:
             channel: A grpc.Channel.
         """
-        self.HB = channel.unary_unary(
-                '/databus.Heartbeat/HB',
+        self.call = channel.unary_unary(
+                '/databus.Heartbeat/call',
                 request_serializer=databus__pb2.HearbeatMessage.SerializeToString,
                 response_deserializer=databus__pb2.HearbeatMessage.FromString,
                 )
@@ -250,7 +250,7 @@ class HeartbeatStub(object):
 class HeartbeatServicer(object):
     """Missing associated documentation comment in .proto file."""
 
-    def HB(self, request, context):
+    def call(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -259,8 +259,8 @@ class HeartbeatServicer(object):
 
 def add_HeartbeatServicer_to_server(servicer, server):
     rpc_method_handlers = {
-            'HB': grpc.unary_unary_rpc_method_handler(
-                    servicer.HB,
+            'call': grpc.unary_unary_rpc_method_handler(
+                    servicer.call,
                     request_deserializer=databus__pb2.HearbeatMessage.FromString,
                     response_serializer=databus__pb2.HearbeatMessage.SerializeToString,
             ),
@@ -275,7 +275,7 @@ class Heartbeat(object):
     """Missing associated documentation comment in .proto file."""
 
     @staticmethod
-    def HB(request,
+    def call(request,
             target,
             options=(),
             channel_credentials=None,
@@ -285,7 +285,7 @@ class Heartbeat(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/databus.Heartbeat/HB',
+        return grpc.experimental.unary_unary(request, target, '/databus.Heartbeat/call',
             databus__pb2.HearbeatMessage.SerializeToString,
             databus__pb2.HearbeatMessage.FromString,
             options, channel_credentials,
