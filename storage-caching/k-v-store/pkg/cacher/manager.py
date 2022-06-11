@@ -30,7 +30,8 @@ class Manager:
             port=mconf.port,
             username=mconf.user,
             password=mconf.password)
-        self.cacherdb = mongo_client.Cacher
+        self.client_col = mongo_client.Cacher.Client
+        self.job_col = mongo_client.Cacher.Job
         
         self.redconf = config['redis']
         if self.redconf.cluster_mode:
@@ -41,7 +42,7 @@ class Manager:
         logger.info("start global manager")
     
     def auth_client(self, username, password, conn_check=False):
-        result = self.cacherdb.Client.find_one(filter={"$and": [{"username": username}, {"password": password}]}).pretty()
+        result = self.cacherdb.Client.find_one(filter={"$and": [{"username": username}, {"password": password}]})
         if result is not None:
             if conn_check:
                 return result if result['status'] else None
@@ -51,7 +52,7 @@ class Manager:
             return None
     
     def auth_job(self, jobId):
-        result = self.cacherdb.Job.find_one(filter={"meta.jobId": jobId}).pretty()
+        result = self.cacherdb.Job.find_one(filter={"meta.jobId": jobId})
         return result if result is not None else None
     
     def calculate_chunk_size(self, dataset_info: dict, qos=None):
@@ -134,7 +135,7 @@ class Connection(dbus_grpc.ConnectionServicer):
                 resp = "please choose a different username"
             )
         else:
-            result = self.manager.mongo_client.Cacher.Client.update_one(
+            result = self.manager.client_col.update_one(
                 filter={
                     "username": request.cred.username,
                     "password": request.cred.password
@@ -274,7 +275,7 @@ class Registration(dbus_grpc.RegistrationServicer):
         client = self.manager.auth_client(cred.username, cred.password, conn_check=True)
         if client is not None:
             self.manager.redis_client.acl_deluser(username=cred.username)
-            result = self.manager.mongo_client.Cacher.Job.delete_one(filter={"jobId": jobId})
+            result = self.manager.job_col.delete_one(filter={"jobId": jobId})
             if result.acknowledged and result.deleted_count == 1:
                 resp = dbus_pb2.DeregisterResponse("successfully deregister job {jobId}".format(jobId=jobId))
                 logger.info('user {} deregister job {}'.format(cred.username, jobId))
@@ -300,11 +301,11 @@ class Heartbeat(dbus_grpc.HeartbeatServicer):
             if tokenTimeout > now:
                 new_token = shuffle(jinfo.token)
                 request.jinfo.token = new_token
-                self.manager.mongo_client.Cacher.Job.aggregate([
+                self.manager.job_col.aggregate([
                     {"$match": {"meta.jobId": jinfo.jobId}},
                     {"$set": {"meta.token": new_token, "meta.tokenTimeout": bston_ts(now+3600)}}
                 ])
-            result = self.manager.mongo_client.Cacher.Client.aggregate([
+            result = self.manager.client_col.aggregate([
                 {"$match": {"username": job['username']}},
                 {"$set": {"lastHeartbeat":bston_ts(now)}}
             ])
@@ -321,12 +322,24 @@ class CacheMiss(dbus_grpc.CacheMissServicer):
         
     def call(self, request, context):        
         """Note: we assume disk has unlimited space"""
-        chunk = self.cacherdb.Job.find({"policy.chunkKeys": {"$elemMatch": {"key": request.key}}}).pretty()
-        if chunk.location.startswith('disk'):
-            path = chunk.location.split(':')[1]
+        chunk = self.cacherdb.Job.aggregate([
+            {"$project": {
+                "_id": 0, 
+                "chunk": {
+                    "$filter": {
+                        "input": "$policy.chunks", 
+                        "as": "chunks", 
+                        "cond": {"$eq": ["$$chunks.key", request.key]}}
+                    }
+                }
+            },
+            {"$unwind": "$chunk"}
+        ]).next()['chunk']
+        if chunk['location'] == 'disk':
+            path = chunk['location'].split(':')[1]
             with open(path, 'rb') as f:
                 data = f.read()
-            resp = self.redis_client.set(name=chunk.key, value=data)
+            resp = self.redis_client.set(name=chunk['key'], value=data)
             return dbus_pb2.CacheMissResponse(response=resp)
         else:
             return dbus_pb2.CacheMissResponse(response=True)
