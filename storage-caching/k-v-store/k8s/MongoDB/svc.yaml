@@ -6,9 +6,10 @@ metadata:
   labels:
     name: mongo
 spec:
+  type: NodePort
   ports:
     - port: 27017
       targetPort: 27017
-  # clusterIP: None
+      nodePort: 30017
   selector:
     app: mongo

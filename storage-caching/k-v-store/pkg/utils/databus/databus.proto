@@ -14,10 +14,9 @@ service Connection {
     rpc connect (ConnectRequest) returns (ConnectResponse);
 }
 message ConnectRequest {
-    string host = 1;
-    Credential cred = 2;
-    optional int32 timeout = 3;
-    optional bool createUser = 4;
+    Credential cred = 1;
+    optional int32 timeout = 2;
+    optional bool createUser = 3;
 }
 enum ConnectionRC {
     SUCCESSFUL = 0;
@@ -35,18 +34,13 @@ service Registration {
     rpc register (RegisterRequest) returns (RegisterResponse);
     rpc deregister (DeregisterRequest) returns (DeregisterResponse);
 }
-message Memory {
-    int64 MemTotal = 1;
-    int64 MemFree = 2;
-    int64 MemAvailable = 3;
-}
 message ResourceInfo { // Pod resource info, load from proc file system
-    Memory CPUMemory = 1;
-    Memory GPUMemory = 2;
+    int32 CPUMemoryFree = 1;
+    int32 GPUMemoryFree = 2;
 }
 message S3Auth {
-    string aws_access_key_id = 1;
-    string aws_secret_access_key = 2;
+    optional string aws_access_key_id = 1;
+    optional string aws_secret_access_key = 2;
     string region_name = 3;
     string bucket = 4;
     repeated string keys = 5;

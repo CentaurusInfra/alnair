@@ -118,13 +118,15 @@
                             "key",
                             "totalAccessTime",
                             "lastAccessTime",
-                            "location"
+                            "location",
+                            "hasBackup"
                         ],
                         "properties": {
                             "key": {"bsonType": "uuid"},
                             "totalAccessTime": {"bsonType": "int"},
                             "lastAccessTime": {"bsonType": ["timestamp", "null"]},
-                            "location": {"bsonType": "string"}
+                            "location": {"bsonType": "string"},
+                            "hasBackup": {"bsonType": "bool"}
                         }
                     }
                 }

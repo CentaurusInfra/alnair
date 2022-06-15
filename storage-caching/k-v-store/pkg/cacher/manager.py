@@ -1,24 +1,25 @@
 from concurrent import futures
-import os
-from random import shuffle
 import grpc
 import boto3
-import hashlib
 import pickle
 import configparser
+import threading
+import time
 import utils.databus.databus_pb2 as dbus_pb2
 import utils.databus.databus_pb2_grpc as dbus_grpc
 from datetime import datetime
 from google.protobuf.json_format import MessageToDict
 from pymongo.mongo_client import MongoClient
-from redis import Redis, RedisCluster
+from redis import Redis
 from utils.utils import *
 
 
+KEY_LEN = 20
+TOKEN_LEN = 20
 logger = get_logger(name=__name__, level='DEBUG')
 
 
-class Manager:
+class Manager(object):
     def __init__(self) -> None:
         config = configparser.ConfigParser()
         config.read('cacher.conf')
@@ -34,10 +35,10 @@ class Manager:
         self.job_col = mongo_client.Cacher.Job
         
         self.redconf = config['redis']
-        if self.redconf.cluster_mode:
-            self.redis_client =  RedisCluster(host=self.redconf.host, port=int(self.redconf.port), password=self.redconf.password)
-        else:
-            self.redis_client = Redis(host=self.redconf.host, port=int(self.redconf.port), password=self.redconf.password)
+        self.redis_client =  Redis(host=self.redconf.host, port=int(self.redconf.port), password=self.redconf.password)
+        
+        flush_thrd = threading.Thread(target=Manager.flush_data, daemon=True)
+        flush_thrd.start()
         
         logger.info("start global manager")
     
@@ -56,20 +57,29 @@ class Manager:
         return result if result is not None else None
     
     def calculate_chunk_size(self, dataset_info: dict, qos=None):
+        """Calculate the proper chunk size based on available memory and dataset size
+        # TODO: what is the strategy of deciding the chunk size
+        Args:
+            dataset_info (dict): meta information of the dataset
+            qos (_type_, optional): QoS setting of the dataset. Defaults to None.
+
+        Returns:
+            _type_: chunk size in MB. Defaults to the maximum Redis value size: 512MB
+        """
         DEFAULT_CHUNK_SIZE = 512*1024*1024
         return DEFAULT_CHUNK_SIZE
 
     def flush_data(self):
-        evict_policy = self.redis_client.config_get('maxmemory-policy')
+        evict_policy = self.redis_client.config_get('maxmemory_policy')
         try:
             pipeline = {
                 "allkeys-lru": flush_allkeys_lru,
                 "allkeys-lfu": flush_allkeys_lfu
-            }[evict_policy]
+            }[evict_policy]()
         except KeyError:
             return
 
-        def flush_allkeys_lru(n=10):
+        def flush_allkeys_lru():
             """Backup the least N recent used keys
 
             Args:
@@ -80,16 +90,19 @@ class Manager:
                 {"$project": {
                     "_id": 0, 
                     "key": "$policy.chunks.key", 
+                    "hasBackup": "$policy.chunks.hasBackup",
                     "lastAccessTime": "$policy.chunks.lastAccessTime", 
-                    "chunks": {"$regexFind": {"input": "$policy.chunks.location", "regex": "^redis", "options": "m"}}}},
-                {"$match": {"chunks": {"$ne": None}}},
+                    "chunk": {"$regexFind": {"input": "$policy.chunks.location", "regex": "^redis", "options": "m"}}}
+                 },
+                {"$match": {"chunk": {"$ne": None}}},
                 {"$sort": {"lastAccessTime": 1}},
-                {"$limit": n},
+                {"$limit": self.managerconf.flush_amount},
+                {"$match": {"hasBackup": {"$eq": False}}},
                 {"$project": {"key": 1}},
-                {"$group": {"_id": "$_id", "keys": {"$push": "$key"}}},
+                {"$group": {"_id": "$_id", "keys": {"$push": "$key"}}}
             ]
             
-        def flush_allkeys_lfu(n=10):
+        def flush_allkeys_lfu():
             """Backup the least N frequent used keys
 
             Args:
@@ -100,20 +113,30 @@ class Manager:
                 {"$project": {
                     "_id": 0, 
                     "key": "$policy.chunks.key", 
+                    "hasBackup": "$policy.chunks.hasBackup",
                     "totalAccessTime": "$policy.chunks.totalAccessTime", 
-                    "chunks": {"$regexFind": {"input": "$policy.chunks.location", "regex": "^redis", "options": "m"}}}},
+                    "chunks": {"$regexFind": {"input": "$policy.chunks.location", "regex": "^redis", "options": "m"}}}
+                },
                 {"$match": {"chunks": {"$ne": None}}},
                 {"$sort": {"totalAccessTime": 1}},
-                {"$limit": n},
+                {"$limit": self.managerconf.flush_amount},
+                {"$match": {"hasBackup": {"$eq": False}}},
                 {"$project": {"key": 1}},
                 {"$group": {"_id": "$_id", "keys": {"$push": "$key"}}},
             ]
         
-        backup_keys = self.cacherdb.Job.aggregate(pipeline())
-        backup_data = self.redis_client.mget(backup_keys)
-        for i in range(len(backup_keys)):
-            with open('{}/{}'.format(self.managerconf['backup_dir'], backup_keys[i]), 'wb') as f:
-                f.write(backup_data[i])
+        # periodically flush data into disk
+        while True:
+            backup_keys = self.job_col.aggregate(pipeline).next()['keys']
+            backup_data = self.redis_client.mget(backup_keys)
+            for i in range(len(backup_keys)):
+                with open('{}/{}'.format(self.managerconf['backup_dir'], backup_keys[i]), 'wb') as f:
+                    f.write(backup_data[i])
+            self.job_col.job_col.update_many(
+                {"policy.chunks": {"$elemMatch": {"key": {"$in": backup_keys}}}},
+                {"$set": {"policy.chunks.$.hasBackup": True}}
+            )
+            time.sleep(self.managerconf.flush_frequency * 60)
     
     def calculate_free_memory(self):
         max_memory = self.redis_client.config_get('maxmemory')
@@ -122,7 +145,7 @@ class Manager:
         return max_memory-used_memory
     
 
-class Connection(dbus_grpc.ConnectionServicer):
+class ConnectionService(dbus_grpc.ConnectionServicer):
     def __init__(self, manager: Manager) -> None:
         super().__init__()
         self.manager = manager
@@ -157,7 +180,7 @@ class Connection(dbus_grpc.ConnectionServicer):
         return resp
 
 
-class Registration(dbus_grpc.RegistrationServicer):
+class RegistrationService(dbus_grpc.RegistrationServicer):
     def __init__(self, manager: Manager) -> None:
         super().__init__()
         self.manager = manager
@@ -190,41 +213,46 @@ class Registration(dbus_grpc.RegistrationServicer):
                     except:
                         print("Failed {}".format(file['Key']))
 
+            now = datetime.datetime.utcnow().timestamp()
             chunk_size = self.manager.calculate_chunk_size(dataset_info)
             jobId = "{username}_{datasetinfo}_{now}".format(username=cred.username, datasetinfo=pickle.dumps(dataset_info)[:10], now=str(now).split('.')[0])
-            token = hashlib.sha256(pickle.dumps(request)).hexdigest()
+            
+            token = MessageToDict(request)
+            token['time'] = now
+            token = hashing(token)[:TOKEN_LEN]
             
             chunk_keys = []
             for bkey in dataset_info:
                 if dataset_info[bkey]['ContentLength']/1024/1024 <= chunk_size:
-                    data = s3_client.get_object(Bucket=s3auth.bucket, Key=bkey)['Body'].read()
-                    self.manager.redis_client.set("{}.{}.{}".format(cred.username, jobId, bkey), data)
+                    value = s3_client.get_object(Bucket=s3auth.bucket, Key=bkey)['Body'].read()
+                    key = hashing(value)[:KEY_LEN]
+                    self.manager.redis_client.set(key, value)
                 else:
                     bucket.download_file(s3auth.bucket, '/tmp/{}'.format(bkey), bkey)
                     with open('/tmp/{}'.format(bkey), 'rb') as f:
-                        chunk = f.read(chunk_size)
+                        value = f.read(chunk_size)
                         index = 0
-                        while chunk:
-                            rk = "{}.{}.{}_{}".format(cred.username, jobId, bkey, index)
-                            chunk_keys.append(rk)
-                            self.manager.redis_client.set(rk)
-                        index += 1
-                        chunk = f.read(chunk_size)
+                        while value:
+                            key = hashing(value)[:KEY_LEN]
+                            key = "{}_part{}".format(key, index)
+                            chunk_keys.append(key)
+                            self.manager.redis_client.set(key, value)
+                            index += 1
+                            value = f.read(chunk_size)
 
             self.manager.redis_client.acl_setuser(
                 username=jobId, passwords=['+{}'.format(token)], 
                 commands=['+get', '+mget'],
                 keys=chunk_keys, 
                 reset=True, reset_keys=False, reset_passwords=False)
-            now = datetime.datetime.utcnow().timestamp()
-            
             chunks = []
             for key in chunk_keys:
                 chunks.append({
                     "key": key,
                     "totalAccessTime": 0,
                     "lastAccessTime": None,
-                    "location": "redis:{}".format(key)
+                    "location": "redis:{}".format(key),
+                    "hasBackup": False
                 })
             jobInfo = {
                 "meta": {
@@ -276,6 +304,7 @@ class Registration(dbus_grpc.RegistrationServicer):
         if client is not None:
             self.manager.redis_client.acl_deluser(username=cred.username)
             result = self.manager.job_col.delete_one(filter={"jobId": jobId})
+            # we don't delete dataset from Redis as it might be shared by multiple jobs
             if result.acknowledged and result.deleted_count == 1:
                 resp = dbus_pb2.DeregisterResponse("successfully deregister job {jobId}".format(jobId=jobId))
                 logger.info('user {} deregister job {}'.format(cred.username, jobId))
@@ -286,7 +315,7 @@ class Registration(dbus_grpc.RegistrationServicer):
         return resp
 
 
-class Heartbeat(dbus_grpc.HeartbeatServicer):
+class HeartbeatService(dbus_grpc.HeartbeatServicer):
     def __init__(self, manager: Manager) -> None:
         super().__init__()
         self.manager = manager
@@ -299,11 +328,13 @@ class Heartbeat(dbus_grpc.HeartbeatServicer):
             now = datetime.utcnow().timestamp()
             tokenTimeout = bston_ts(jinfo.tokenTimeout.seconds + jinfo.tokenTimeout.nanos/1e9)
             if tokenTimeout > now:
-                new_token = shuffle(jinfo.token)
-                request.jinfo.token = new_token
+                token = MessageToDict(jinfo)
+                token['time'] = now
+                token = hashing(token)[:TOKEN_LEN]
+                request.jinfo.token = token
                 self.manager.job_col.aggregate([
                     {"$match": {"meta.jobId": jinfo.jobId}},
-                    {"$set": {"meta.token": new_token, "meta.tokenTimeout": bston_ts(now+3600)}}
+                    {"$set": {"meta.token": token, "meta.tokenTimeout": bston_ts(now+3600)}}
                 ])
             result = self.manager.client_col.aggregate([
                 {"$match": {"username": job['username']}},
@@ -315,7 +346,7 @@ class Heartbeat(dbus_grpc.HeartbeatServicer):
             return request
 
 
-class CacheMiss(dbus_grpc.CacheMissServicer):
+class CacheMissService(dbus_grpc.CacheMissServicer):
     def __init__(self, manager: Manager) -> None:
         super().__init__()
         self.manager = manager
@@ -345,15 +376,28 @@ class CacheMiss(dbus_grpc.CacheMissServicer):
             return dbus_pb2.CacheMissResponse(response=True)
 
 
-class Logger(dbus_grpc.LoggerServicer):
-    def __init__(self, manager: Manager) -> None:
-        super().__init__()
-        self.manager = manager
+
+# class Logger(dbus_grpc.LoggerServicer):
+#     def __init__(self, manager: Manager) -> None:
+#         super().__init__()
+#         self.manager = manager
         
-    def call(self, request, context):
-        """
-        TODO:
-        1. Analyze training logs
-        2. re-load data from S3 without changing the redis keys
-        """
-        return super().call(request, context)
+#     def call(self, request, context):
+#         """
+#         TODO:
+#         1. Analyze training logs
+#         2. re-load data from S3 without changing the redis keys
+#         """
+#         return super().call(request, context)
+
+
+if __name__ == '__main__':
+    manager = Manager()
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+    dbus_grpc.add_ConnectionServicer_to_server(ConnectionService(manager), server)
+    dbus_grpc.add_RegistrationServicer_to_server(RegistrationService(manager), server)
+    dbus_grpc.add_HeartbeatServicer_to_server(HeartbeatService(manager), server)
+    dbus_grpc.add_CacheMissServicer_to_server(CacheMissService(manager), server)
+    server.add_secure_port('[::]:{}'.format(manager.managerconf.port))
+    server.start()
+    server.wait_for_termination()

@@ -7,3 +7,4 @@ redis
 grpcio 
 grpcio-tools
 pymongo
+nvidia_smi

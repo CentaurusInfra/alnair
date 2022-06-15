@@ -1,0 +1,24 @@
+# permissions for end users to edit dltpods.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: dltpod-editor-role
+rules:
+- apiGroups:
+  - alnair.com.my.domain
+  resources:
+  - dltpods
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - alnair.com.my.domain
+  resources:
+  - dltpods/status
+  verbs:
+  - get
