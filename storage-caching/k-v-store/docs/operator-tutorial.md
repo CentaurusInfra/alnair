@@ -33,7 +33,7 @@ chmod +x operator-sdk_${OS}_${ARCH} && sudo mv operator-sdk_${OS}_${ARCH} /usr/l
 # create an operatoe
 ```shell
 unset GOPATH
-operator-sdk init dltpod-operator --repo=github.com/CentaurusInfra/alnair/tree/main/storage-caching/k-v-store/pkg/dltp/dltpod-operator
+operator-sdk init dltpod-operator --repo=github.com/CentaurusInfra/alnair/tree/main/storage-caching/k-v-store/dltp-operator
 operator-sdk create api --group alnair.com --version=v1alpha1 --kind=DLTPod --resource=true --controller=true
 
 make generate
