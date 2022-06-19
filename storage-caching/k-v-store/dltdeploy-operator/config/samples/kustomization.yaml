@@ -1,0 +1,4 @@
+## Append samples you want in your CSV to this file as resources ##
+resources:
+- alnair.com_v1alpha1_dltdeploy.yaml
+#+kubebuilder:scaffold:manifestskustomizesamples

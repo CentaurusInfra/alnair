@@ -8,7 +8,7 @@ make: *** No rule to make target 'all'.  Stop.
 # This is free software: you are free to change and redistribute it.
 # There is NO WARRANTY, to the extent permitted by law.
 
-# Make data base, printed on Thu Jun 16 11:45:36 2022
+# Make data base, printed on Sun Jun 19 09:41:24 2022
 
 # Variables
 
@@ -61,9 +61,9 @@ VSCODE_CWD = /home/zhuangwei
 # environment
 GOPROXY = https://proxy.golang.com.cn,direct
 # environment
-SSH_CONNECTION = 10.145.6.136 62971 10.145.41.32 22
+SSH_CONNECTION = 10.145.6.136 49218 10.145.41.32 22
 # environment
-PATH = /home/zhuangwei/.vscode-server/bin/30d9c6cd9483b2cc586687151bcbcd635f373630/bin/remote-cli:/home/zhuangwei/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/usr/lib/hazelcast-management-center:/home/zhuangwei/go/bin
+PATH = /home/zhuangwei/go/bin:/home/zhuangwei/.vscode-server/bin/30d9c6cd9483b2cc586687151bcbcd635f373630/bin/remote-cli:/home/zhuangwei/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin::/home/zhuangwei/go:/usr/lib/hazelcast-management-center
 # environment
 XDG_RUNTIME_DIR = /run/user/1001
 # environment
@@ -71,13 +71,15 @@ GOPATH = /home/zhuangwei/go
 # environment
 VSCODE_LOG_STACK = false
 # environment
-VSCODE_IPC_HOOK_CLI = /run/user/1001/vscode-ipc-ec655919-78e4-4cbd-907f-08554a3582e9.sock
+VSCODE_IPC_HOOK_CLI = /run/user/1001/vscode-ipc-890f8d33-9c5f-490a-b346-f2fb495186fc.sock
 # default
 .FEATURES := target-specific order-only second-expansion else-if shortest-stem undefine oneshell archives jobserver output-sync check-symlink load
 # environment
 LS_COLORS = 
 # automatic
 %F = $(notdir $%)
+# environment
+GOBIN = /home/zhuangwei/go/bin
 # environment
 VSCODE_PIPE_LOGGING = true
 # environment
@@ -95,7 +97,7 @@ LESSCLOSE = /usr/bin/lesspipe %s %s
 # environment
 LOGNAME = zhuangwei
 # environment
-APPLICATION_INSIGHTS_NO_DIAGNOSTIC_CHANNEL = 1
+APPLICATION_INSIGHTS_NO_DIAGNOSTIC_CHANNEL = true
 # automatic
 +F = $(notdir $+)
 # environment
@@ -111,7 +113,7 @@ MAKECMDGOALS := all
 # environment
 SHLVL = 0
 # environment
-XDG_SESSION_ID = 1110
+XDG_SESSION_ID = 1156
 # environment
 USER = zhuangwei
 # makefile
@@ -120,8 +122,6 @@ USER = zhuangwei
 %D = $(patsubst %/,%,$(dir $%))
 # default
 MAKE_COMMAND := make
-# environment
-OLDPWD = /home/zhuangwei/.vscode-server/bin/30d9c6cd9483b2cc586687151bcbcd635f373630
 # default
 .VARIABLES := 
 # automatic
@@ -131,7 +131,7 @@ MAKEFLAGS = pqrR
 # environment
 MFLAGS = -pqrR
 # environment
-SSH_CLIENT = 10.145.6.136 62971 22
+SSH_CLIENT = 10.145.6.136 49218 22
 # automatic
 +D = $(patsubst %/,%,$(dir $+))
 # environment
@@ -169,9 +169,9 @@ MOTD_SHOWN = pam
 
 # Directories
 
-# . (device 64768, inode 79562539): 13 files, no impossibilities.
+# . (device 64768, inode 79562539): 10 files, no impossibilities.
 
-# 13 files, no impossibilities in 1 directories.
+# 10 files, no impossibilities in 1 directories.
 
 # Implicit Rules
 
@@ -221,12 +221,12 @@ GNUmakefile:
 
 # No general ('VPATH' variable) search path.
 
-# strcache buffers: 1 (0) / strings = 21 / storage = 182 B / avg = 8 B
-# current buf: size = 8162 B / used = 182 B / count = 21 / avg = 8 B
+# strcache buffers: 1 (0) / strings = 18 / storage = 166 B / avg = 9 B
+# current buf: size = 8162 B / used = 166 B / count = 18 / avg = 9 B
 
-# strcache performance: lookups = 24 / hit rate = 12%
+# strcache performance: lookups = 21 / hit rate = 14%
 # hash-table stats:
-# Load=21/8192=0%, Rehash=0, Collisions=1/24=4%
-# Finished Make data base on Thu Jun 16 11:45:36 2022
+# Load=18/8192=0%, Rehash=0, Collisions=1/21=5%
+# Finished Make data base on Sun Jun 19 09:41:24 2022
 
  
