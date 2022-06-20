@@ -1,0 +1,10 @@
+#compile all the components needed in Alnair profiler
+#k kustomize > profiler-all-in-one.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - prometheus-complete.yaml
+  - mongo.yaml
+  - cadvisor-daemonset.yaml
+  - profiler-dcgm-daemonset.yaml
