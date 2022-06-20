@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: cart-pole-demo
+spec:
+  containers:
+  - name: tensorflow
+    image: centaurusinfra/dcgan-demo
+    command: ["python", "RL_Cart-Pole.py"]
+    resources:
+      limits:
+        alnair/vgpu-memory: 8
+        alnair/vgpu-compute: 100
+  restartPolicy: OnFailure

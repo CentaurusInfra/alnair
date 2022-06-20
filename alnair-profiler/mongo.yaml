@@ -2,6 +2,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: mongo
+  namespace: alnair
   labels:
     name: mongo
 spec:
@@ -15,6 +16,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: mongo
+  namespace: alnair
 spec:
   selector:
     matchLabels:
