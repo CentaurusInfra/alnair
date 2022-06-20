@@ -1,0 +1,6 @@
+apiVersion: alnair.com.my.domain/v1alpha1
+kind: AlnairPod
+metadata:
+  name: alnairpod-sample
+spec:
+  # TODO(user): Add fields here

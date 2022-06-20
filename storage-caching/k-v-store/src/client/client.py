@@ -19,12 +19,12 @@ HEARTBEAT_FREQ = 10
 
 class Client(FileSystemEventHandler):
     def __init__(self) -> None:
-        dltdeploy_info = os.environ.get("DLTDEPLOYJOBS")
-        if dltdeploy_info is None:
-            logger.error("Not found env variable DLTDEPLOYJOBS")
-        self.dltdeploy_info = json.loads(dltdeploy_info)
-        self.cred = dotdict(dltdeploy_info['credential'])
-        self.jobs = dotdict(dltdeploy_info['jobs'])
+        alnairpod_info = os.environ.get("ALNAIRJOBs")
+        if alnairpod_info is None:
+            logger.error("Not found env variable ALNAIRJOBs")
+        self.alnairpod_info = json.loads(alnairpod_info)
+        self.cred = dotdict(alnairpod_info['credential'])
+        self.jobs = dotdict(alnairpod_info['jobs'])
         
         self.channel = grpc.secure_channel('{}:{}'.format(self.cred.server_address, self.cred.server_port))
         self.connection_stub = pb_grpc.ConnectionStub(self.channel)

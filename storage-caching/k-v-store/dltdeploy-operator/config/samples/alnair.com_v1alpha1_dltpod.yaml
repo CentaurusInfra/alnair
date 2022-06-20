@@ -1,6 +1,0 @@
-apiVersion: alnair.com.my.domain/v1alpha1
-kind: DLTDeploy
-metadata:
-  name: dltdeploy-sample
-spec:
-  # TODO(user): Add fields here
