@@ -225,7 +225,7 @@ class RegistrationService(dbus_grpc.RegistrationServicer):
             for bkey in dataset_info:
                 if dataset_info[bkey]['ContentLength']/1024/1024 <= chunk_size:
                     value = s3_client.get_object(Bucket=s3auth.bucket, Key=bkey)['Body'].read()
-                    key = hashing(value)[:KEY_LEN]
+                    key = hashing(value)
                     self.manager.redis_client.set(key, value)
                 else:
                     bucket.download_file(s3auth.bucket, '/tmp/{}'.format(bkey), bkey)
@@ -233,7 +233,7 @@ class RegistrationService(dbus_grpc.RegistrationServicer):
                         value = f.read(chunk_size)
                         index = 0
                         while value:
-                            key = hashing(value)[:KEY_LEN]
+                            key = hashing(value)
                             key = "{}_part{}".format(key, index)
                             chunk_keys.append(key)
                             self.manager.redis_client.set(key, value)

@@ -8,12 +8,16 @@ import utils.grpc.dbus_pb2 as pb
 import utils.grpc.dbus_pb2_grpc as pb_grpc
 from google.protobuf.json_format import MessageToJson
 from utils.utils import *
+from watchdog.observers import Observer
+from watchdog.events import *
+
 
 logger = get_logger(__name__, level='Info')
 HEARTBEAT_FREQ = 10
 
 
-class Client(object):
+
+class Client(FileSystemEventHandler):
     def __init__(self) -> None:
         dltdeploy_info = os.environ.get("DLTDEPLOYJOBS")
         if dltdeploy_info is None:
@@ -102,9 +106,31 @@ class Client(object):
                     json.dump(MessageToJson(resp), f)
             time.sleep(hb)
     
+    def handle_cachemiss(self):
+        with open('/data/cachemiss', 'r') as f:
+            misskeys = f.readlines()
+        for key in misskeys:
+            resp = self.cachemiss_stub.call(pb.CacheMissRequest(key))
+            if resp.response:
+                logger.info('request missing key {}'.format(key))
+            else:
+                logger.warning('failed to request missing key {}'.format(key))
+    
+    def on_modified(self, event):
+        if event.src_path == '/data/cachemiss':
+            return self.handle_cachemiss()
+    
     def prob_job(self, job: pb.JobInfo):
         # TODO: probe job runtime execution
         pass
 
 if __name__ == '__main__':
     client = Client()
+    fs_observer = Observer()
+    fs_observer.schedule(client, r"/data/cachemiss", True)
+    fs_observer.start()
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        fs_observer.stop()
