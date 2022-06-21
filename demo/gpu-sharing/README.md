@@ -1,10 +1,13 @@
 # Alnair GPU sharing feature demo
+## Purpose
+Demostrate running multiple jobs on one GPU, i.e., GPU sharing feature, provided by Alnair platform improves GPU utilization and reduce overall job completion time.
+
+Alnair vGPU device plugin supports both fractional gpu memory and compute to indiviual job/process, together with vGPU scheduler gurantees no cross-node scheduling.  
 ## Prerequisite
 A two-node Kubernetes cluster. At least one node has one Nvidia GPU card.
 
-The following steps were executed on Kubernetes v1.20.5. Nvidia GPU is V100 with 32GB RAM.
-
 ## Steps
+The following steps were executed and verified on a v1.21.4 Kubernetes cluster. Nvidia GPU is V100 with 32GB RAM.
 
 1. Clone Alnair Git repo
 
@@ -36,4 +39,5 @@ The following steps were executed on Kubernetes v1.20.5. Nvidia GPU is V100 with
 
 8. Compare GPU utilization, and Job completion time
 
+## Results 
 
