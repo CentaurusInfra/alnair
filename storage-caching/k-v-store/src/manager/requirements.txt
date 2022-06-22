@@ -1,0 +1,7 @@
+boto3
+grpcio
+redis
+configparser
+pickle-mixin
+pymongo
+protobuf

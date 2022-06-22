@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"reflect"
 
 	"errors"
@@ -43,9 +44,7 @@ const (
 	PodKind       = "Pod"
 	SecretKind    = "Secret"
 	ConfigMapKind = "ConfigMap"
-
-	ClientImage        = "zhunagweikang/alnairpodclient:latest"
-	SharedVolMountPath = "/data"
+	ClientImage   = "zhunagweikang/alnairpod:client"
 )
 
 // AlnairPodReconciler reconciles a AlnairPod object
@@ -78,14 +77,13 @@ func (r *AlnairPodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return reconcile.Result{}, err
 	}
 
-	clientName := fmt.Sprintf("alnairpod-%s-client", alnairpod.Name)
 	var jobsName []string
 	for _, job := range alnairpod.Spec.Jobs {
-		jobsName = append(jobsName, fmt.Sprintf("alnairpod-%s-job-%s", alnairpod.Name, job.Name))
+		jobsName = append(jobsName, fmt.Sprintf("job-%s", job.Name))
 	}
 
 	// reconcoile containers name
-	if alnairpod.Status.Client != clientName || reflect.DeepEqual(alnairpod.Status.CreatedJobs, jobsName) {
+	if alnairpod.Status.Client != "client" || reflect.DeepEqual(alnairpod.Status.CreatedJobs, jobsName) {
 		if err := r.Status().Update(ctx, &alnairpod); err != nil {
 			log.Info(fmt.Sprintf("error in updating AlnairPod client and job names: %s.", err.Error()))
 		}
@@ -128,65 +126,38 @@ func (r *AlnairPodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 func (r *AlnairPodReconciler) desiredAlnairPod(ctx context.Context, alnairpod v1alpha1.AlnairPod) (corev1.Pod, error) {
 	pod := corev1.Pod{}
 
-	// client shares job registration response message with job through a shared volume
-	shared_vol := corev1.Volume{
-		Name:         fmt.Sprintf("alnairpod-%s", alnairpod.Name),
-		VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
+	volumes := []corev1.Volume{
+		{
+			Name:         "client-secret",
+			VolumeSource: corev1.VolumeSource{Secret: &corev1.SecretVolumeSource{SecretName: alnairpod.Spec.Secret.Name}},
+		},
+		{
+			Name:         "job-config",
+			VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{LocalObjectReference: corev1.LocalObjectReference{Name: alnairpod.Spec.Configurations.Name}}},
+		},
+		{
+			Name:         "shared",
+			VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
+		},
 	}
-	shared_vol_mnt := corev1.VolumeMount{
-		Name:      fmt.Sprintf("alnairpod-%s", alnairpod.Name),
-		ReadOnly:  true,
-		MountPath: SharedVolMountPath,
+	for _, vol := range alnairpod.Spec.Volumes {
+		volumes = append(volumes, vol)
 	}
-	volumes := alnairpod.Spec.Volumes
-	volumes = append(volumes, shared_vol)
 
-	// collect job information and pass to client container through env variable
-	var secret corev1.Secret
-	if err := r.Get(ctx, types.NamespacedName{Name: alnairpod.Spec.Secret.Name, Namespace: alnairpod.Namespace}, &secret); err != nil {
-		return pod, err
-	}
-	alnairpodjobinfo := make(map[string]interface{})
-	alnairpodjobinfo["credential"] = map[string]interface{}{
-		"server_address": secret.Data["server_address"],
-		"server_port":    secret.Data["server_port"],
-		"username":       secret.Data["username"],
-		"password":       secret.Data["password"],
-	}
 	var jobsinfo []map[string]interface{}
 	var containers []corev1.Container
 	for _, job := range alnairpod.Spec.Jobs {
-		jobinfo := make(map[string]interface{})
-		var s3auth_secret corev1.Secret
-		if err := r.Get(ctx, types.NamespacedName{Name: job.DataSource.Secret.Name, Namespace: alnairpod.Namespace}, &s3auth_secret); err != nil {
-			return pod, err
+		jinfo := map[string]interface{}{
+			"name":       job.Name,
+			"datasource": job.DataSource,
 		}
-		jobinfo["name"] = job.Name
-		jobinfo["dataset"] = job.DataSource.Name
-		jobinfo["s3auth"] = map[string]interface{}{
-			"aws_access_key_id":     s3auth_secret.Data["aws_access_key_id"],
-			"aws_secret_access_key": s3auth_secret.Data["aws_secret_access_key"],
-			"region_name":           s3auth_secret.Data["region_name"],
-			"bucket":                job.DataSource.Bucket,
-			"keys":                  job.DataSource.Keys,
-		}
-		var qos_configmap corev1.ConfigMap
-		if err := r.Get(ctx, types.NamespacedName{Name: job.Configurations.Name, Namespace: alnairpod.Namespace}, &qos_configmap); err != nil {
-			return pod, err
-		}
-		jobinfo["QoS"] = map[string]interface{}{
-			"useCache":         qos_configmap.Data["useCache"],
-			"flushFreq":        qos_configmap.Data["flushFreq"],
-			"durabilityInMem":  qos_configmap.Data["durabilityInMem"],
-			"durabilityInDisk": qos_configmap.Data["durabilityInDisk"],
-		}
-		jobsinfo = append(jobsinfo, jobinfo)
+		jobsinfo = append(jobsinfo, jinfo)
 
 		// initialize job container
 		vol_mounts := job.VolumeMounts
-		vol_mounts = append(vol_mounts, shared_vol_mnt)
+		vol_mounts = append(vol_mounts, corev1.VolumeMount{Name: "share", MountPath: "/share"})
 		container := corev1.Container{
-			Name:            fmt.Sprintf("alnairpod-%s-job-%s", alnairpod.Name, job.Name),
+			Name:            fmt.Sprintf("job-%s", job.Name),
 			Image:           job.Image,
 			ImagePullPolicy: job.ImagePullPolicy,
 			WorkingDir:      job.WorkingDir,
@@ -200,24 +171,26 @@ func (r *AlnairPodReconciler) desiredAlnairPod(ctx context.Context, alnairpod v1
 		}
 		containers = append(containers, container)
 	}
-	alnairpodjobinfo["jobs"] = jobsinfo
-	alnairpodjobinfoJsonStr, err := json.Marshal(alnairpodjobinfo)
+	file, err := json.MarshalIndent(jobsinfo, "", " ")
+	err = ioutil.WriteFile("/share/jobs.json", file, 0644)
 	if err != nil {
 		return pod, nil
 	}
 
 	// init the client container
-	shared_vol_mnt.ReadOnly = false
 	container := corev1.Container{
-		Name:            fmt.Sprintf("alnairpod-%s-client", alnairpod.Name),
+		Name:            "client",
 		Image:           ClientImage,
 		ImagePullPolicy: corev1.PullAlways,
 		WorkingDir:      "/apps",
 		Command:         []string{"python3", "client.py"},
-		Env:             []corev1.EnvVar{{Name: "ALNAIRJOBs", Value: string(alnairpodjobinfoJsonStr)}},
-		VolumeMounts:    []corev1.VolumeMount{shared_vol_mnt},
-		TTY:             true,
-		Stdin:           true,
+		VolumeMounts: []corev1.VolumeMount{
+			{Name: "share", MountPath: "/share"},
+			{Name: "client-secret", MountPath: "/secret"},
+			{Name: "job-config", MountPath: "/config"},
+		},
+		TTY:   true,
+		Stdin: true,
 	}
 	containers = append(containers, container)
 
@@ -269,6 +242,22 @@ func (r *AlnairPodReconciler) setDefaults(ctx context.Context, alnairpod *v1alph
 	if len(alnairpod.Spec.Jobs) == 0 {
 		return errors.New("please specify at least one job")
 	}
+	var job_config corev1.ConfigMap
+	if alnairpod.Spec.Configurations.Name == "" {
+		r.Log.Info("not found Job QoS configurations")
+	} else if err := r.Get(ctx, types.NamespacedName{Namespace: alnairpod.Namespace, Name: alnairpod.Spec.Configurations.Name}, &job_config); err != nil {
+		r.Log.Error(err, fmt.Sprintf("failed to load ConfigMap %s", alnairpod.Spec.Configurations.Name))
+	} else {
+		default_qos := reflect.ValueOf(DefaultQoS)
+		fields := default_qos.Type()
+		for i := 0; i < default_qos.NumField(); i++ {
+			job_config.Data[fields.Field(i).Name] = default_qos.Field(i).Interface().(string)
+		}
+		if err := r.Update(ctx, &job_config, &client.UpdateOptions{}); err != nil {
+			r.Log.Error(err, fmt.Sprintf("failed to update existing ConfigMap %s", alnairpod.Name))
+			return err
+		}
+	}
 
 	for i, job := range alnairpod.Spec.Jobs {
 		if len(job.ImagePullPolicy) == 0 {
@@ -278,32 +267,6 @@ func (r *AlnairPodReconciler) setDefaults(ctx context.Context, alnairpod *v1alph
 		if len(job.VolumeMounts) == 0 {
 			r.Log.Info("setting default volume mount")
 			alnairpod.Spec.Jobs[i].VolumeMounts = []corev1.VolumeMount{}
-		}
-
-		default_config_data := ToConfigmapData(DefaultQoS, false).(map[string]string)
-		var job_config corev1.ConfigMap
-		if err := r.Get(ctx, types.NamespacedName{Namespace: alnairpod.Namespace, Name: job.Configurations.Name}, &job_config); err != nil {
-			r.Log.Info("setting default QoS configurations")
-			configmap := corev1.ConfigMap{
-				TypeMeta:   metav1.TypeMeta{Kind: ConfigMapKind, APIVersion: APIVersion},
-				ObjectMeta: metav1.ObjectMeta{Name: job.Name},
-				Data:       default_config_data,
-			}
-			if err := r.Create(ctx, &configmap, &client.CreateOptions{}); err != nil {
-				r.Log.Error(err, fmt.Sprintf("fail to create default ConfigMap for job %s", job.Name))
-				return err
-			}
-			alnairpod.Spec.Jobs[i].Configurations = v1alpha1.ConfigMapRef{Name: job.Name}
-		} else {
-			for field := range job_config.Data {
-				default_config_data[field] = job_config.Data[field]
-			}
-			// update the existing ConfigMap
-			job_config.Data = default_config_data
-			if err := r.Update(ctx, &job_config, &client.UpdateOptions{}); err != nil {
-				r.Log.Error(err, fmt.Sprintf("failed to update existing ConfigMap %s", job.Configurations.Name))
-				return err
-			}
 		}
 	}
 	return nil

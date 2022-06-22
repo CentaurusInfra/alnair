@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alnairpodmanager
+  labels:
+    app: manager
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: manager
+  template:
+    metadata:
+      labels:
+        app: manager
+    spec:
+      containers:
+      - name: alnairpodmanager
+        image: zhuangweikang/alnairpod:manager
+        imagePullPolicy: Always
+        ports:
+        - name: listen-port
+          containerPort: 2200
+        volumeMounts:
+        - name: configuration
+          mountPath: /configs/manager
+        - name: redisconfig
+          mountPath: /configs/redis
+        stdin: true
+        tty: true
+      volumes:
+        - name: configuration
+          configMap:
+            name: alnairpod-manager-config
+        - name: redisconfig
+          configMap:
+            name: redis-config

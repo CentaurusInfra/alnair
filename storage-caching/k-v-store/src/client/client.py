@@ -4,10 +4,11 @@ import grpc
 import signal
 import json
 import time
-import utils.grpc.dbus_pb2 as pb
-import utils.grpc.dbus_pb2_grpc as pb_grpc
+import configparser
+import grpctool.dbus_pb2 as pb
+import grpctool.dbus_pb2_grpc as pb_grpc
 from google.protobuf.json_format import MessageToJson
-from utils.utils import *
+from utils import *
 from watchdog.observers import Observer
 from watchdog.events import *
 
@@ -19,16 +20,21 @@ HEARTBEAT_FREQ = 10
 
 class Client(FileSystemEventHandler):
     def __init__(self) -> None:
-        alnairpod_info = os.environ.get("ALNAIRJOBs")
-        if alnairpod_info is None:
-            logger.error("Not found env variable ALNAIRJOBs")
-        self.alnairpod_info = json.loads(alnairpod_info)
-        self.cred = dotdict(alnairpod_info['credential'])
-        self.jobs = dotdict(alnairpod_info['jobs'])
+        secret = configparser.ConfigParser()
+        secret.read("/config/client.conf")
+        self.manager_sec = secret['alnair_manager']
+        aws_s3_sec = secret["aws_s3"]
         
-        self.channel = grpc.secure_channel('{}:{}'.format(self.cred.server_address, self.cred.server_port))
+        self.jobs = configparser.ConfigParser()
+        self.jobs.read("/config/client.conf")
+        
+        self.channel = grpc.secure_channel('{}:{}'.format(self.manager_sec["server_address"], self.manager_sec["server_port"]))
         self.connection_stub = pb_grpc.ConnectionStub(self.channel)
-        req = pb.ConnectRequest(cred=pb.Credential(self.cred.username, self.cred.password), createUser=True)
+        req = pb.ConnectRequest(
+            cred=pb.Credential(self.manager_sec["username"], self.manager_sec["password"]), 
+            s3auth=pb.S3Auth(aws_s3_sec["aws_access_key_id"], aws_s3_sec["aws_secret_access_key"], aws_s3_sec["region_name"]),
+            createUser=True
+        )
         resp = self.connection_stub.connect(req)
         if resp.rc == pb.FAILED:
             logger.error("failed to connect to server with: {}".format(resp.resp))
@@ -36,7 +42,7 @@ class Client(FileSystemEventHandler):
         else:
             logger.info("connect to server")
         
-        self.jobs = {}
+        self.running_jobs = {}
         self.registration_stub = pb_grpc.RegistrationStub(self.channel)
         self.register_jobs()
         
@@ -61,32 +67,26 @@ class Client(FileSystemEventHandler):
             spec (array): a list of job specifications
         """
         for job in self.jobs:
-            s3auth = job.s3auth
-            qos = job.QoS
+            qos = job['QoS']
             request = pb.RegisterRequest(
-                cred=pb.Credential(username=self.cred.username, password=self.cred.password, createUser=True),
-                dataset=job.dataset,
-                s3auth=pb.S3Auth(
-                    aws_access_key_id=s3auth.aws_access_key_id,
-                    aws_secret_access_key=s3auth.aws_secret_access_key,
-                    region_name=s3auth.region_name,
-                    bucket=s3auth.bucket,
-                    keys=s3auth.keys   
+                cred=pb.Credential(username=self.manager_sec["username"], password=self.manager_sec["password"], createUser=True),
+                datasource=pb.DataSource(name=job['name'], bucket=job['bucket'], keys=job['keys']),
+                qos=pb.QoS(
+                    useCache=qos['useCache'],
+                    flushFreq=qos['flushFreq'],
+                    durabilityInMem=qos['durabilityInMem'],
+                    durabilityInDisk=qos['durabilityInDisk'],
                 ),
-                useCache=qos.useCache,
-                flushFreq=qos.flushFreq,
-                durabilityInMem=qos.durabilityInMem,
-                durabilityInDisk=qos.durabilityInDisk,
-                resource=pb.ResourceInfo(CPUMemoryFree=get_cpu_free_mem(), CPUMemoryFree=get_gpu_free_mem())
+                resource=pb.ResourceInfo(CPUMemoryFree=get_cpu_free_mem(), GPUMemoryFree=get_gpu_free_mem())
             )
             resp = self.registration_stub.register(request)
             if type(resp) is pb.RegisterSuccess:
-                self.jobs[job['name']] = resp
-                logger.info('registered job {}, assigned jobId is {}'.format(job.name, resp.jinfo.jobId))
-                with open('/data/{}.json'.format(job.name), 'w') as f:
+                self.running_jobs[job['name']] = resp
+                logger.info('registered job {}, assigned jobId is {}'.format(job['name'], resp.jinfo.jobId))
+                with open('/data/{}.json'.format(job['name']), 'w') as f:
                     json.dump(MessageToJson(resp), f)
             else:
-                logger.error('failed to register job {}, due to {}'.format(job.name, resp.error))
+                logger.error('failed to register job {}, due to {}'.format(job['name'], resp.error))
                 os.kill(os.getpid(), signal.SIGINT)
     
     def send_hearbeat(self, job: pb.JobInfo):
@@ -117,17 +117,17 @@ class Client(FileSystemEventHandler):
                 logger.warning('failed to request missing key {}'.format(key))
     
     def on_modified(self, event):
-        if event.src_path == '/data/cachemiss':
+        if event.src_path == '/share/cachemiss':
             return self.handle_cachemiss()
     
     def prob_job(self, job: pb.JobInfo):
-        # TODO: probe job runtime execution
+        # TODO: probe job runtime information
         pass
 
 if __name__ == '__main__':
     client = Client()
     fs_observer = Observer()
-    fs_observer.schedule(client, r"/data/cachemiss", True)
+    fs_observer.schedule(client, r"/share/cachemiss", True)
     fs_observer.start()
     try:
         while True:

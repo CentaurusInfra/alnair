@@ -46,10 +46,9 @@ type ConfigMapRef struct {
 }
 
 type DataSourceStruct struct {
-	Name   string    `json:"name"`
-	Secret SecretRef `json:"secret"`
-	Bucket string    `json:"bucket"`
-	Keys   []string  `json:"keys,omitempty"`
+	Name   string   `json:"name"`
+	Bucket string   `json:"bucket"`
+	Keys   []string `json:"keys,omitempty"`
 }
 
 // Container defines Kubernetes container attributes.
@@ -127,10 +126,6 @@ type Job struct {
 	// Actions that the management system should take in response to container lifecycle events.
 	// +optional
 	Lifecycle *corev1.Lifecycle `json:"lifecycle,omitempty"`
-
-	// QoS configuration of the job
-	// +optional
-	Configurations ConfigMapRef `json:"configurations,omitempty"`
 }
 
 // AlnairPodSpec defines the desired state of AlnairPod
@@ -163,6 +158,10 @@ type AlnairPodSpec struct {
 	// If this option is set, the ports that will be used must be specified. Default to false.
 	// +optional
 	HostNetwork bool `json:"hostnetwork,omitempty"`
+
+	// QoS configuration of the job
+	// +optional
+	Configurations ConfigMapRef `json:"configurations,omitempty"`
 }
 
 // AlnairPodStatus defines the observed state of AlnairPod
