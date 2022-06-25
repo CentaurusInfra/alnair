@@ -6,8 +6,9 @@ metadata:
 data:
   manager.conf: |
     [manager]
-    bind=127.0.0.1
-    port=2220
+    bind=[::]
+    port=50051
+    token_life=600
     backup-dir=/data/
     flush_frequency=10
     flush_amount=10
@@ -15,11 +16,10 @@ data:
     [mongodb]
     username=alnair
     password=alnair
-    host=10.145.41.33
-    port=30017
+    host=mongo
+    port=27017
     db=Cacher
   
-    [redis]
+    [redis_proxy]
     host=10.145.41.33
     port=30001
-    password=redispwd

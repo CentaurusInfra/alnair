@@ -2,13 +2,11 @@
     "title" : "Job",
     "bsonType": "object",
     "required": [
-        "_id",
         "meta",
         "QoS",
         "policy"
     ],
     "properties": {
-        "_id": "objectId",
         "meta": {
             "bsonType": "object",
             "required": [
@@ -21,14 +19,13 @@
                 "tokenTimeout"
             ],
             "properties": {
-                "username": {"bsonType": "uuid"},
-                "jobId": {"bsonType": "uuid"},
+                "username": {"bsonType": "string"},
+                "jobId": {"bsonType": "string"},
                 "datasource": {
-                    "bsonType": "string",
+                    "bsonType": "object",
                     "required": [
                         "name",
-                        "bucket",
-                        "keys"
+                        "bucket"
                     ],
                     "properties": {
                         "name": {"bsonType": "string"},
@@ -42,29 +39,9 @@
                 "resourceInfo": {
                     "bsonType": "object",
                     "title": "resourceInfo",
-                    "required": [
-                        "CPUMem",
-                        "GPUMem"
-                    ],
                     "properties": {
-                        "CPUMem": {
-                            "bsonType": "object",
-                            "required": ["MemTotal", "MemFree", "MemAvailable"],
-                            "properties": {
-                                "MemTotal": {"bsonType": "int"},
-                                "MemFree": {"bsonType": "int"},
-                                "MemAvailable": {"bsonType": "int"}
-                            }
-                        },
-                        "GPUMem": {
-                            "bsonType": "object",
-                            "required": ["MemTotal", "MemFree", "MemAvailable"],
-                            "properties": {
-                                "MemTotal": {"bsonType": "int"},
-                                "MemFree": {"bsonType": "int"},
-                                "MemAvailable": {"bsonType": "int"}
-                            }
-                        }
+                        "CPUMemoryFree": {"bsonType": "int"},
+                        "GPUMemoryFree": {"bsonType": "int"}
                     },
                     "description": "GPU and CPU memory resource information"
                 },
@@ -77,16 +54,16 @@
             "bsonType": "object",
             "title": "qos",
             "required": [
-                "useCache",
-                "flushFreq",
-                "durabilityInMem",
-                "durabilityInDisk"
+                "UseCache",
+                "FlushFreq",
+                "DurabilityInMem",
+                "DurabilityInDisk"
             ],
             "properties": {
-                "useCache": {"bsonType": "bool"},
-                "flushFreq": {"bsonType": "int"},
-                "durabilityInMem": {"bsonType": "int"},
-                "durabilityInDisk": {"bsonType": "int"}
+                "UseCache": {"bsonType": "bool"},
+                "FlushFreq": {"bsonType": "int"},
+                "DurabilityInMem": {"bsonType": "int"},
+                "DurabilityInDisk": {"bsonType": "int"}
             },
             "description": "QoS configuration"
         },
@@ -103,20 +80,19 @@
                 "chunkSize": {"bsonType": "int"},
                 "chunks": {
                     "bsonType": "array",
-                    "item": {
+                    "items": {
                         "bsonType": "object",
                         "title": "chunk",
                         "required": [
                             "key",
                             "totalAccessTime",
-                            "lastAccessTime",
                             "location",
                             "hasBackup"
                         ],
                         "properties": {
-                            "key": {"bsonType": "uuid"},
+                            "key": {"bsonType": "string"},
                             "totalAccessTime": {"bsonType": "int"},
-                            "lastAccessTime": {"bsonType": ["timestamp", "null"]},
+                            "lastAccessTime": {"bsonType": "timestamp"},
                             "location": {"bsonType": "string"},
                             "hasBackup": {"bsonType": "bool"}
                         }
@@ -125,6 +101,5 @@
             },
             "description": "caching policy of the job"
         }
-    },
-    "additionalProperties": true
+    }
 }

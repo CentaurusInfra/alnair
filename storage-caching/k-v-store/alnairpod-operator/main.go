@@ -31,7 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	alnaircomv1alpha1 "github.com/CentaurusInfra/alnair/tree/main/storage-caching/k-v-store/alnairpod-operator/api/v1alpha1"
+	alnairv1alpha1 "github.com/CentaurusInfra/alnair/tree/main/storage-caching/k-v-store/alnairpod-operator/api/v1alpha1"
 	"github.com/CentaurusInfra/alnair/tree/main/storage-caching/k-v-store/alnairpod-operator/controllers"
 	//+kubebuilder:scaffold:imports
 )
@@ -44,7 +44,7 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-	utilruntime.Must(alnaircomv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(alnairv1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -71,7 +71,7 @@ func main() {
 		Port:                   9443,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "97a5d1f0.my.domain",
+		LeaderElectionID:       "97a5d1f0.com",
 		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
 		// when the Manager ends. This requires the binary to immediately end when the
 		// Manager is stopped, otherwise, this setting is unsafe. Setting this significantly
@@ -91,6 +91,7 @@ func main() {
 
 	if err = (&controllers.AlnairPodReconciler{
 		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("alnairpod"),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "AlnairPod")

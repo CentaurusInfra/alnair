@@ -5,9 +5,9 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.9.0
   creationTimestamp: null
-  name: alnairpods.alnair.com.my.domain
+  name: alnairpods.alnair.com
 spec:
-  group: alnair.com.my.domain
+  group: alnair.com
   names:
     kind: AlnairPod
     listKind: AlnairPodList
@@ -69,7 +69,24 @@ spec:
                         type: string
                       type: array
                     configurations:
-                      description: QoS configuration of the job
+                      description: QoS configuration of the job from ConfigMap
+                      properties:
+                        durabilityindisk:
+                          type: integer
+                        durabilityinmem:
+                          type: integer
+                        flushfreq:
+                          type: integer
+                        usecache:
+                          type: boolean
+                      required:
+                      - durabilityindisk
+                      - durabilityinmem
+                      - flushfreq
+                      - usecache
+                      type: object
+                    configurationsfromconfigmap:
+                      description: QoS configuration of the job from ConfigMap
                       properties:
                         name:
                           type: string
@@ -87,18 +104,9 @@ spec:
                           type: array
                         name:
                           type: string
-                        secret:
-                          description: SecretRef is reference to Kubernetes secret.
-                          properties:
-                            name:
-                              type: string
-                          required:
-                          - name
-                          type: object
                       required:
                       - bucket
                       - name
-                      - secret
                       type: object
                     env:
                       description: List of environment variables to set in the container.
@@ -578,9 +586,7 @@ spec:
                   - command
                   - datasource
                   - image
-                  - imagePullPolicy
                   - name
-                  - resources
                   type: object
                 type: array
               labels:

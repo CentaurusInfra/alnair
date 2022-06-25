@@ -2,18 +2,14 @@
     "title" : "Client",
     "bsonType": "object",
     "required": [
-        "_id",
         "username",
         "password",
-        "lastHeartbeat",
-        "status",
-        "jobs"
+        "s3auth",
+        "status"
     ],
     "properties": {
-        "_id": {"bsonType": "objectId"},
-        "username": {"bsonType": "uuid"},
+        "username": {"bsonType": "string"},
         "password": {"bsonType": "string"},
-        "status": {"bsonType": "bool"},
         "s3auth": {
             "bsonType": "object",
             "required": [
@@ -27,10 +23,12 @@
                 "region_name": {"bsonType": "string"}
             }
         },
+        "status": {"bsonType": "bool"},
         "lastHeartbeat": {"bsonType": "timestamp"},
         "jobs": {
             "bsonType": "array",
-            "items": {"bsonType": "uuid"}
+            "uniqueItems": true,
+            "items": {"bsonType": "string"}
         }
     }
 }

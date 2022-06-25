@@ -1,4 +1,4 @@
-import os
+import ast
 import logging
 from google.protobuf.timestamp_pb2 import Timestamp
 import pickle
@@ -24,7 +24,7 @@ def get_logger(name=__name__, level:str ='INFO', file=None):
         logger.addHandler(fl)
     return logger
 
-grpc_ts = lambda ts: Timestamp(seconds=int(ts), nanos=int(ts % 1 * 1e9))
+grpc_ts = lambda ts: Timestamp(seconds=int(ts), nanos=int(ts % 1e9))
 
 def hashing(data):
     if type(data) is not bytes:
@@ -44,3 +44,19 @@ def parse_config(section: str) -> dotdict:
         for item in map(lambda x: x.split("="), config_str):
             result[item[0]] = item[1]
         return dotdict(result)
+    
+
+def parse_redis_conf(path):
+    with open(path, 'r') as f:
+        lines = f.readlines()
+    configs = []
+    results = {}
+    for l in lines:
+        if len(l) == 0 or len(l.strip().split()) != 2 or l.strip()[0] == '#':
+            continue
+        configs.append(l)
+        k, v = l.strip().split()
+        k = k.strip().replace('\n', '')
+        v = v.strip().replace('\n', '')            
+        results[k] = v
+    return results

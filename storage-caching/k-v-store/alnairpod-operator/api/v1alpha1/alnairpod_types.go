@@ -45,6 +45,13 @@ type ConfigMapRef struct {
 	Name string `json:"name"`
 }
 
+type QoSConfigurations struct {
+	UseCache         bool `json:"usecache"`
+	FlushFreq        int  `json:"flushfreq"`
+	DurabilityInMem  int  `json:"durabilityinmem"`
+	DurabilityInDisk int  `json:"durabilityindisk"`
+}
+
 type DataSourceStruct struct {
 	Name   string   `json:"name"`
 	Bucket string   `json:"bucket"`
@@ -64,6 +71,14 @@ type Job struct {
 	// Connection and dataset information.
 	DataSource DataSourceStruct `json:"datasource"`
 
+	// QoS configuration of the job from ConfigMap
+	// +optional
+	ConfigurationsFromConfigMap ConfigMapRef `json:"configurationsfromconfigmap,omitempty"`
+
+	// QoS configuration of the job from ConfigMap
+	// +optional
+	Configurations QoSConfigurations `json:"configurations,omitempty"`
+
 	// Entrypoint array. Not executed within a shell.
 	// The docker image's ENTRYPOINT is used if this is not provided.
 	// Variable references $(VAR_NAME) are expanded using the container's environment. If a variable
@@ -76,10 +91,12 @@ type Job struct {
 	// Image pull policy.
 	// One of Always, Never, IfNotPresent.
 	// Defaults to Always.
+	// +optional
 	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy"`
 
 	// Compute Resources required by this container.
 	// More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
+	// +optional
 	Resources corev1.ResourceRequirements `json:"resources"`
 
 	// Arguments to the entrypoint.
@@ -158,10 +175,6 @@ type AlnairPodSpec struct {
 	// If this option is set, the ports that will be used must be specified. Default to false.
 	// +optional
 	HostNetwork bool `json:"hostnetwork,omitempty"`
-
-	// QoS configuration of the job
-	// +optional
-	Configurations ConfigMapRef `json:"configurations,omitempty"`
 }
 
 // AlnairPodStatus defines the observed state of AlnairPod

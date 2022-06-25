@@ -1,17 +1,18 @@
 from typing import Any, Callable, Optional, Callable, Union, Sequence, Iterable, TypeVar, List
-from alnairjoblib.AlnairJobDataset import AlnairJobDataset
-from global_manager.utils import *
+try:
+    from AlnairJobDataset import AlnairJobDataset
+except:
+    from lib.AlnairJobDataset import AlnairJobDataset
 from torch.utils.data import DataLoader, Sampler
 
 
-T_co = TypeVar('T_co', covariant=True)
 T = TypeVar('T')
 _worker_init_fn_t = Callable[[int], None]
 _collate_fn_t = Callable[[List[T]], Any]
 
 
 class AlnairJobDataLoader(object):
-    def __init__(self, dataset: AlnairJobDataset[T_co], batch_size: Optional[int] = 1,
+    def __init__(self, dataset: AlnairJobDataset, batch_size: Optional[int] = 1,
                  shuffle: bool = False, sampler: Union[Sampler, Iterable, None] = None,
                  batch_sampler: Union[Sampler[Sequence], Iterable[Sequence], None] = None,
                  num_workers: int = 0, collate_fn: Optional[_collate_fn_t] = None,
@@ -116,8 +117,8 @@ class AlnairJobDataLoader(object):
     def __iter__(self):
         data = next(self.loader)
         if data is None:
-            self.dataset.data, self.dataset.target = self.dataset.load_data()
-            if self.dataset.data is not None:
+            self.dataset.load_data()
+            if self.dataset.data is Iterable:
                 self.loader = self.init_loader()
                 return next(self.loader)
             else:

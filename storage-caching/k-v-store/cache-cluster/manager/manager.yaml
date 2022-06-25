@@ -1,7 +1,21 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: alnairpod-manager
+spec:
+  type: NodePort
+  ports:
+  - port: 50051
+    targetPort: 50051
+    nodePort: 32200
+  selector:
+    app: manager
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: alnairpodmanager
+  name: alnairpod-manager
   labels:
     app: manager
 spec:
@@ -15,17 +29,19 @@ spec:
         app: manager
     spec:
       containers:
-      - name: alnairpodmanager
+      - name: alnairpod-manager
         image: zhuangweikang/alnairpod:manager
         imagePullPolicy: Always
         ports:
         - name: listen-port
-          containerPort: 2200
+          containerPort: 50051
         volumeMounts:
         - name: configuration
           mountPath: /configs/manager
         - name: redisconfig
           mountPath: /configs/redis
+        - mountPath: /data
+          name: nfs-volume
         stdin: true
         tty: true
       volumes:
@@ -35,3 +51,6 @@ spec:
         - name: redisconfig
           configMap:
             name: redis-config
+        - name: nfs-volume
+          persistentVolumeClaim:
+            claimName: nfs-pvc

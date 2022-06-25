@@ -1,20 +1,33 @@
-# permissions for end users to view alnairpods.
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: alnairpod-viewer-role
+  creationTimestamp: null
+  name: manager-role
 rules:
 - apiGroups:
   - alnair.com
   resources:
   - alnairpods
   verbs:
+  - create
+  - delete
   - get
   - list
+  - patch
+  - update
   - watch
+- apiGroups:
+  - alnair.com
+  resources:
+  - alnairpods/finalizers
+  verbs:
+  - update
 - apiGroups:
   - alnair.com
   resources:
   - alnairpods/status
   verbs:
   - get
+  - patch
+  - update

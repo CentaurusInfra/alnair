@@ -3,6 +3,14 @@ package dbus;
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/empty.proto";
 
+enum RC {
+    CONNECTED = 0;
+    NO_USER = 1;
+    WRONG_PASSWORD = 2;
+    DISCONNECTED = 3;
+    FAILED = 4;
+    REGISTERED = 5;
+}
 
 message Credential {
     string username = 1;
@@ -16,29 +24,22 @@ message S3Auth {
 
 // set up connection between user and GM
 service Connection {
-    rpc connect (ConnectRequest) returns (ConnectResponse);
+    rpc connect (ConnectRequest) returns (ConnectResponse) {}
 }
 message ConnectRequest {
     Credential cred = 1;
     S3Auth s3auth = 2;
-    int32 timeout = 3;
-    bool createUser = 4;
-}
-enum ConnectionRC {
-    SUCCESSFUL = 0;
-    FAILED = 1;
-    TIMEOUT = 2;
+    bool createUser = 3;
 }
 message ConnectResponse {
-    ConnectionRC rc = 1;
+    RC rc = 1;
     string resp = 2;
 }
 
-
 // register a DLT Client (DLTC) to the Global Manager (GM)
 service Registration {
-    rpc register (RegisterRequest) returns (RegisterResponse);
-    rpc deregister (DeregisterRequest) returns (DeregisterResponse);
+    rpc register (RegisterRequest) returns (RegisterResponse) {}
+    rpc deregister (DeregisterRequest) returns (DeregisterResponse) {}
 }
 message ResourceInfo { // Pod resource info, load from proc file system
     int32 CPUMemoryFree = 1;
@@ -50,10 +51,10 @@ message DataSource {
     repeated string keys = 3;
 }
 message QoS {
-    bool useCache = 1;
-    int32 flushFreq = 2;
-    int32 durabilityInMem = 3;
-    int32 durabilityInDisk = 4;
+    bool UseCache = 1;
+    int32 FlushFreq = 2;
+    int32 DurabilityInMem = 3;
+    int32 DurabilityInDisk = 4;
 }
 message RegisterRequest {
     Credential cred = 1;
@@ -61,10 +62,12 @@ message RegisterRequest {
     QoS qos = 3;
     ResourceInfo resource = 4;
 }
+
 message RegisterResponse {
+    RC rc = 1;
     oneof response {
-        RegisterSuccess regsucc = 1;
-        RegisterError regerr = 2;
+        RegisterSuccess regsucc = 2;
+        RegisterError regerr = 3;
     }
 }
 message Policy {
@@ -103,7 +106,7 @@ message DeregisterResponse {
 
 // When key is not available, CC request GM to update policy
 service CacheMiss {
-    rpc call (CacheMissRequest) returns (CacheMissResponse) {};
+    rpc call (CacheMissRequest) returns (CacheMissResponse) {}
 }
 message CacheMissRequest {
     Credential cred = 1;
@@ -114,7 +117,7 @@ message CacheMissResponse {
 }
 
 service Heartbeat {
-    rpc call (HearbeatMessage) returns (HearbeatMessage) {}; 
+    rpc call (HearbeatMessage) returns (HearbeatMessage) {} 
 }
 message HearbeatMessage {
     Credential cred = 1;
@@ -123,7 +126,7 @@ message HearbeatMessage {
 
 // CC periodically sends log messages tO GM
 service Logger {
-    rpc call (stream LogItem) returns (google.protobuf.Empty) {};
+    rpc call (stream LogItem) returns (google.protobuf.Empty) {}
 }
 enum LogLevel {
     INFO = 0;
