@@ -84,13 +84,13 @@
                         "bsonType": "object",
                         "title": "chunk",
                         "required": [
-                            "key",
+                            "name",
                             "totalAccessTime",
                             "location",
                             "hasBackup"
                         ],
                         "properties": {
-                            "key": {"bsonType": "string"},
+                            "name": {"bsonType": "string"},
                             "totalAccessTime": {"bsonType": "int"},
                             "lastAccessTime": {"bsonType": "timestamp"},
                             "location": {"bsonType": "string"},

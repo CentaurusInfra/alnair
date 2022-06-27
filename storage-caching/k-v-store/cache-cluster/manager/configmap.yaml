@@ -21,5 +21,5 @@ data:
     db=Cacher
   
     [redis_proxy]
-    host=10.145.41.33
-    port=30001
+    hosts=10.145.41.32,10.145.41.33
+    port=30079

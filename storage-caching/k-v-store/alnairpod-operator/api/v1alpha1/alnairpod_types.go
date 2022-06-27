@@ -143,6 +143,10 @@ type Job struct {
 	// Actions that the management system should take in response to container lifecycle events.
 	// +optional
 	Lifecycle *corev1.Lifecycle `json:"lifecycle,omitempty"`
+
+	TTY bool `json:"tty,omitempty"`
+
+	Stdin bool `json:"stdin,omitempty"`
 }
 
 // AlnairPodSpec defines the desired state of AlnairPod

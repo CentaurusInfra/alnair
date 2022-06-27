@@ -3,10 +3,13 @@ kind: PersistentVolume
 metadata:
   name: nfs-pv
 spec:
+  storageClassName: nfs-sc
   capacity:
     storage: 10Gi
   accessModes:
+  - ReadWriteMany
   - ReadWriteOnce
+  - ReadOnlyMany
   persistentVolumeReclaimPolicy: Retain
   nfs:
     server: 10.145.41.32

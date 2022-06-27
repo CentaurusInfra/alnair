@@ -32,6 +32,9 @@ spec:
       - name: alnairpod-manager
         image: zhuangweikang/alnairpod:manager
         imagePullPolicy: Always
+        envFrom:
+        - secretRef:
+            name: redis-secret
         ports:
         - name: listen-port
           containerPort: 50051

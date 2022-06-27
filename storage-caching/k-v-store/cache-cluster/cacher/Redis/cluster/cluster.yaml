@@ -43,11 +43,14 @@ spec:
         command: ["sh", "-c"]
         args:
           - |
-            redis-server /etc/redis/redis.conf --bind $(cat /etc/hosts | grep redis | awk '{ print $1 }')
+            redis-server /etc/redis/redis.conf --bind $(cat /etc/hosts | grep redis | awk '{ print $1 }') --requirepass $REDIS_PWD --masterauth $REDIS_PWD
         ports:
         - containerPort: 6379
           protocol: TCP
           name: redis
+        envFrom:
+        - secretRef:
+            name: redis-secret
         volumeMounts:
         - name: data
           mountPath: /data

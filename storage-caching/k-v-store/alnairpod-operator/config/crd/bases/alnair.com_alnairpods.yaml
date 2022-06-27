@@ -537,6 +537,10 @@ spec:
                             https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                           type: object
                       type: object
+                    stdin:
+                      type: boolean
+                    tty:
+                      type: boolean
                     volumeMounts:
                       description: Pod volumes to mount into the container's filesystem.
                       items:

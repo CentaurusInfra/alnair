@@ -117,8 +117,7 @@ func (r *AlnairPodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			} else {
 				alnairpod.Annotations = map[string]string{"spec": string(data)}
 			}
-
-			if err := r.Update(ctx, &alnairpod); err != nil {
+			if err := r.Update(ctx, &alnairpod, &client.UpdateOptions{}); err != nil {
 				return ctrl.Result{}, nil
 			}
 			return ctrl.Result{}, nil
@@ -128,7 +127,7 @@ func (r *AlnairPodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	// update associated resources
 	oldspec := v1alpha1.AlnairPodSpec{}
 	if err := json.Unmarshal([]byte(alnairpod.Annotations["spec"]), &oldspec); err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, nil
 	}
 	if !reflect.DeepEqual(alnairpod.Spec, oldspec) {
 		// update configmap
@@ -187,18 +186,22 @@ func (r *AlnairPodReconciler) createPod(ctx context.Context, alnairpod v1alpha1.
 	var containers []corev1.Container
 	for _, job := range spec.Jobs {
 		// initialize job container
+		env := job.Env
+		env = append(env, corev1.EnvVar{Name: "JOBNAME", Value: job.Name})
 		container := corev1.Container{
 			Name:            fmt.Sprintf("job-%s", job.Name),
 			Image:           job.Image,
 			ImagePullPolicy: job.ImagePullPolicy,
 			WorkingDir:      job.WorkingDir,
-			Env:             job.Env,
+			Env:             env,
 			EnvFrom:         job.EnvFrom,
 			Command:         job.Command,
 			VolumeMounts:    vol_mounts,
 			Ports:           job.Ports,
 			Lifecycle:       job.Lifecycle,
 			Resources:       job.Resources,
+			TTY:             job.TTY,
+			Stdin:           job.Stdin,
 		}
 		containers = append(containers, container)
 	}

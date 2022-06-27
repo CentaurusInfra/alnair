@@ -1,16 +1,18 @@
 from concurrent import futures
+import os
 import grpc
 import boto3
 import threading
 import json, bson
 import time
 import configparser
+import random
 import grpctool.dbus_pb2 as pb
 import grpctool.dbus_pb2_grpc as pb_grpc
 from datetime import datetime
-from google.protobuf.json_format import MessageToDict
+from google.protobuf.json_format import MessageToDict, ParseDict
 from pymongo.mongo_client import MongoClient
-from redis import RedisCluster
+from redis import RedisCluster, Redis, StrictRedis
 from utils import *
 
 
@@ -47,7 +49,9 @@ class Manager(object):
             self.job_col = mongo_client.Cacher.Job
         
         self.redis_proxy_conf = parser['redis_proxy']
-        self.redis = RedisCluster(host="redis-cluster", port=int(self.redis_conf['port']), password=self.redis_conf['masterauth'])
+        host = random.choice(self.redis_proxy_conf['hosts'].split(','))
+        # self.redis = RedisCluster(host="redis-cluster", port=int(self.redis_conf['port']), password=self.redis_conf['masterauth'])
+        self.redis = StrictRedis(host=host, port=self.redis_proxy_conf['port'], username=os.environ.get('REDIS_PROXY_USERNAME'), password=os.environ.get("REDIS_PROXY_PWD"))
         
         flush_thrd = threading.Thread(target=Manager.flush_data, args=(self,), daemon=True)
         flush_thrd.start()
@@ -252,38 +256,39 @@ class RegistrationService(pb_grpc.RegistrationServicer):
             
             chunk_keys = []
             for bkey in dataset_info:
+                chunk_keys.append([])
                 if dataset_info[bkey]['ContentLength']/1024/1024 <= chunk_size:
                     value = s3_client.get_object(Bucket=bucket_name, Key=bkey)['Body'].read()
                     key = hashing(value)
                     self.manager.redis.set(key, value)
-                    chunk_keys.append(key)
+                    chunk_keys[-1].append({'name': bkey, 'key': key})
                 else:
                     bucket.download_file(bucket_name, '/tmp/{}'.format(bkey), bkey)
                     with open('/tmp/{}'.format(bkey), 'rb') as f:
                         value = f.read(chunk_size)
-                        index = 0
+                        part = 0
                         while value:
                             key = hashing(value)
-                            key = "{}_part{}".format(key, index)
-                            chunk_keys.append(key)
+                            chunk_keys[-1].append({'name': '{}-{}'.format(bkey, part), 'key': key})
                             self.manager.redis.set(key, value)
-                            index += 1
+                            part += 1
                             value = f.read(chunk_size)
-                            
-            self.manager.redis.acl_setuser(  # ACL command is not supported by Redis Cluster Proxy
-                username=jobId, passwords=['+{}'.format(token)], 
-                enabled=True,
-                commands=['+get', '+mget'],
-                keys=chunk_keys, 
-                reset=True, reset_keys=False, reset_passwords=False)
+                
+            # self.manager.redis.acl_setuser(  # ACL command is not supported by Redis Cluster Proxy
+            #     username=jobId, passwords=["+{}".format(token)], 
+            #     enabled=True,
+            #     commands=['+get', '+mget'],
+            #     keys=list(chain.from_iterable(list(chunk_keys.values())))
+            #     reset=True, reset_keys=False, reset_passwords=False)
             chunks = []
-            for key in chunk_keys:
-                chunks.append({
-                    "key": key,
-                    "totalAccessTime": 0,
-                    "location": "redis:{}".format(key),
-                    "hasBackup": False
-                })
+            for ck in chunk_keys:
+                for rk in ck:
+                    chunks.append({
+                        "name": rk['name'],
+                        "totalAccessTime": 0,
+                        "location": "redis:{}".format(rk['key']),
+                        "hasBackup": False
+                    })
             jobInfo = {
                 "meta": {
                     "username": cred.username,
@@ -301,15 +306,28 @@ class RegistrationService(pb_grpc.RegistrationServicer):
                     "chunks": chunks
                 }
             }
+            pb_chunks = []
+            for ck in chunk_keys:
+                for rk in ck:
+                    pb_chunks.append(ParseDict(rk, pb.ChunkObj(), ignore_unknown_fields=True))
             resp = pb.RegisterResponse(rc=pb.RC.REGISTERED, regsucc=pb.RegisterSuccess(
                     jinfo=pb.JobInfo(
                         jobId=jobId,
                         token=token,
                         createTime=grpc_ts(now),
                         tokenTimeout=grpc_ts(now+3600),
-                        redisauth= pb.RedisAuth(host=self.manager.redis_proxy_conf['host'], port=int(self.manager.redis_proxy_conf['port']), username=jobId, password=token)
+                        # redisauth= pb.RedisAuth(
+                        #     host=self.manager.redis_proxy_conf['host'], 
+                        #     port=int(self.manager.redis_proxy_conf['port']), 
+                        #     username=jobId, 
+                        #     password=token)
+                        redisauth= pb.RedisAuth(
+                            host=random.choice(self.manager.redis_proxy_conf['hosts'].split(',')), 
+                            port=int(self.manager.redis_proxy_conf['port']), 
+                            username=os.environ.get("REDIS_PROXY_USERNAME"), 
+                            password=os.environ.get("REDIS_PROXY_PWD"))
                     ),
-                    policy=pb.Policy(chunkSize=chunk_size, chunkKeys=chunk_keys)))
+                    policy=pb.Policy(chunkSize=chunk_size, chunkKeys=pb_chunks)))
             result = self.manager.job_col.insert_one(jobInfo)
             if result.acknowledged:
                 logger.info('user {} register job {}'.format(cred.username, jobId))

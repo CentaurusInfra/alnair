@@ -115,6 +115,9 @@ class AlnairJobDataLoader(object):
         return iter(loader)
     
     def __iter__(self):
+        return self
+    
+    def __next__(self):
         data = next(self.loader)
         if data is None:
             self.dataset.load_data()

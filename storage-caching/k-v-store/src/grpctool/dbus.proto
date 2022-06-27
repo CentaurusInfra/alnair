@@ -70,9 +70,14 @@ message RegisterResponse {
         RegisterError regerr = 3;
     }
 }
+
+message ChunkObj {
+    string name = 1;
+    string key = 2;
+}
 message Policy {
-    int32 chunkSize = 4;
-    repeated string chunkKeys = 5;
+    int32 chunkSize = 1;
+    repeated ChunkObj chunkKeys = 2;
 }
 message RedisAuth {
     string host = 1;

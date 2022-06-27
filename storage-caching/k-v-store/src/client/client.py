@@ -5,13 +5,14 @@ import signal
 import json
 import time
 import glob
+from pathlib import Path
 import configparser
 import grpctool.dbus_pb2 as pb
 import grpctool.dbus_pb2_grpc as pb_grpc
 from google.protobuf.json_format import MessageToDict, ParseDict
-from utils import *
 from watchdog.observers import Observer
 from watchdog.events import *
+from utils import *
 
 
 logger = get_logger(__name__, level='Info')
@@ -87,7 +88,7 @@ class Client(FileSystemEventHandler):
                 self.registered_jobs[job['name']] = resp.jinfo
                 logger.info('registered job {}, assigned jobId is {}'.format(job['name'], resp.jinfo.jobId))
                 with open('/share/{}.json'.format(job['name']), 'w') as f:
-                    json.dump(MessageToDict(resp.jinfo), f)
+                    json.dump(MessageToDict(resp), f)
             else:
                 resp = resp.regerr
                 logger.error("failed to register job {}: {}".format(job['name'], resp.error))
@@ -120,6 +121,10 @@ class Client(FileSystemEventHandler):
             else:
                 logger.warning('failed to request missing key {}'.format(key))
     
+    def on_created(self, event):
+        if event.src_path == '/share/cachemiss':
+            return self.handle_cachemiss()
+        
     def on_modified(self, event):
         if event.src_path == '/share/cachemiss':
             return self.handle_cachemiss()
@@ -130,8 +135,9 @@ class Client(FileSystemEventHandler):
 
 if __name__ == '__main__':
     client = Client()
+    Path("/share/cachemiss").touch()
     fs_observer = Observer()
-    fs_observer.schedule(client, r"/share/cachemiss", True)
+    fs_observer.schedule(client, "/share/cachemiss")
     fs_observer.start()
     try:
         while True:
