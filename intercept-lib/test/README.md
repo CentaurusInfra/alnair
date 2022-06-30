@@ -26,7 +26,7 @@ export LD_PRELOAD=./hook.so
 ```
 
 4. Expected result 
->./demo
-testing cudaMalloc... 
-cuInitc_hook is called
+>./demo \
+testing cudaMalloc... \
+cuInitc_hook is called \
 cuMemAllocc_hook is called
