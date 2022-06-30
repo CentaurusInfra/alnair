@@ -11,22 +11,25 @@ codes to enable LD_PRELOAD.
 ### Steps
 
 1. Build hook lib
-```nvcc -shared -lcuda --compiler-options '-fPIC' hook.cpp -o hook.so
+```
+nvcc -shared -lcuda --compiler-options '-fPIC' hook.cpp -o hook.so
 ```
 
 2. Build test program
-```bash
+```
+bash
 nvcc -lcuda test.cu -o demo
 ```
 
 3. Run test
-```bash
+```
+bash
 export LD_PRELOAD=./hook.so
 ./demo
 ```
 
 4. Expected result 
->./demo \
+ \
 testing cudaMalloc... \
 cuInitc_hook is called \
 cuMemAllocc_hook is called
