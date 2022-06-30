@@ -17,13 +17,11 @@ nvcc -shared -lcuda --compiler-options '-fPIC' hook.cpp -o hook.so
 
 2. Build test program
 ```
-bash
 nvcc -lcuda test.cu -o demo
 ```
 
 3. Run test
 ```
-bash
 export LD_PRELOAD=./hook.so
 ./demo
 ```
