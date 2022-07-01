@@ -8,8 +8,9 @@ data:
     [manager]
     bind=[::]
     port=50051
+    enable_proxy=false
     token_life=600
-    backup-dir=/data/
+    backup_dir=/data/
     flush_frequency=10
     flush_amount=10
 
@@ -21,5 +22,5 @@ data:
     db=Cacher
   
     [redis_proxy]
-    hosts=10.145.41.32,10.145.41.33
+    hosts=192.168.41.32,192.168.41.33
     port=30079

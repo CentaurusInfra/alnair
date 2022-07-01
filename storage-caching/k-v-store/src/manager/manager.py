@@ -10,14 +10,13 @@ import random
 import grpctool.dbus_pb2 as pb
 import grpctool.dbus_pb2_grpc as pb_grpc
 from datetime import datetime
-from google.protobuf.json_format import MessageToDict, ParseDict
+from google.protobuf.json_format import ParseDict
 from pymongo.mongo_client import MongoClient
-from redis import RedisCluster, Redis, StrictRedis
+from redis import RedisCluster, Redis
+from pytz import timezone
 from utils import *
 
 
-KEY_LEN = 20
-TOKEN_LEN = 20
 logger = get_logger(name=__name__, level='debug')
 
 
@@ -26,8 +25,14 @@ class Manager(object):
         self.redis_conf = parse_redis_conf('/configs/redis/redis.conf')
         parser = configparser.ConfigParser()
         parser.read('/configs/manager/manager.conf')
-        self.managerconf = parser['manager']
-        mconf = parser['mongodb']
+        
+        try:
+            self.managerconf = parser['manager']
+            mconf = parser['mongodb']
+            self.redis_proxy_conf = parser['redis_proxy']
+        except KeyError as err:
+            logger.error(err)
+        
         mongo_client = MongoClient(host=mconf['host'], port=int(mconf['port']), 
                                    username=mconf['username'], password=mconf['password'])
         with open("mongo-schemas/client.json", 'r') as f:
@@ -35,7 +40,7 @@ class Manager(object):
         with open("mongo-schemas/job.json", 'r') as f:
             job_schema = json.load(f)
         
-        mongo_client.drop_database("Cacher")
+        # mongo_client.drop_database("Cacher")
         
         collections = mongo_client.Cacher.list_collection_names()
         if 'Client' not in collections:
@@ -47,11 +52,13 @@ class Manager(object):
             self.job_col = mongo_client.Cacher.create_collection(name='Job', validator={"$jsonSchema": job_schema}, validationAction="error")
         else:
             self.job_col = mongo_client.Cacher.Job
-        
-        self.redis_proxy_conf = parser['redis_proxy']
-        host = random.choice(self.redis_proxy_conf['hosts'].split(','))
-        # self.redis = RedisCluster(host="redis-cluster", port=int(self.redis_conf['port']), password=self.redis_conf['masterauth'])
-        self.redis = StrictRedis(host=host, port=self.redis_proxy_conf['port'], username=os.environ.get('REDIS_PROXY_USERNAME'), password=os.environ.get("REDIS_PROXY_PWD"))
+    
+        if self.managerconf['enable_proxy']:
+            host = random.choice(self.redis_proxy_conf['hosts'].split(','))
+            self.redis = Redis(host=host, port=self.redis_proxy_conf['port'], 
+                               username=os.environ.get('REDIS_PROXY_USERNAME'), password=os.environ.get("REDIS_PROXY_PWD"))
+        else:
+            self.redis = RedisCluster(host="redis-cluster", port=int(self.redis_conf['port']), password=self.redis_conf['requirepass'])
         
         flush_thrd = threading.Thread(target=Manager.flush_data, args=(self,), daemon=True)
         flush_thrd.start()
@@ -154,7 +161,7 @@ class Manager(object):
                 backup_keys = backup_keys.next()['keys']
                 for key in backup_keys:
                     backup_data = self.redis.get(key)
-                    with open('{}/{}'.format(self.managerconf['backup-dir'], key), 'wb') as f:
+                    with open('{}/{}'.format(self.managerconf['backup_dir'], key), 'wb') as f:
                         f.write(backup_data)
                 self.job_col.job_col.update_many(
                     {"policy.chunks": {"$elemMatch": {"key": {"$in": backup_keys}}}},
@@ -179,7 +186,7 @@ class ConnectionService(pb_grpc.ConnectionServicer):
                     result = self.manager.client_col.insert_one({
                         "username": cred.username,
                         "password": cred.password,
-                        "s3auth": MessageToDict(s3auth, preserving_proto_field_name=True, including_default_value_fields=True),
+                        "s3auth": MessageToDict(s3auth),
                         "status": True
                     })
                 except Exception as ex:
@@ -218,6 +225,7 @@ class RegistrationService(pb_grpc.RegistrationServicer):
     def register(self, request, context):
         cred = request.cred
         rc = self.manager.auth_client(cred.username, cred.password, conn_check=True)
+        jobId = "{}/{}".format(cred.username, request.datasource.name)
         if rc == pb.RC.CONNECTED:
             # get s3 auth
             result = self.manager.client_col.find_one(filter={"$and": [{"username": cred.username, "password": cred.password}]})
@@ -227,68 +235,126 @@ class RegistrationService(pb_grpc.RegistrationServicer):
                 aws_secret_access_key=s3auth['aws_secret_access_key'],
                 region_name=s3auth['region_name']
             )
-            s3 = s3_session.resource('s3')
             s3_client = s3_session.client('s3')
-            
             bucket_name = request.datasource.bucket
             bucket_keys = request.datasource.keys
+            s3 = s3_session.resource('s3')
             bucket = s3.Bucket(bucket_name)
-            paginator = s3_client.get_paginator('list_objects_v2')
-            page_iterator = paginator.paginate(Bucket=bucket_name)
             
-            dataset_info = {}
-            for bucket in page_iterator:
-                for obj in bucket['Contents']:
-                    if obj['Key'] not in bucket_keys and len(bucket_keys)>0: continue
-                    try:
-                        metadata = s3_client.head_object(Bucket=bucket_name, Key=obj['Key'])
-                        dataset_info.update({obj['Key']: metadata})
-                    except:
-                        print("Failed {}".format(obj['Key']))
+            # check if job exist
+            saved_keys = {}
+            try:
+                saved_job = self.manager.job_col.aggregate([
+                    {"$match": {"meta.jobId": jobId}},
+                    {"$sort": {"meta.createTime": -1}},
+                    {"$limit": 1}
+                ]).next()
+            except:
+                saved_job = None
+            if saved_job is not None:
+                for chunk in saved_job['policy']['chunks']:
+                    saved_keys[chunk['name']] = chunk['lastModified']
+            
+            # get object keys that are not in MongoDB and Redis
+            bucket_objs = {}
+            for bk in bucket_keys:
+                paginator = s3_client.get_paginator('list_objects_v2')
+                pages = paginator.paginate(Bucket=bucket_name, Prefix=bk)
+                for page in pages:
+                    for info in page['Contents']:
+                        if saved_job is not None \
+                            and info['Key'] in saved_keys \
+                            and info['LastModified'].replace(tzinfo=timezone('UTC')).timestamp() == saved_keys[info['Key']]:
+                            info['Exist'] = True
+                        else:
+                            info['Exist'] = False
+                        bucket_objs[info['Key']] = info
 
             now = datetime.utcnow().timestamp()
-            chunk_size = self.manager.calculate_chunk_size(dataset_info)
-            jobId = "{username}_{dataset}_{now}".format(username=cred.username, dataset=request.datasource.name, now=str(now).split('.')[0])
-            
+            chunk_size = self.manager.calculate_chunk_size(bucket_objs)
+
             token = MessageToDict(request)
             token['time'] = now
-            token = hashing(token)[:TOKEN_LEN]
-            
+            token = hashing(token)
+
             chunk_keys = []
-            for bkey in dataset_info:
-                chunk_keys.append([])
-                if dataset_info[bkey]['ContentLength']/1024/1024 <= chunk_size:
-                    value = s3_client.get_object(Bucket=bucket_name, Key=bkey)['Body'].read()
-                    key = hashing(value)
-                    self.manager.redis.set(key, value)
-                    chunk_keys[-1].append({'name': bkey, 'key': key})
-                else:
-                    bucket.download_file(bucket_name, '/tmp/{}'.format(bkey), bkey)
-                    with open('/tmp/{}'.format(bkey), 'rb') as f:
-                        value = f.read(chunk_size)
-                        part = 0
-                        while value:
-                            key = hashing(value)
-                            chunk_keys[-1].append({'name': '{}-{}'.format(bkey, part), 'key': key})
-                            self.manager.redis.set(key, value)
-                            part += 1
+            for bk in bucket_objs:
+                info = bucket_objs[bk]
+                if not info['Exist']:
+                    if info['Size'] <= chunk_size:
+                        value = s3_client.get_object(Bucket=bucket_name, Key=info['Key'])['Body'].read()
+                        hash_key = hashing(value)
+                        self.manager.redis.set(hash_key, value)
+                        logger.info("Copy data from s3:{} to redis:{}".format(info['Key'], hash_key))
+                        chunk_keys.append({
+                            'name': info['Key'], 
+                            'key': hash_key, 
+                            'size': info['Size'], 
+                            'lastModified': int(info['LastModified'].timestamp())})
+                    else:
+                        bucket.download_file(Key=info['Key'], Filename='/tmp/{}'.format(info['Key']))
+                        logger.info("Download large file s3:{}, size: {}B".format(info['Key'], info['Size']))
+                        with open('/tmp/{}'.format(info['Key']), 'rb') as f:
                             value = f.read(chunk_size)
-                
-            # self.manager.redis.acl_setuser(  # ACL command is not supported by Redis Cluster Proxy
-            #     username=jobId, passwords=["+{}".format(token)], 
-            #     enabled=True,
-            #     commands=['+get', '+mget'],
-            #     keys=list(chain.from_iterable(list(chunk_keys.values())))
-            #     reset=True, reset_keys=False, reset_passwords=False)
+                            while value:
+                                hash_key = hashing(value)
+                                chunk_keys.append({
+                                    'name': '{}'.format(info['Key']), 
+                                    'key': hash_key, 
+                                    'size': chunk_size, 
+                                    'lastModified': int(info['LastModified'].timestamp())})
+                                self.manager.redis.set(hash_key, value)
+                                logger.info("Copy data from /tmp/{} to redis:{}".format(info['Key'], hash_key))
+                                value = f.read(chunk_size)
+                else:
+                    # find hash keys given the chunk name            
+                    def search_key(name):
+                        for ck in saved_job['policy']['chunks']:
+                            if name == ck['name']:
+                                return ck['location'].split(':')[1]
+                        return None
+                    chunk_keys.append({
+                        'name': info['Key'], 
+                        'key': search_key(info['Key']), 
+                        'size': info['Size'], 
+                        'lastModified': int(info['LastModified'].timestamp())})
+                                        
+            # ACL command is not supported in proxy mode
+            if not self.manager.managerconf['enable_proxy']:
+                self.manager.redis.acl_setuser(
+                    username=jobId, passwords=["+{}".format(token)], 
+                    enabled=True,
+                    commands=['+get', '+mget', '+info'],
+                    keys=list(map(lambda x: x['key'], chunk_keys)),
+                    reset=True, reset_keys=False, reset_passwords=False)
+                logger.info("Set redis user: {}".format(jobId))
+            
+            # respond client
             chunks = []
             for ck in chunk_keys:
-                for rk in ck:
-                    chunks.append({
-                        "name": rk['name'],
-                        "totalAccessTime": 0,
-                        "location": "redis:{}".format(rk['key']),
-                        "hasBackup": False
-                    })
+                chunks.append({
+                    "name": ck['name'],
+                    "size": ck['size'],
+                    "lastModified": ck['lastModified'],
+                    "totalAccessTime": 0,
+                    "location": "redis:{}".format(ck['key']),
+                    "hasBackup": False
+                })
+            pb_chunks = [ParseDict(ck, pb.ChunkObj(), ignore_unknown_fields=True) for ck in chunk_keys]            
+            if self.manager.managerconf['enable_proxy']:
+                redisauth= pb.RedisAuth(
+                            host=random.choice(self.manager.redis_proxy_conf['hosts'].split(',')), 
+                            port=int(self.manager.redis_proxy_conf['port']), 
+                            username=os.environ.get("REDIS_PROXY_USERNAME"), 
+                            password=os.environ.get("REDIS_PROXY_PWD"))
+            else:
+                redisauth= pb.RedisAuth(
+                            host="redis-cluster", 
+                            port=int(self.manager.redis_conf['port']), 
+                            username=jobId, 
+                            password=token)
+            
+            # save jobinfo to database
             jobInfo = {
                 "meta": {
                     "username": cred.username,
@@ -306,36 +372,25 @@ class RegistrationService(pb_grpc.RegistrationServicer):
                     "chunks": chunks
                 }
             }
-            pb_chunks = []
-            for ck in chunk_keys:
-                for rk in ck:
-                    pb_chunks.append(ParseDict(rk, pb.ChunkObj(), ignore_unknown_fields=True))
-            resp = pb.RegisterResponse(rc=pb.RC.REGISTERED, regsucc=pb.RegisterSuccess(
-                    jinfo=pb.JobInfo(
-                        jobId=jobId,
-                        token=token,
-                        createTime=grpc_ts(now),
-                        tokenTimeout=grpc_ts(now+3600),
-                        # redisauth= pb.RedisAuth(
-                        #     host=self.manager.redis_proxy_conf['host'], 
-                        #     port=int(self.manager.redis_proxy_conf['port']), 
-                        #     username=jobId, 
-                        #     password=token)
-                        redisauth= pb.RedisAuth(
-                            host=random.choice(self.manager.redis_proxy_conf['hosts'].split(',')), 
-                            port=int(self.manager.redis_proxy_conf['port']), 
-                            username=os.environ.get("REDIS_PROXY_USERNAME"), 
-                            password=os.environ.get("REDIS_PROXY_PWD"))
-                    ),
-                    policy=pb.Policy(chunkSize=chunk_size, chunkKeys=pb_chunks)))
             result = self.manager.job_col.insert_one(jobInfo)
             if result.acknowledged:
                 logger.info('user {} register job {}'.format(cred.username, jobId))
+                
+            # batch chunks
+            for i in range(0, len(pb_chunks), 10):
+                resp = pb.RegisterResponse(rc=pb.RC.REGISTERED, regsucc=pb.RegisterSuccess(
+                        jinfo=pb.JobInfo(
+                            jobId=jobId,
+                            token=token,
+                            createTime=grpc_ts(now),
+                            tokenTimeout=grpc_ts(now+3600),
+                            redisauth=redisauth),
+                        policy=pb.Policy(chunkSize=chunk_size, chunkKeys=pb_chunks[:i])))
+                yield resp
         elif rc == pb.RC.DISCONNECTED:
-            resp = pb.RegisterResponse(rc=pb.RC.FAILED, regerr=pb.RegisterError(error="failed to register the jod, user is not connected."))
+            yield pb.RegisterResponse(rc=pb.RC.FAILED, regerr=pb.RegisterError(error="failed to register the jod, user is not connected."))
         else:
-            resp = pb.RegisterResponse(rc=pb.RC.FAILED, regerr=pb.RegisterError(error="failed to register the jod"))
-        return resp
+            yield pb.RegisterResponse(rc=pb.RC.FAILED, regerr=pb.RegisterError(error="failed to register the jod"))
 
     def deresgister(self, request, context):
         cred = request.cred
@@ -374,7 +429,7 @@ class HeartbeatService(pb_grpc.HeartbeatServicer):
             if tokenTimeout > now:
                 token = MessageToDict(jinfo)
                 token['time'] = now
-                token = hashing(token)[:TOKEN_LEN]
+                token = hashing(token)
                 request.jinfo.token = token
                 self.manager.job_col.aggregate([
                     {"$match": {"meta.jobId": jinfo.jobId}},
@@ -433,9 +488,4 @@ if __name__ == '__main__':
     pb_grpc.add_CacheMissServicer_to_server(CacheMissService(manager), server)
     server.add_insecure_port(address="{}:{}".format(manager.managerconf['bind'], manager.managerconf['port']))
     server.start()
-    # server.wait_for_termination()
-    try:
-        while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        server.stop(0)
+    server.wait_for_termination()

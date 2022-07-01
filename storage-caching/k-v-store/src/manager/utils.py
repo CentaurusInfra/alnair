@@ -24,7 +24,7 @@ def get_logger(name=__name__, level:str ='INFO', file=None):
         logger.addHandler(fl)
     return logger
 
-grpc_ts = lambda ts: Timestamp(seconds=int(ts), nanos=int(ts % 1e9))
+grpc_ts = lambda ts: Timestamp(seconds=int(ts), nanos=int(ts % 1 * 1e9))
 
 def hashing(data):
     if type(data) is not bytes:
@@ -60,3 +60,28 @@ def parse_redis_conf(path):
         v = v.strip().replace('\n', '')            
         results[k] = v
     return results
+
+def MessageToDict(message):
+    message_dict = {}
+    
+    for descriptor in message.DESCRIPTOR.fields:
+        key = descriptor.name
+        value = getattr(message, descriptor.name)
+        
+        if descriptor.label == descriptor.LABEL_REPEATED:
+            message_list = []
+            
+            for sub_message in value:
+                if descriptor.type == descriptor.TYPE_MESSAGE:
+                    message_list.append(MessageToDict(sub_message))
+                else:
+                    message_list.append(sub_message)
+            
+            message_dict[key] = message_list
+        else:
+            if descriptor.type == descriptor.TYPE_MESSAGE:
+                message_dict[key] = MessageToDict(value)
+            else:
+                message_dict[key] = value
+    
+    return message_dict

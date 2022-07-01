@@ -72,18 +72,15 @@ spec:
                       description: QoS configuration of the job from ConfigMap
                       properties:
                         durabilityindisk:
+                          description: Duration data should be stored on disk
                           type: integer
-                        durabilityinmem:
-                          type: integer
-                        flushfreq:
+                        maxmemory:
+                          description: Max memory in MB can be used by DLT job
+                          format: int64
                           type: integer
                         usecache:
+                          description: Whether client should use redis or s3
                           type: boolean
-                      required:
-                      - durabilityindisk
-                      - durabilityinmem
-                      - flushfreq
-                      - usecache
                       type: object
                     configurationsfromconfigmap:
                       description: QoS configuration of the job from ConfigMap

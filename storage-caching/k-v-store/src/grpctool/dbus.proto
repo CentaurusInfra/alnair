@@ -1,4 +1,4 @@
-syntax = "proto3";
+syntax = "proto2";
 package dbus;
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/empty.proto";
@@ -13,13 +13,13 @@ enum RC {
 }
 
 message Credential {
-    string username = 1;
-    string password = 2;
+    required string username = 1;
+    required string password = 2;
 }
 message S3Auth {
-    string aws_access_key_id = 1;
-    string aws_secret_access_key = 2;
-    string region_name = 3;
+    required string aws_access_key_id = 1;
+    required string aws_secret_access_key = 2;
+    required string region_name = 3;
 }
 
 // set up connection between user and GM
@@ -27,44 +27,43 @@ service Connection {
     rpc connect (ConnectRequest) returns (ConnectResponse) {}
 }
 message ConnectRequest {
-    Credential cred = 1;
-    S3Auth s3auth = 2;
-    bool createUser = 3;
+    required Credential cred = 1;
+    required S3Auth s3auth = 2;
+    optional bool createUser = 3 [default = true];
 }
 message ConnectResponse {
-    RC rc = 1;
-    string resp = 2;
+    required RC rc = 1;
+    required string resp = 2;
 }
 
 // register a DLT Client (DLTC) to the Global Manager (GM)
 service Registration {
-    rpc register (RegisterRequest) returns (RegisterResponse) {}
+    rpc register (RegisterRequest) returns (stream RegisterResponse) {}
     rpc deregister (DeregisterRequest) returns (DeregisterResponse) {}
 }
 message ResourceInfo { // Pod resource info, load from proc file system
-    int32 CPUMemoryFree = 1;
-    int32 GPUMemoryFree = 2;
+    optional int64 CPUMemoryFree = 1;
+    optional int64 GPUMemoryFree = 2;
 }
 message DataSource {
-    string name = 1;
-    string bucket = 2;
+    required string name = 1;
+    required string bucket = 2;
     repeated string keys = 3;
 }
 message QoS {
-    bool UseCache = 1;
-    int32 FlushFreq = 2;
-    int32 DurabilityInMem = 3;
-    int32 DurabilityInDisk = 4;
+    optional bool UseCache = 1 [default = true];
+    optional int64 MaxMemory = 2;
+    optional int32 DurabilityInDisk = 3 [default = 1440];
 }
 message RegisterRequest {
-    Credential cred = 1;
-    DataSource datasource = 2;
-    QoS qos = 3;
-    ResourceInfo resource = 4;
+    required Credential cred = 1;
+    required DataSource datasource = 2;
+    optional QoS qos = 3;
+    optional ResourceInfo resource = 4;
 }
 
 message RegisterResponse {
-    RC rc = 1;
+    required RC rc = 1;
     oneof response {
         RegisterSuccess regsucc = 2;
         RegisterError regerr = 3;
@@ -72,41 +71,43 @@ message RegisterResponse {
 }
 
 message ChunkObj {
-    string name = 1;
-    string key = 2;
+    required string name = 1;
+    required string key = 2;
+    required int64 size = 3;
+    required int64 lastModified = 4;
 }
 message Policy {
-    int32 chunkSize = 1;
+    required int64 chunkSize = 1;
     repeated ChunkObj chunkKeys = 2;
 }
 message RedisAuth {
-    string host = 1;
-    int32 port = 2;
-    string username = 3;
-    string password = 4;
+    required string host = 1;
+    required int32 port = 2;
+    required string username = 3;
+    required string password = 4;
 }
 message JobInfo {
-    string jobId = 1;
-    string token = 2;
-    google.protobuf.Timestamp createTime = 3;
-    google.protobuf.Timestamp tokenTimeout = 4;
-    RedisAuth redisauth = 5;
+    required string jobId = 1;
+    optional string token = 2;
+    optional google.protobuf.Timestamp createTime = 3;
+    optional google.protobuf.Timestamp tokenTimeout = 4;
+    optional RedisAuth redisauth = 5;
 }
 message RegisterSuccess {
-    JobInfo jinfo = 1;
-    Policy policy = 2;
+    required JobInfo jinfo = 1;
+    required Policy policy = 2;
 }
 message RegisterError {
-    string error = 1;
+    optional string error = 1;
 }
 // actively evict memory when DLT job deregister
 message DeregisterRequest {
-    Credential cred = 1;
-    JobInfo jinfo = 2;
-    bool deleteDataset = 3;
+    required Credential cred = 1;
+    required JobInfo jinfo = 2;
+    optional bool deleteDataset = 3;
 }
 message DeregisterResponse {
-    string response = 1;
+    optional string response = 1;
 }
 
 // When key is not available, CC request GM to update policy
@@ -114,19 +115,19 @@ service CacheMiss {
     rpc call (CacheMissRequest) returns (CacheMissResponse) {}
 }
 message CacheMissRequest {
-    Credential cred = 1;
-    string key = 2;
+    required Credential cred = 1;
+    required string key = 2;
 }
 message CacheMissResponse {
-    bool response = 1;
+    optional bool response = 1;
 }
 
 service Heartbeat {
     rpc call (HearbeatMessage) returns (HearbeatMessage) {} 
 }
 message HearbeatMessage {
-    Credential cred = 1;
-    JobInfo jinfo = 2;
+    required Credential cred = 1;
+    required JobInfo jinfo = 2;
 }
 
 // CC periodically sends log messages tO GM
@@ -139,9 +140,9 @@ enum LogLevel {
     ERROR = 2;
 }
 message LogItem {
-    google.protobuf.Timestamp time = 1;
-    string jobId = 2;
-    LogLevel level = 3;
-    int32 epoch = 4;
-    string details = 5;
+    required google.protobuf.Timestamp time = 1;
+    required string jobId = 2;
+    required LogLevel level = 3;
+    required int32 epoch = 4;
+    optional string details = 5;
 }
