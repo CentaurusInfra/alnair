@@ -118,12 +118,12 @@ class AlnairJobDataLoader(object):
         return self
     
     def __next__(self):
-        data = next(self.loader)
+        data = next(self.loader, None)
         if data is None:
             self.dataset.load_data()
-            if self.dataset.data is Iterable:
+            if isinstance(self.dataset.data, Iterable):
                 self.loader = self.init_loader()
-                return next(self.loader)
+                return next(self.loader, None)
             else:
                 return None
         return data

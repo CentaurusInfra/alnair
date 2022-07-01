@@ -1,8 +1,10 @@
+import multiprocessing
 import os
 import json
 from typing import Any, List, Tuple
 import redis
 from torch.utils.data import Dataset
+import concurrent.futures
 
 
 class dotdict(dict):
@@ -125,29 +127,38 @@ class AlnairJobDataset(Dataset):
         return self.__targets
     
     def load_data(self):
-        if len(self.loaded_chunks) == len(self.chunks):  # case 1: load all keys in memory
+        if len(self.loaded_chunks) == len(self.chunks):  # case 1: all keys can be loaded
             return
-        elif self.start < len(self.chunks):  # case 2: load a subset of keys in memory
+        elif self.start < len(self.chunks):  # case 2: load a subset
             self.loaded_chunks, self.start = self.load_chunksubset(self.start)
             self.__data = {}
-            for chunk in self.loaded_chunks:
+            
+            def helper(chunk, use_cache, client):
                 k = chunk['key']
-                n = chunk['name']
-                if self.qos['UseCache']:
+                if use_cache:
                     while True:
-                        value = self.client.get(k)
+                        value = client.get(k)    
                         if value is None: # cache missing
                             with open('/share/cachemiss', 'w') as f:
                                 f.writelines([k])
                         else:
                             break
                 else:
-                    value = self.client.get_object(Bucket=self.bucket_name, Key=k)['Body'].read()
-                self.__data[n] = value
+                    value = client.get_object(Bucket=self.bucket_name, Key=k)['Body'].read()
+                return chunk['name'], value
             
+            with concurrent.futures.ThreadPoolExecutor(max_workers=multiprocessing.cpu_count()) as executor:
+                futures = []
+                for chunk in self.loaded_chunks:
+                    futures.append(executor.submit(helper, chunk, self.qos['UseCache'], self.client))
+                for future in concurrent.futures.as_completed(futures):    
+                    result = future.result()
+                    self.__data[result[0]] = result[1]
+            
+            # epoch is down
             if self.start == len(self.chunks):
-                self.start = 0
-        self.__data, self.__targets = self.__preprocess__()
+                self.start = 0                
+            self.__data, self.__targets = self.__preprocess__()
     
     def __preprocess__(self) -> Tuple[List, List]:
         """preprocess self.__data

@@ -1,8 +1,9 @@
-import ast
 import logging
 from google.protobuf.timestamp_pb2 import Timestamp
 import pickle
 import hashlib
+import threading
+import boto3
 
 
 def get_logger(name=__name__, level:str ='INFO', file=None):
@@ -85,3 +86,26 @@ def MessageToDict(message):
                 message_dict[key] = value
     
     return message_dict
+
+
+class S3Helper:
+    def __init__(self, s3auth: dict):
+        session = boto3.Session(
+            aws_access_key_id=s3auth['aws_access_key_id'],
+            aws_secret_access_key=s3auth['aws_secret_access_key'],
+            region_name=s3auth['region_name']
+        )
+        self.client = session.client('s3')
+        s3 = session.resource('s3')
+        
+    def list_objects(self, bucket_name, prefix):
+        paginator = self.client.get_paginator('list_objects_v2')
+        pages = paginator.paginate(Bucket=bucket_name, Prefix=prefix)
+        results = []
+        for page in pages:
+            for info in page['Contents']:
+                results.append(info)
+        return results
+    
+    def get_object(self, bucket_name, key):
+        return self.client.get_object(Bucket=bucket_name, Key=key)['Body'].read()

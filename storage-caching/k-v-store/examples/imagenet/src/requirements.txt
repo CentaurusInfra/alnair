@@ -1,2 +1,4 @@
 torch
 torchvision
+redis
+boto3

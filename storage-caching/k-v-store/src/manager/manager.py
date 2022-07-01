@@ -1,5 +1,6 @@
-from concurrent import futures
+import concurrent.futures
 import os
+from typing import List
 import grpc
 import boto3
 import threading
@@ -7,6 +8,8 @@ import json, bson
 import time
 import configparser
 import random
+import multiprocessing
+import redis
 import grpctool.dbus_pb2 as pb
 import grpctool.dbus_pb2_grpc as pb_grpc
 from datetime import datetime
@@ -237,11 +240,8 @@ class RegistrationService(pb_grpc.RegistrationServicer):
             )
             s3_client = s3_session.client('s3')
             bucket_name = request.datasource.bucket
-            bucket_keys = request.datasource.keys
-            s3 = s3_session.resource('s3')
-            bucket = s3.Bucket(bucket_name)
-            
-            # check if job exist
+
+            # get object keys that are not in MongoDB and Redis
             saved_keys = {}
             try:
                 saved_job = self.manager.job_col.aggregate([
@@ -253,38 +253,40 @@ class RegistrationService(pb_grpc.RegistrationServicer):
                 saved_job = None
             if saved_job is not None:
                 for chunk in saved_job['policy']['chunks']:
-                    saved_keys[chunk['name']] = chunk['lastModified']
-            
-            # get object keys that are not in MongoDB and Redis
-            bucket_objs = {}
-            for bk in bucket_keys:
-                paginator = s3_client.get_paginator('list_objects_v2')
-                pages = paginator.paginate(Bucket=bucket_name, Prefix=bk)
+                    saved_keys[chunk['name']] = chunk
+            def list_modified_objects(client: boto3.client, redis: redis.RedisCluster, bucket_name: str, prefix: str, saved_keys: dict):
+                bucket_objs = {}
+                paginator = client.get_paginator('list_objects_v2')
+                pages = paginator.paginate(Bucket=bucket_name, Prefix=prefix)
                 for page in pages:
                     for info in page['Contents']:
                         if saved_job is not None \
                             and info['Key'] in saved_keys \
-                            and info['LastModified'].replace(tzinfo=timezone('UTC')).timestamp() == saved_keys[info['Key']]:
+                            and info['LastModified'].replace(tzinfo=timezone('UTC')).timestamp() == saved_keys[info['Key']]['lastModified'] \
+                            and redis.exists(saved_keys[info['Key']]['location'].split(':')[1]):
                             info['Exist'] = True
                         else:
                             info['Exist'] = False
                         bucket_objs[info['Key']] = info
+                return bucket_objs
+            bucket_objs = {}
+            with concurrent.futures.ThreadPoolExecutor(max_workers=multiprocessing.cpu_count()) as executor:
+                futures = []
+                for bk in request.datasource.keys:
+                    futures.append(executor.submit(list_modified_objects, s3_client, self.manager.redis, bucket_name, bk, saved_keys))
+                for future in concurrent.futures.as_completed(futures):
+                    bucket_objs = {**bucket_objs, **future.result()}
 
-            now = datetime.utcnow().timestamp()
             chunk_size = self.manager.calculate_chunk_size(bucket_objs)
 
-            token = MessageToDict(request)
-            token['time'] = now
-            token = hashing(token)
-
-            chunk_keys = []
-            for bk in bucket_objs:
-                info = bucket_objs[bk]
+            # copy data from S3 to Redis
+            def copy_data(client: boto3.client, redis: redis.RedisCluster, info: dict, bucket_name: str):
+                chunk_keys = []
                 if not info['Exist']:
                     if info['Size'] <= chunk_size:
-                        value = s3_client.get_object(Bucket=bucket_name, Key=info['Key'])['Body'].read()
+                        value = client.get_object(Bucket=bucket_name, Key=info['Key'])['Body'].read()
                         hash_key = hashing(value)
-                        self.manager.redis.set(hash_key, value)
+                        redis.set(hash_key, value)
                         logger.info("Copy data from s3:{} to redis:{}".format(info['Key'], hash_key))
                         chunk_keys.append({
                             'name': info['Key'], 
@@ -292,7 +294,7 @@ class RegistrationService(pb_grpc.RegistrationServicer):
                             'size': info['Size'], 
                             'lastModified': int(info['LastModified'].timestamp())})
                     else:
-                        bucket.download_file(Key=info['Key'], Filename='/tmp/{}'.format(info['Key']))
+                        client.download_file(Bucket=bucket_name, Key=info['Key'], Filename='/tmp/{}'.format(info['Key']))
                         logger.info("Download large file s3:{}, size: {}B".format(info['Key'], info['Size']))
                         with open('/tmp/{}'.format(info['Key']), 'rb') as f:
                             value = f.read(chunk_size)
@@ -303,7 +305,7 @@ class RegistrationService(pb_grpc.RegistrationServicer):
                                     'key': hash_key, 
                                     'size': chunk_size, 
                                     'lastModified': int(info['LastModified'].timestamp())})
-                                self.manager.redis.set(hash_key, value)
+                                redis.set(hash_key, value)
                                 logger.info("Copy data from /tmp/{} to redis:{}".format(info['Key'], hash_key))
                                 value = f.read(chunk_size)
                 else:
@@ -318,9 +320,22 @@ class RegistrationService(pb_grpc.RegistrationServicer):
                         'key': search_key(info['Key']), 
                         'size': info['Size'], 
                         'lastModified': int(info['LastModified'].timestamp())})
-                                        
-            # ACL command is not supported in proxy mode
-            if not self.manager.managerconf['enable_proxy']:
+                return chunk_keys
+            chunk_keys = []
+            with concurrent.futures.ThreadPoolExecutor(max_workers=multiprocessing.cpu_count()) as executor:
+                futures = []
+                for bk in bucket_objs:
+                    info = bucket_objs[bk]
+                    futures.append(executor.submit(copy_data, s3_client, self.manager.redis, info, bucket_name))
+                for future in concurrent.futures.as_completed(futures):
+                    chunk_keys.extend(future.result())
+            
+            # generate connection authorization for client
+            now = datetime.utcnow().timestamp()
+            token = MessageToDict(request)
+            token['time'] = now
+            token = hashing(token)     
+            if not self.manager.managerconf['enable_proxy']: # ACL command is not supported in proxy mode
                 self.manager.redis.acl_setuser(
                     username=jobId, passwords=["+{}".format(token)], 
                     enabled=True,
@@ -377,7 +392,8 @@ class RegistrationService(pb_grpc.RegistrationServicer):
                 logger.info('user {} register job {}'.format(cred.username, jobId))
                 
             # batch chunks
-            for i in range(0, len(pb_chunks), 10):
+            batch_size = 100
+            for i in range(0, len(pb_chunks), batch_size):
                 resp = pb.RegisterResponse(rc=pb.RC.REGISTERED, regsucc=pb.RegisterSuccess(
                         jinfo=pb.JobInfo(
                             jobId=jobId,
@@ -385,7 +401,7 @@ class RegistrationService(pb_grpc.RegistrationServicer):
                             createTime=grpc_ts(now),
                             tokenTimeout=grpc_ts(now+3600),
                             redisauth=redisauth),
-                        policy=pb.Policy(chunkSize=chunk_size, chunkKeys=pb_chunks[:i])))
+                        policy=pb.Policy(chunkSize=chunk_size, chunkKeys=pb_chunks[i:i+batch_size])))
                 yield resp
         elif rc == pb.RC.DISCONNECTED:
             yield pb.RegisterResponse(rc=pb.RC.FAILED, regerr=pb.RegisterError(error="failed to register the jod, user is not connected."))
@@ -481,7 +497,7 @@ class CacheMissService(pb_grpc.CacheMissServicer):
 
 if __name__ == '__main__':
     manager = Manager()
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+    server = grpc.server(concurrent.futures.ThreadPoolExecutor(max_workers=multiprocessing.cpu_count()))
     pb_grpc.add_ConnectionServicer_to_server(ConnectionService(manager), server)
     pb_grpc.add_RegistrationServicer_to_server(RegistrationService(manager), server)
     pb_grpc.add_HeartbeatServicer_to_server(HeartbeatService(manager), server)

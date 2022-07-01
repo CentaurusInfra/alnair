@@ -21,6 +21,7 @@ import torchvision.datasets as datasets
 import torchvision.models as models
 from torch.utils.data import Subset
 from ImageNetMiniDataset import ImageNetDataset
+from lib.AlnairJobDataLoader import AlnairJobDataLoader
 
 
 model_names = sorted(name for name in models.__dict__
@@ -28,8 +29,6 @@ model_names = sorted(name for name in models.__dict__
     and callable(models.__dict__[name]))
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
-parser.add_argument('data', metavar='DIR', default='imagenet',
-                    help='path to dataset (default: imagenet)')
 parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet18',
                     choices=model_names,
                     help='model architecture: ' +
@@ -230,11 +229,11 @@ def main_worker(gpu, ngpus_per_node, args):
         train_sampler = None
         val_sampler = None
 
-    train_loader = torch.utils.data.DataLoader(
+    train_loader = AlnairJobDataLoader(
         train_dataset, batch_size=args.batch_size, shuffle=(train_sampler is None),
         num_workers=args.workers, pin_memory=True, sampler=train_sampler)
 
-    val_loader = torch.utils.data.DataLoader(
+    val_loader = AlnairJobDataLoader(
         val_dataset, batch_size=args.batch_size, shuffle=False,
         num_workers=args.workers, pin_memory=True, sampler=val_sampler)
 

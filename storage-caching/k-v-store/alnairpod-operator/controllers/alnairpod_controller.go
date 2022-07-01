@@ -175,12 +175,17 @@ func (r *AlnairPodReconciler) createPod(ctx context.Context, alnairpod v1alpha1.
 			Name:         "share",
 			VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
 		},
+		{
+			Name:         "shmem",
+			VolumeSource: corev1.VolumeSource{HostPath: &corev1.HostPathVolumeSource{Path: "/dev/shm"}},
+		},
 	}
 	volumes = append(volumes, spec.Volumes...)
 	vol_mounts := []corev1.VolumeMount{
 		{Name: "secret", MountPath: "/secret"},
 		{Name: "jobs", MountPath: "/jobs"},
 		{Name: "share", MountPath: "/share"},
+		{Name: "shmem", MountPath: "/dev/shm"},
 	}
 
 	var containers []corev1.Container
