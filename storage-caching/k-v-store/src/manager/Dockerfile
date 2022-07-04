@@ -7,4 +7,4 @@ COPY manager ./
 COPY grpctool ./grpctool
 RUN pip install -r requirements.txt
 RUN chmod +x *
-# CMD [ "python3", "manager.py" ]
+CMD [ "python3", "manager.py" ]

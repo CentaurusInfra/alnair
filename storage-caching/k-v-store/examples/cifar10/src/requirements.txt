@@ -2,4 +2,4 @@ numpy
 redis
 pickle-mixin
 pillow
-alnair
+boto3

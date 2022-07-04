@@ -40,8 +40,8 @@
                     "bsonType": "object",
                     "title": "resourceInfo",
                     "properties": {
-                        "CPUMemoryFree": {"bsonType": "int"},
-                        "GPUMemoryFree": {"bsonType": "int"}
+                        "CPUMemoryFree": {"bsonType": ["long", "int"]},
+                        "GPUMemoryFree": {"bsonType": ["long", "int"]}
                     },
                     "description": "GPU and CPU memory resource information"
                 },
@@ -55,14 +55,12 @@
             "title": "qos",
             "required": [
                 "UseCache",
-                "FlushFreq",
-                "DurabilityInMem",
+                "MaxMemory",
                 "DurabilityInDisk"
             ],
             "properties": {
                 "UseCache": {"bsonType": "bool"},
-                "FlushFreq": {"bsonType": "int"},
-                "DurabilityInMem": {"bsonType": "int"},
+                "MaxMemory": {"bsonType": ["long", "int"]},
                 "DurabilityInDisk": {"bsonType": "int"}
             },
             "description": "QoS configuration"
@@ -77,7 +75,7 @@
             ],
             "properties": {
                 "createTime": {"bsonType": "timestamp"},
-                "chunkSize": {"bsonType": "int"},
+                "chunkSize": {"bsonType": ["long", "int"]},
                 "chunks": {
                     "bsonType": "array",
                     "items": {
@@ -85,12 +83,16 @@
                         "title": "chunk",
                         "required": [
                             "name",
+                            "size",
+                            "lastModified",
                             "totalAccessTime",
                             "location",
                             "hasBackup"
                         ],
                         "properties": {
                             "name": {"bsonType": "string"},
+                            "size": {"bsonType": ["long", "int"]},
+                            "lastModified": {"bsonType": "timestamp"},
                             "totalAccessTime": {"bsonType": "int"},
                             "lastAccessTime": {"bsonType": "timestamp"},
                             "location": {"bsonType": "string"},

@@ -6,15 +6,13 @@ import (
 
 type QoS struct {
 	UseCache         bool
-	FlushFreq        int
-	DurabilityInMem  int
+	MaxMemory        int
 	DurabilityInDisk int
 }
 
 var DefaultQoS = QoS{
 	UseCache:         true,
-	FlushFreq:        10,
-	DurabilityInMem:  120,
+	MaxMemory:        0,
 	DurabilityInDisk: 1440,
 }
 

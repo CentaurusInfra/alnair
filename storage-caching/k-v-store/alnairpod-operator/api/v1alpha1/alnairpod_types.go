@@ -46,10 +46,17 @@ type ConfigMapRef struct {
 }
 
 type QoSConfigurations struct {
-	UseCache         bool `json:"usecache"`
-	FlushFreq        int  `json:"flushfreq"`
-	DurabilityInMem  int  `json:"durabilityinmem"`
-	DurabilityInDisk int  `json:"durabilityindisk"`
+	// Whether client should use redis or s3
+	// +optional
+	UseCache bool `json:"usecache"`
+
+	// Max memory in MB can be used by DLT job
+	// +optional
+	MaxMemory int64 `json:"maxmemory"`
+
+	// Duration data should be stored on disk
+	// +optional
+	DurabilityInDisk int `json:"durabilityindisk"`
 }
 
 type DataSourceStruct struct {

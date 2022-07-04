@@ -1,7 +1,7 @@
 apiVersion: alnair.com/v1alpha1
 kind: AlnairPod
 metadata:
-  name: ap1
+  name: cifar10
   namespace: default
 spec:
   secret:
@@ -9,8 +9,7 @@ spec:
   jobs:
   - name: job1
     image: zhuangweikang/cifar10:latest
-    # command: ["python3", "main.py"]
-    command: ["bash"]
+    command: ["python3", "main.py"]
     datasource:
       name: CIFAR10
       bucket: zhuangwei-bucket
@@ -24,8 +23,7 @@ spec:
       - test_batch
     configurations:
       usecache: true
-      flushfreq: 10
-      durabilityinmem: 120
+      maxmemory: 0
       durabilityindisk: 1440
     tty: true
     stdin: true

@@ -1,7 +1,8 @@
 from typing import Callable, Optional
 import numpy as np
+import pickle
 from PIL import Image
-from alnair.AlnairJobDataset import AlnairJobDataset as AJDataset
+from lib.AlnairJobDataset import AlnairJobDataset as AJDataset
 
 
 class CIFAR10Meta(AJDataset):
@@ -11,7 +12,7 @@ class CIFAR10Meta(AJDataset):
     }
 
     def __init__(self):
-        super().__init__(keys=["batches.meta"], characters="latin1") 
+        super().__init__(keys=["batches.meta"]) 
         self.load_meta_map()
           
     def load_meta_map(self) -> None:
@@ -31,7 +32,7 @@ class CIFAR10Meta(AJDataset):
 
 class CIFAR10Datset(AJDataset):
     def __init__(self, keys, transform: Optional[Callable] = None, target_transform: Optional[Callable] = None):
-        super().__init__(keys, characters="latin1")
+        super().__init__(keys)
         self.transform = transform
         self.target_transform = target_transform
 
@@ -39,7 +40,7 @@ class CIFAR10Datset(AJDataset):
         processed_data = []
         targets = []
         for key in self.keys:
-            entry = self.data[key]
+            entry = pickle.loads(self.data[key], encoding='latin1')
             processed_data.append(entry["data"])
             if "labels" in entry:
                 targets.extend(entry["labels"])
@@ -51,7 +52,7 @@ class CIFAR10Datset(AJDataset):
         
     def __getitem__(self, index: int):
         img, target = self.data[index], self.targets[index]
-
+        
         # doing this so that it is consistent with all other datasets
         # to return a PIL Image
         img = Image.fromarray(img)

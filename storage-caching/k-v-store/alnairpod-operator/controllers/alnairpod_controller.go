@@ -175,12 +175,17 @@ func (r *AlnairPodReconciler) createPod(ctx context.Context, alnairpod v1alpha1.
 			Name:         "share",
 			VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
 		},
+		{
+			Name:         "shmem",
+			VolumeSource: corev1.VolumeSource{HostPath: &corev1.HostPathVolumeSource{Path: "/dev/shm"}},
+		},
 	}
 	volumes = append(volumes, spec.Volumes...)
 	vol_mounts := []corev1.VolumeMount{
 		{Name: "secret", MountPath: "/secret"},
 		{Name: "jobs", MountPath: "/jobs"},
 		{Name: "share", MountPath: "/share"},
+		{Name: "shmem", MountPath: "/dev/shm"},
 	}
 
 	var containers []corev1.Container
@@ -189,7 +194,7 @@ func (r *AlnairPodReconciler) createPod(ctx context.Context, alnairpod v1alpha1.
 		env := job.Env
 		env = append(env, corev1.EnvVar{Name: "JOBNAME", Value: job.Name})
 		container := corev1.Container{
-			Name:            fmt.Sprintf("job-%s", job.Name),
+			Name:            job.Name,
 			Image:           job.Image,
 			ImagePullPolicy: job.ImagePullPolicy,
 			WorkingDir:      job.WorkingDir,
@@ -272,7 +277,11 @@ func (r *AlnairPodReconciler) createConfigMap(ctx context.Context, alnairpod v1a
 			jobinfo["qos"] = qos_data
 		}
 		byte_arr, _ := json.Marshal(jobinfo)
-		configmap.Data[fmt.Sprintf("%s.job", job.Name)] = string(byte_arr)
+		configmap.Data[fmt.Sprintf("%s.json", job.Name)] = string(byte_arr)
+	}
+
+	if err := ctrl.SetControllerReference(&alnairpod, &configmap, r.Scheme); err != nil {
+		return configmap, err
 	}
 	return configmap, nil
 }
@@ -281,6 +290,7 @@ func (r *AlnairPodReconciler) createConfigMap(ctx context.Context, alnairpod v1a
 func (r *AlnairPodReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.AlnairPod{}).
+		Owns(&corev1.ConfigMap{}).
 		Owns(&corev1.Pod{}).
 		Complete(r)
 }

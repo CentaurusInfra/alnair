@@ -1,9 +1,10 @@
+import multiprocessing
 import os
-import pickle
 import json
 from typing import Any, List, Tuple
 import redis
 from torch.utils.data import Dataset
+import concurrent.futures
 
 
 class dotdict(dict):
@@ -14,7 +15,7 @@ class dotdict(dict):
     
 
 class AlnairJobDataset(Dataset):
-    def __init__(self, keys: List[str] = None, characters = "utf-8"):
+    def __init__(self, keys: List[str] = None):
         """An abstract class subclassing the torch.utils.data.Dataset class
         
         All datasets that represent a map from keys to data samples should subclass
@@ -32,34 +33,91 @@ class AlnairJobDataset(Dataset):
         
         Args:
             keys (List, optional): a list of bucket keys. Defaults to None, meaning loading all keys in the bucket.
-            characters (str, optional): character of data saved in S3 bucket. Defaults to "utf-8".
         """
         
         self.jobname = os.environ.get('JOBNAME')
         self.keys = keys
-        self.characters = characters
-        self.used_keys = []
-        
+        self.qos = self.load_metainfo()['qos']
         self.jobinfo = self.load_jobinfo()
-        self.chunks = dotdict(self.jobinfo.policy).chunkKeys
-        if keys is not None:
-            self.chunks = [chunk for chunk in self.chunks if chunk['name'] in keys]
+        if self.qos['UseCache']: # use datasource from Redis
+            r = dotdict(self.jobinfo.jinfo).redisauth
+            r = dotdict(r)
+            self.client = redis.Redis(host=r.host, port=r.port, username=r.username, password=r.password)
+            self.chunks = self.get_all_redis_keys()
+        else:
+            import configparser, boto3
+            
+            parser = configparser.ConfigParser()
+            parser.read('/secret/client.conf')
+            s3auth = parser['aws_s3']
+            s3_session = boto3.Session(
+                aws_access_key_id=s3auth['aws_access_key_id'],
+                aws_secret_access_key=s3auth['aws_secret_access_key'],
+                region_name=s3auth['region_name']
+            )
+            self.client = s3_session.client('s3')
+            self.bucket_name = self.jobinfo['datasource']['bucket']
+            self.chunks = self.get_all_s3_keys()
         
-        r = dotdict(self.jobinfo.jinfo).redisauth
-        r = dotdict(r)
-        self.client = redis.Redis(host=r.host, port=r.port, username=r.username, password=r.password)
+        self.start = 0
+        self.loaded_chunks = []
         self.load_data()
 
-    def load_jobinfo(self):
-        try:
-            while not os.path.exists('/share/{}.json'.format(self.jobname)):
-                pass
-            with open("/share/{}.json".format(self.jobname), 'rb') as f:
-                jobinfo = dotdict(json.load(f))
-        except Exception as ex:
-            print("Not found job info file")
-            raise ex
+    def load_metainfo(self):
+        with open('/jobs/{}.json'.format(self.jobname), 'r') as f:
+            jobinfo = json.load(f)
         return jobinfo
+    
+    def load_jobinfo(self):
+        if self.qos['UseCache']:
+            while True:
+                try:
+                    with open("/share/{}.json".format(self.jobname), 'rb') as f:
+                        jobinfo = json.load(f)
+                        break
+                except (FileNotFoundError, json.decoder.JSONDecodeError):
+                    pass
+        else:
+            jobinfo = self.load_metainfo()
+        return dotdict(jobinfo)
+
+    def get_all_redis_keys(self):
+        chunks = dotdict(self.jobinfo.policy).chunkKeys
+        if self.keys is not None:
+            temp = []
+            for chunk in chunks:
+                for k in self.keys:
+                    if chunk['name'].startswith(k):
+                        temp.append(chunk)   
+            chunks = temp
+        return chunks
+    
+    def get_all_s3_keys(self):
+        chunks = []
+        for bk in self.jobinfo['datasource']['keys']:
+            paginator = self.client.get_paginator('list_objects_v2')
+            pages = paginator.paginate(Bucket=self.bucket_name, Prefix=bk)
+            for page in pages:
+                for item in page['Contents']:
+                    chunks.append({'name': item['Key'], 'key': item['Key'], 'size': item['Size']})
+        return chunks
+    
+    def load_chunksubset(self, start):
+        if self.qos['MaxMemory'] == 0: # load all data into memory
+            chunks = self.get_all_redis_keys() if self.qos['UseCache'] else self.get_all_s3_keys()
+            return chunks, len(self.chunks)
+        else:
+            chunks = []
+            total_size = 0
+            i = start
+            while i < len(self.chunks):
+                total_size += int(self.chunks[i]['size'])
+                if total_size > self.qos['MaxMemory']*1024*1024:
+                    break
+                else:
+                    chunks.append(self.chunks[i])
+                    i += 1
+            return chunks, i
         
     @property
     def data(self):
@@ -69,27 +127,38 @@ class AlnairJobDataset(Dataset):
         return self.__targets
     
     def load_data(self):
-        self.__data = {}
-        self.jobinfo = self.load_jobinfo()
-        for chunk in self.chunks:
-            key = chunk['key']
-            # 数据以环形方式下发，如果出现重复，说明所有数据已被访问一次
-            # 重置 used_keys
-            if key in self.used_keys:
-                self.used_keys = []
-                return None
-            else:
-                self.used_keys.append(key)
-            while True:
-                value = self.client.get(key)
-                if value is None: # cache missing
-                    with open('/share/cachemiss', 'w') as f:
-                        f.writelines([key])
+        if len(self.loaded_chunks) == len(self.chunks):  # case 1: all keys can be loaded
+            return
+        elif self.start < len(self.chunks):  # case 2: load a subset
+            self.loaded_chunks, self.start = self.load_chunksubset(self.start)
+            self.__data = {}
+            
+            def helper(chunk, use_cache, client):
+                k = chunk['key']
+                if use_cache:
+                    while True:
+                        value = client.get(k)    
+                        if value is None: # cache missing
+                            with open('/share/cachemiss', 'w') as f:
+                                f.writelines([k])
+                        else:
+                            break
                 else:
-                    break
-            value = pickle.loads(value, encoding=self.characters)
-            self.__data[chunk['name']] = value
-        self.__data, self.__targets = self.__preprocess__()
+                    value = client.get_object(Bucket=self.bucket_name, Key=k)['Body'].read()
+                return chunk['name'], value
+            
+            with concurrent.futures.ThreadPoolExecutor(max_workers=multiprocessing.cpu_count()) as executor:
+                futures = []
+                for chunk in self.loaded_chunks:
+                    futures.append(executor.submit(helper, chunk, self.qos['UseCache'], self.client))
+                for future in concurrent.futures.as_completed(futures):    
+                    result = future.result()
+                    self.__data[result[0]] = result[1]
+            
+            # epoch is down
+            if self.start == len(self.chunks):
+                self.start = 0                
+            self.__data, self.__targets = self.__preprocess__()
     
     def __preprocess__(self) -> Tuple[List, List]:
         """preprocess self.__data

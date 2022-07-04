@@ -1,7 +1,7 @@
 import torch
 import torchvision.transforms as transforms
 import argparse
-from alnair.AlnairJobDataLoader import AlnairJobDataLoader as AJLoader
+from lib.AlnairJobDataLoader import AlnairJobDataLoader as AJLoader
 from CIFAR10Dataset import *
 from model import *
 

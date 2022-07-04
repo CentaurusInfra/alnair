@@ -9,7 +9,7 @@ from pathlib import Path
 import configparser
 import grpctool.dbus_pb2 as pb
 import grpctool.dbus_pb2_grpc as pb_grpc
-from google.protobuf.json_format import MessageToDict, ParseDict
+from google.protobuf.json_format import ParseDict
 from watchdog.observers import Observer
 from watchdog.events import *
 from utils import *
@@ -23,57 +23,61 @@ class Client(FileSystemEventHandler):
     def __init__(self):
         secret = configparser.ConfigParser()
         secret.read("/secret/client.conf")
-        manager_sec = secret['alnair_manager']
-        
         aws_s3_sec = dict(secret["aws_s3"].items())
-        self.cred = pb.Credential(username=manager_sec["username"], password=manager_sec["password"])
         
-        self.jobs = []
-        for f in glob.glob('/jobs/*.job'):
+        self.rj = [] # jobs using redis cache
+        self.sj = [] # jobs using s3
+        for f in glob.glob('/jobs/*.json'):
             with open(f, 'rb') as f:
                 job = json.load(f)
-            self.jobs.append(job)
+            if job['qos']['UseCache']:
+                self.rj.append(job)
+            else:
+                self.sj.append(job)
         
-        self.channel = grpc.insecure_channel('{}:{}'.format(manager_sec["server_address"], manager_sec["server_port"]))
-        self.connection_stub = pb_grpc.ConnectionStub(self.channel)
-        
-        req = pb.ConnectRequest(
-            cred=self.cred, 
-            s3auth=ParseDict(aws_s3_sec, pb.S3Auth(), ignore_unknown_fields=True),
-            createUser=True
-        )
-        resp = self.connection_stub.connect(req)
-        if resp.rc == pb.RC.FAILED:
-            logger.error("failed to connect to server with: {}".format(resp.resp))
-            raise Exception
-        else:
-            logger.info("connect to server")
-        
-        self.registered_jobs = {}
-        self.registration_stub = pb_grpc.RegistrationStub(self.channel)
-        self.register_jobs()
-        
-        self.heartbeat_stub = pb_grpc.HeartbeatStub(self.channel)
-        self.hb_pool = ThreadPoolExecutor(max_workers=len(self.registered_jobs))
-        for _, job in self.registered_jobs.items():
-            self.hb_pool.submit(self.send_hearbeat, job)
+        if len(self.rj) > 0:
+            manager_sec = secret['alnair_manager']
+            self.cred = pb.Credential(username=manager_sec["username"], password=manager_sec["password"])
+            self.channel = grpc.insecure_channel('{}:{}'.format(manager_sec["server_address"], manager_sec["server_port"]))
+            self.conn_stub = pb_grpc.ConnectionStub(self.channel)
             
-        self.cachemiss_stub = pb_grpc.CacheMissStub(self.channel)
-        
-        signal.signal(signal.SIGINT, self.exit_gracefully)
-        signal.signal(signal.SIGTERM, self.exit_gracefully)
+            req = pb.ConnectRequest(
+                cred=self.cred, 
+                s3auth=ParseDict(aws_s3_sec, pb.S3Auth(), ignore_unknown_fields=True),
+                createUser=True
+            )
+            resp = self.conn_stub.connect(req)
+            if resp.rc == pb.RC.FAILED:
+                logger.error("failed to connect to server with: {}".format(resp.resp))
+                raise Exception
+            else:
+                logger.info("connect to server")
+            
+            self.reg_rj = {}
+            self.reg_stub = pb_grpc.RegistrationStub(self.channel)
+            self.register_rj()
+            
+            self.hb_stub = pb_grpc.HeartbeatStub(self.channel)
+            self.hb_pool = ThreadPoolExecutor(max_workers=len(self.reg_rj))
+            for _, job in self.reg_rj.items():
+                self.hb_pool.submit(self.send_hearbeat, job)
+                
+            self.cm_stub = pb_grpc.CacheMissStub(self.channel)
+            
+            signal.signal(signal.SIGINT, self.exit_gracefully)
+            signal.signal(signal.SIGTERM, self.exit_gracefully)
 
     def exit_gracefully(self):
         self.hb_pool.shutdown(wait=False)
         self.channel.close()
-    
-    def register_jobs(self):
+            
+    def register_rj(self):
         """Register a list of jobs to the GM
 
         Args:
             spec (array): a list of job specifications
         """
-        for job in self.jobs:
+        for job in self.rj:
             qos = job['qos']
             ds = job['datasource']
             request = pb.RegisterRequest(
@@ -82,18 +86,25 @@ class Client(FileSystemEventHandler):
                 qos=ParseDict(qos, pb.QoS(), ignore_unknown_fields=True),
                 resource=pb.ResourceInfo(CPUMemoryFree=get_cpu_free_mem(), GPUMemoryFree=get_gpu_free_mem())
             )
-            resp = self.registration_stub.register(request)
-            if resp.rc == pb.RC.REGISTERED:
-                resp = resp.regsucc
-                self.registered_jobs[job['name']] = resp.jinfo
-                logger.info('registered job {}, assigned jobId is {}'.format(job['name'], resp.jinfo.jobId))
-                with open('/share/{}.json'.format(job['name']), 'w') as f:
-                    json.dump(MessageToDict(resp), f)
-            else:
-                resp = resp.regerr
-                logger.error("failed to register job {}: {}".format(job['name'], resp.error))
-                os.kill(os.getpid(), signal.SIGINT)
-    
+            logger.info('waiting for data preparation')
+            resp_stream = self.reg_stub.register(request)
+            resp = None
+            for r in resp_stream:    
+                if r.rc == pb.RC.REGISTERED:
+                    r = r.regsucc
+                    if resp is None:
+                        resp = r
+                    else:
+                        resp.policy.chunkKeys.extend(r.policy.chunkKeys)
+                else:
+                    resp = resp.regerr
+                    logger.error("failed to register job {}: {}".format(job['name'], resp.error))
+                    os.kill(os.getpid(), signal.SIGINT)
+            self.reg_rj[job['name']] = resp.jinfo
+            logger.info('registered job {}, assigned jobId is {}'.format(job['name'], resp.jinfo.jobId))
+            with open('/share/{}.json'.format(job['name']), 'w') as f:
+                json.dump(MessageToDict(resp), f)
+                        
     def send_hearbeat(self, job: pb.JobInfo):
         """client sends hearbeat to GM to gather latest token
 
@@ -103,10 +114,10 @@ class Client(FileSystemEventHandler):
         while True:
             logger.info("send heartbeat")
             hb = pb.HearbeatMessage(cred=self.cred, jinfo=job)
-            resp = self.heartbeat_stub.call(hb)
+            resp = self.hb_stub.call(hb)
             if resp.jinfo.token != job.token:
                 logger.info("update token for job {}".format(job.name))
-                self.registered_jobs[job.name] = resp
+                self.reg_rj[job.name] = resp
                 with open('/share/{}.json'.format(job.name), 'w') as f:
                     json.dump(MessageToDict(resp), f)
             time.sleep(hb)
@@ -115,7 +126,7 @@ class Client(FileSystemEventHandler):
         with open('/share/cachemiss', 'r') as f:
             misskeys = f.readlines()
         for key in misskeys:
-            resp = self.cachemiss_stub.call(pb.CacheMissRequest(cred=self.cred, key=key))
+            resp = self.cm_stub.call(pb.CacheMissRequest(cred=self.cred, key=key))
             if resp.response:
                 logger.info('request missing key {}'.format(key))
             else:

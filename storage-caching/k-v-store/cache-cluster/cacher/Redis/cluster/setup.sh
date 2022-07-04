@@ -15,8 +15,11 @@ then
         serverIPs+=($ip)
     done
     kubectl exec -it redis-cluster-0 -- redis-cli --pass redispwd --cluster create "${serverIPs[0]}":6379 "${serverIPs[1]}":6379 "${serverIPs[2]}":6379 --cluster-replicas 0
-    kubectl apply -f envoy-proxy-config.yaml
-    kubectl apply -f envoy-proxy-deploy.yaml
+    if [ $2 == "enable_proxy" ]
+    then
+        kubectl apply -f envoy-proxy-config.yaml
+        kubectl apply -f envoy-proxy-deploy.yaml
+    fi
 elif [ $1 == "del" ]
 then
     kubectl delete -f .
