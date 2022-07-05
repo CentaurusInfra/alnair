@@ -86,13 +86,14 @@
                             "size",
                             "lastModified",
                             "totalAccessTime",
+                            "lastAccessTime",
                             "location",
                             "hasBackup"
                         ],
                         "properties": {
                             "name": {"bsonType": "string"},
                             "size": {"bsonType": ["long", "int"]},
-                            "lastModified": {"bsonType": "timestamp"},
+                            "lastModified": {"bsonType": "int"},
                             "totalAccessTime": {"bsonType": "int"},
                             "lastAccessTime": {"bsonType": "timestamp"},
                             "location": {"bsonType": "string"},

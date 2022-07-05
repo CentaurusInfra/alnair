@@ -2,6 +2,7 @@ import argparse
 import os
 import random
 import shutil
+from statistics import mean, stdev
 import time
 import warnings
 from enum import Enum
@@ -113,7 +114,14 @@ def main():
         mp.spawn(main_worker, nprocs=ngpus_per_node, args=(ngpus_per_node, args))
     else:
         # Simply call main_worker function
-        main_worker(args.gpu, ngpus_per_node, args)
+        exp_summary = []
+        for _ in range(5):
+            exp_start = time.time()
+            main_worker(args.gpu, ngpus_per_node, args)
+            elapsed_time = time.time()-exp_start
+            exp_summary.append(elapsed_time)
+            print('elapsed time: %.2fs' % (exp_summary[-1]))
+        print('experiment summary: \n \t mean: %.2f \n \t std: %.2f' % (mean(exp_summary), stdev(exp_summary)))
 
 
 def main_worker(gpu, ngpus_per_node, args):
@@ -207,8 +215,6 @@ def main_worker(gpu, ngpus_per_node, args):
     cudnn.benchmark = True
 
     # Data loading code
-    # traindir = os.path.join(args.data, 'train')
-    # valdir = os.path.join(args.data, 'val')
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                      std=[0.229, 0.224, 0.225])
 
@@ -219,19 +225,11 @@ def main_worker(gpu, ngpus_per_node, args):
         normalize,
     ])
                                    
-    train_dataset = ImageNetDataset(keys=['imagenet-mini/train'], transform=transform)
     val_dataset = ImageNetDataset(keys=['imagenet-mini/val'], transform=transform)
-
     if args.distributed:
-        train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
         val_sampler = torch.utils.data.distributed.DistributedSampler(val_dataset, shuffle=False, drop_last=True)
     else:
-        train_sampler = None
         val_sampler = None
-
-    train_loader = AlnairJobDataLoader(
-        train_dataset, batch_size=args.batch_size, shuffle=(train_sampler is None),
-        num_workers=args.workers, pin_memory=True, sampler=train_sampler)
 
     val_loader = AlnairJobDataLoader(
         val_dataset, batch_size=args.batch_size, shuffle=False,
@@ -240,20 +238,32 @@ def main_worker(gpu, ngpus_per_node, args):
     if args.evaluate:
         validate(val_loader, model, criterion, args)
         return
+    else:
+        train_dataset = ImageNetDataset(keys=['imagenet-mini/train'], transform=transform)
+        if args.distributed:
+            train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
+        else:
+            train_sampler = None
+        train_loader = AlnairJobDataLoader(
+            train_dataset, batch_size=args.batch_size, shuffle=(train_sampler is None),
+            num_workers=args.workers, pin_memory=True, sampler=train_sampler)
 
+    train_time_hist = []
+    eval_time_hist = []
     for epoch in range(args.start_epoch, args.epochs):
         if args.distributed:
             train_sampler.set_epoch(epoch)
 
         # train for one epoch
+        train_start = time.time()
         train(train_loader, model, criterion, optimizer, epoch, args)
+        train_time_hist.append(time.time()-train_start)
+        print('train time of epoch {}: {}s'.format(epoch, train_time_hist[-1]))
 
         # evaluate on validation set
         acc1 = validate(val_loader, model, criterion, args)
         
         scheduler.step()
-
-        
         # remember best acc@1 and save checkpoint
         is_best = acc1 > best_acc1
         best_acc1 = max(acc1, best_acc1)
@@ -268,6 +278,9 @@ def main_worker(gpu, ngpus_per_node, args):
                 'optimizer' : optimizer.state_dict(),
                 'scheduler' : scheduler.state_dict()
             }, is_best)
+    
+    print('train summary: \n \t mean: {}s, \t std: {}'.format(mean(train_time_hist), stdev(train_time_hist)))
+    print('eval summary: \n \t mean: {}s, \t std: {}'.format(mean(eval_time_hist), stdev(eval_time_hist)))
 
 
 def train(train_loader, model, criterion, optimizer, epoch, args):
@@ -277,7 +290,7 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
     top1 = AverageMeter('Acc@1', ':6.2f')
     top5 = AverageMeter('Acc@5', ':6.2f')
     progress = ProgressMeter(
-        len(train_loader),
+        train_loader.num_batches,
         [batch_time, data_time, losses, top1, top5],
         prefix="Epoch: [{}]".format(epoch))
 
@@ -351,7 +364,7 @@ def validate(val_loader, model, criterion, args):
     top1 = AverageMeter('Acc@1', ':6.2f', Summary.AVERAGE)
     top5 = AverageMeter('Acc@5', ':6.2f', Summary.AVERAGE)
     progress = ProgressMeter(
-        len(val_loader) + (args.distributed and (len(val_loader.sampler) * args.world_size < len(val_loader.dataset))),
+        val_loader.num_batches + (args.distributed and (len(val_loader.sampler) * args.world_size < len(val_loader.dataset))),
         [batch_time, losses, top1, top5],
         prefix='Test: ')
 

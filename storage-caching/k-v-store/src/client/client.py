@@ -89,6 +89,7 @@ class Client(FileSystemEventHandler):
             logger.info('waiting for data preparation')
             resp_stream = self.reg_stub.register(request)
             resp = None
+            logger.info('receiving registration response stream')
             for r in resp_stream:    
                 if r.rc == pb.RC.REGISTERED:
                     r = r.regsucc

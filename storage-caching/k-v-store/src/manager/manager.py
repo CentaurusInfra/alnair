@@ -68,18 +68,27 @@ class Manager(object):
         
         logger.info("start global manager")
 
-    def auth_client(self, username, password, conn_check=False):
-        result = self.client_col.find_one(filter={"username": username})
+    def auth_client(self, cred, s3auth=None, conn_check=False):
+        result = self.client_col.find_one(filter={"username": cred.username})
         if result is None:
-                return pb.RC.NO_USER
+                rc = pb.RC.NO_USER
         else:
-            if password == result['password']:
+            if cred.password == result['password']:
                 if conn_check:
-                    return pb.RC.CONNECTED if result['status'] else pb.RC.DISCONNECTED
+                    rc = pb.RC.CONNECTED if result['status'] else pb.RC.DISCONNECTED
                 else:
-                    return pb.RC.CONNECTED
+                    rc = pb.RC.CONNECTED
             else:
-                return pb.RC.WRONG_PASSWORD
+                rc = pb.RC.WRONG_PASSWORD
+        # check whether to update s3auth information
+        if rc == pb.RC.CONNECTED and s3auth is not None and result['s3auth'] != s3auth:
+            result = self.client_col.update_one(
+                filter={"username": cred.username}, 
+                update={"$set": {"s3auth": s3auth}})
+            if result.modified_count != 1:
+                logger.error("user {} is connected, but failed to update S3 authorization information.".format(cred.username))
+                rc = pb.RC.FAILED
+        return rc           
     
     def auth_job(self, jobId):
         result = self.cacherdb.Job.find_one(filter={"meta.jobId": jobId})
@@ -180,7 +189,7 @@ class ConnectionService(pb_grpc.ConnectionServicer):
         
     def connect(self, request, context):
         cred, s3auth = request.cred, request.s3auth
-        rc = self.manager.auth_client(cred.username, cred.password)
+        rc = self.manager.auth_client(cred=cred, s3auth=MessageToDict(s3auth))
         if rc == pb.RC.WRONG_PASSWORD:
             resp = pb.ConnectResponse(rc=pb.RC.FAILED, resp="wrong password")
         elif rc == pb.RC.NO_USER:
@@ -227,7 +236,7 @@ class RegistrationService(pb_grpc.RegistrationServicer):
 
     def register(self, request, context):
         cred = request.cred
-        rc = self.manager.auth_client(cred.username, cred.password, conn_check=True)
+        rc = self.manager.auth_client(cred, conn_check=True)
         jobId = "{}/{}".format(cred.username, request.datasource.name)
         if rc == pb.RC.CONNECTED:
             # get s3 auth
@@ -320,7 +329,9 @@ class RegistrationService(pb_grpc.RegistrationServicer):
                         'key': search_key(info['Key']), 
                         'size': info['Size'], 
                         'lastModified': int(info['LastModified'].timestamp())})
+                    logger.info('Key {} exists in Redis.'.format(info['Key']))
                 return chunk_keys
+            
             chunk_keys = []
             with concurrent.futures.ThreadPoolExecutor(max_workers=multiprocessing.cpu_count()) as executor:
                 futures = []
@@ -334,8 +345,9 @@ class RegistrationService(pb_grpc.RegistrationServicer):
             now = datetime.utcnow().timestamp()
             token = MessageToDict(request)
             token['time'] = now
-            token = hashing(token)     
-            if not self.manager.managerconf['enable_proxy']: # ACL command is not supported in proxy mode
+            token = hashing(token)
+            # ACL command is not supported in proxy mode
+            if not self.manager.managerconf['enable_proxy']:
                 self.manager.redis.acl_setuser(
                     username=jobId, passwords=["+{}".format(token)], 
                     enabled=True,
@@ -343,19 +355,6 @@ class RegistrationService(pb_grpc.RegistrationServicer):
                     keys=list(map(lambda x: x['key'], chunk_keys)),
                     reset=True, reset_keys=False, reset_passwords=False)
                 logger.info("Set redis user: {}".format(jobId))
-            
-            # respond client
-            chunks = []
-            for ck in chunk_keys:
-                chunks.append({
-                    "name": ck['name'],
-                    "size": ck['size'],
-                    "lastModified": ck['lastModified'],
-                    "totalAccessTime": 0,
-                    "location": "redis:{}".format(ck['key']),
-                    "hasBackup": False
-                })
-            pb_chunks = [ParseDict(ck, pb.ChunkObj(), ignore_unknown_fields=True) for ck in chunk_keys]            
             if self.manager.managerconf['enable_proxy']:
                 redisauth= pb.RedisAuth(
                             host=random.choice(self.manager.redis_proxy_conf['hosts'].split(',')), 
@@ -370,6 +369,17 @@ class RegistrationService(pb_grpc.RegistrationServicer):
                             password=token)
             
             # save jobinfo to database
+            chunks = []
+            for ck in chunk_keys:
+                chunks.append({
+                    "name": ck['name'],
+                    "size": ck['size'],
+                    "lastModified": ck['lastModified'],
+                    "totalAccessTime": 0,
+                    "lastAccessTime": bson.timestamp.Timestamp(int(now), inc=1),
+                    "location": "redis:{}".format(ck['key']),
+                    "hasBackup": False
+                })
             jobInfo = {
                 "meta": {
                     "username": cred.username,
@@ -391,7 +401,8 @@ class RegistrationService(pb_grpc.RegistrationServicer):
             if result.acknowledged:
                 logger.info('user {} register job {}'.format(cred.username, jobId))
                 
-            # batch chunks
+            # respond client
+            pb_chunks = [ParseDict(ck, pb.ChunkObj(), ignore_unknown_fields=True) for ck in chunk_keys]            
             batch_size = 100
             for i in range(0, len(pb_chunks), batch_size):
                 resp = pb.RegisterResponse(rc=pb.RC.REGISTERED, regsucc=pb.RegisterSuccess(
@@ -411,7 +422,7 @@ class RegistrationService(pb_grpc.RegistrationServicer):
     def deresgister(self, request, context):
         cred = request.cred
         jobId = request.jinfo.jobId
-        rc = self.manager.auth_client(cred.username, cred.password)
+        rc = self.manager.auth_client(cred)
         if rc in [pb.RC.CONNECTED, pb.RC.DISCONNECTED]:
             self.manager.redis.acl_deluser(username=cred.username)
             result = self.manager.job_col.delete_one(filter={"jobId": jobId})
@@ -434,7 +445,7 @@ class HeartbeatService(pb_grpc.HeartbeatServicer):
     def call(self, request, context):
         cred = request.cred
         jinfo = request.jinfo
-        rc = self.manager.auth_client(cred.username, cred.password, conn_check=True)   
+        rc = self.manager.auth_client(cred, conn_check=True)   
         if rc != pb.RC.CONNECTED:
             return
         job = self.manager.auth_job(jinfo.jobId)
@@ -469,7 +480,7 @@ class CacheMissService(pb_grpc.CacheMissServicer):
         
     def call(self, request, context):
         cred = request.cred
-        rc = self.manager.auth_client(cred.username, cred.password, conn_check=True)
+        rc = self.manager.auth_client(cred, conn_check=True)
         if rc != pb.RC.CONNECTED:
             return
         chunk = self.cacherdb.Job.aggregate([

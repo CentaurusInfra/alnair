@@ -27,12 +27,8 @@ def train(epochs, batch_size, lr):
     optimizer = optim.SGD(net.parameters(), lr=lr, momentum=0.9)
     
     for epoch in range(epochs):  # loop over the dataset multiple times
-        
         running_loss = 0.0
-        for i, data in enumerate(trainloader, 0):
-            # get the inputs; data is a list of [inputs, labels]
-            inputs, labels = data
-
+        for i, (inputs, labels) in enumerate(trainloader, 0):
             # zero the parameter gradients
             optimizer.zero_grad()
 

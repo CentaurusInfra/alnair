@@ -23,7 +23,7 @@ spec:
       - test_batch
     configurations:
       usecache: true
-      maxmemory: 0
+      maxmemory: 50
       durabilityindisk: 1440
     tty: true
     stdin: true

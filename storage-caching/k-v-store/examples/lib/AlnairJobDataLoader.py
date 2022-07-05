@@ -107,26 +107,36 @@ class AlnairJobDataLoader(object):
         self.multiprocessing_context = multiprocessing_context
         self.generator = generator
         
+        self.__num_batches = 0
         self.loader = self.init_loader()
+        
     
     def init_loader(self):
         loader = DataLoader(self.dataset, self.batch_size, self.shuffle, self.sampler, self.batch_sampler, self.num_workers, self.collate_fn, 
                             self.pin_memory, self.drop_last, self.timeout, self.worker_init_fn, self.multiprocessing_context, self.generator)
         return iter(loader)
     
+    @property
+    def num_batches(self):
+        if self.__num_batches == 0:
+            import math
+            self.__num_batches = math.ceil(len(self.loader) / (self.dataset.index/len(self.dataset.chunks)))
+        return self.__num_batches
+        
     def __iter__(self):
         return self
     
     def __next__(self):
         data = next(self.loader, None)
         if data is None:
-            self.dataset.load_data()
-            if isinstance(self.dataset.data, Iterable):
+            if self.dataset.index == len(self.dataset.chunks):  # epoch is down
+                self.dataset.index = 0
+                raise StopIteration
+            else:
+                self.dataset.load_data()
                 self.loader = self.init_loader()
                 return next(self.loader, None)
-            else:
-                return None
         return data
-    
+        
     def __len__(self):
-        return self.loader.__len__()
+        return len(self.loader)

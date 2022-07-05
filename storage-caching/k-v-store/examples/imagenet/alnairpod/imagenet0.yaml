@@ -1,13 +1,13 @@
 apiVersion: alnair.com/v1alpha1
 kind: AlnairPod
 metadata:
-  name: imagenet-mini
+  name: imagenet-mini0
   namespace: default
 spec:
   secret:
     name: alnairpod-client-secret
   jobs:
-  - name: job2
+  - name: job
     image: zhuangweikang/imagenet:latest
     # command: ["python3", "main.py"]
     command: ["bash"]
@@ -19,7 +19,7 @@ spec:
       - imagenet-mini/val
     configurations:
       usecache: true
-      maxmemory: 2048
+      maxmemory: 0
       durabilityindisk: 1440
     tty: true
     stdin: true
