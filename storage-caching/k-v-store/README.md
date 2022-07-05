@@ -70,7 +70,11 @@ exit()
 kubectl get svc mongo
 ```
 
+<<<<<<< HEAD
 ### Step 3. Global Manager (GM) Deployment
+=======
+### Step 3. Deploy Global Manager (GM) Deployment
+>>>>>>> f7d4072fc5cb76d23941e54be8676db927d3394d
 Edit the [configmap.yaml](cache-cluster/manager/configmap.yaml) to define configurations of the manager, mongodb, and redis_proxy. To enable data persistence, execute [nfs.sh](cache-cluster/manager/nfs.sh) to set up NFS server on all worker nodes. Then execute:
 ```bash
 cd cache-cluster/manager/
