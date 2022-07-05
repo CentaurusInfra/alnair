@@ -13,7 +13,7 @@ class ImageNetDataset(AlnairJobDataset):
         self.target_transform = target_transform
     
     def find_classes(self, keys):
-        classes = set([x.split('/')[2] for x in keys])
+        classes = sorted(set([x.split('/')[2] for x in keys]))
         if len(classes) == 0:
             raise FileNotFoundError(f"Couldn't find any class.")
         class_to_idx = {cls_name: i for i, cls_name in enumerate(classes)}

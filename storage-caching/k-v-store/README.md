@@ -1,22 +1,30 @@
 # K-V-Store
 
 ## Set up the Cache Cluster
-Redis configurations are saved in [redis-config.yaml](/cache-cluster/cacher/Redis/cluster/redis-config.yaml). Please change and remember the `masterauth` and `requirepass` fields and uncomment the `bind=0.0.0.0`. For data eviction, consider to configure `maxmemory-policy`, `maxmemory` and `maxmemory-samples`. To run more instances, change the `replicas` field in the [redis-cluster.yaml]((/cache-cluster/cacher/Redis/cluster/redis-cluster.yaml)) file.
+Redis configurations are saved in [config.yaml](/cache-cluster/cacher/Redis/cluster/config.yaml). Please change and remember the `masterauth` and `requirepass` fields and uncomment the `bind=0.0.0.0`. For data eviction, consider to configure `maxmemory-policy`, `maxmemory` and `maxmemory-samples`. To run more instances, change the `replicas` field in the [cluster.yaml]((/cache-cluster/cacher/Redis/cluster/cluster.yaml)) file.
 
-### Step 1. Set up the Redis Cluster with a server Statefulset (3 replicas) and a proxy Deployment (2 replicas).
+### Step 1. Set up the Redis Cluster with a server Statefulset (3 replicas).
+
+Edit the [secret.yaml](cache-cluster/cacher/Redis/cluster/secret.yaml) to set passwords. Then execute:
+
 ```bash
 cd cache-cluster/cacher/Redis/cluster
 sh setup.sh init # enter `yes` when you see the prompt
+```
 
-# get nodes where redis-proxy pods are running
-# the service is exposed through NodePort with targetPort 30001
-kubectl get pods -o wide | grep redis-proxy | awk '{ print $7 }'
+If clients are from a different K8s cluster, you need to enable the envoy-proxy mode. To do so, execute:
+```bash
+kubectl apply -f envoy-proxy-config.yaml
+kubectl apply -f envoy-proxy-deploy.yaml
+```
+Envoy-proxy service is exposed through NodePort with targetPort 30001. To get the node IP envoy-proxy is using:
+```bash
+kubectl get pods -o wide | grep envoy-proxy | awk '{ print $7 }'
 ```
 
 ### Step 2. Set up a HA MongoDB cluster using Statefulset
 ```bash
-# create diectory /mnt/data on all nodes
-kubectl config set-context --current --namespace=default
+# please ensure you create diectory /mnt/data on all nodes
 cd cache-cluster/cacher/mongodb
 sh setup.sh init
 
@@ -44,16 +52,9 @@ exit()
 kubectl get svc mongo
 ```
 
-Step 3. Prepare and set up the Global Manager (GM) Deployment
-
+### Step 3. Deploy Global Manager (GM) Deployment
+Edit the [configmap.yaml](cache-cluster/manager/configmap.yaml) to define configurations of the manager, mongodb, and redis_proxy. To enable data persistence, execute [nfs.sh](cache-cluster/manager/nfs.sh to set up NFS server on all worker nodes. Then execute:
 ```bash
-# create GM image
-cd src
-docker build -t alnairpod:manager -f manager/Dockerfile .
-docker tag alnairpod:manager alnair/alnairpod:manager
-docker push alnair/alnairpod:manager
-
-# start the GM deployment
-kubectl apply -f manager/configmap.yaml
-kubectl apply -f manager/deployment.yaml
+cd cache-cluster/manager/
+kubectl apply -f .
 ```

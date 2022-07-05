@@ -3,6 +3,7 @@ import os
 import json
 from typing import Any, List, Tuple
 import redis
+import math
 from torch.utils.data import Dataset
 import concurrent.futures
 
@@ -36,7 +37,7 @@ class AlnairJobDataset(Dataset):
         """
         
         self.jobname = os.environ.get('JOBNAME')
-        self.keys = keys
+        self.__keys = keys
         self.qos = self.load_metainfo()['qos']
         self.jobinfo = self.load_jobinfo()
         if self.qos['UseCache']: # use datasource from Redis
@@ -59,7 +60,7 @@ class AlnairJobDataset(Dataset):
             self.bucket_name = self.jobinfo['datasource']['bucket']
             self.chunks = self.get_all_s3_keys()
         
-        self.start = 0
+        self.__index = 0
         self.loaded_chunks = []
         self.load_data()
 
@@ -83,13 +84,14 @@ class AlnairJobDataset(Dataset):
 
     def get_all_redis_keys(self):
         chunks = dotdict(self.jobinfo.policy).chunkKeys
-        if self.keys is not None:
-            temp = []
-            for chunk in chunks:
-                for k in self.keys:
-                    if chunk['name'].startswith(k):
-                        temp.append(chunk)   
-            chunks = temp
+        if self.__keys is None: return chunks
+        temp = []
+        for chunk in chunks:
+            for k in self.__keys:
+                if chunk['name'].startswith(k):
+                    temp.append(chunk)
+                    break
+        chunks = temp
         return chunks
     
     def get_all_s3_keys(self):
@@ -99,7 +101,13 @@ class AlnairJobDataset(Dataset):
             pages = paginator.paginate(Bucket=self.bucket_name, Prefix=bk)
             for page in pages:
                 for item in page['Contents']:
-                    chunks.append({'name': item['Key'], 'key': item['Key'], 'size': item['Size']})
+                    if self.__keys is not None:
+                        for k in self.__keys:
+                            if item['Key'].startswith(k):
+                                chunks.append({'name': item['Key'], 'key': item['Key'], 'size': item['Size']})
+                                break
+                    else:
+                        chunks.append({'name': item['Key'], 'key': item['Key'], 'size': item['Size']})
         return chunks
     
     def load_chunksubset(self, start):
@@ -112,6 +120,8 @@ class AlnairJobDataset(Dataset):
             i = start
             while i < len(self.chunks):
                 total_size += int(self.chunks[i]['size'])
+                if self.chunks[i]['size'] > self.qos['MaxMemory']*1024*1024:
+                    raise Exception('File {} size is greater than assigned MaxMemory.'.format(self.chunks[i]['name']))
                 if total_size > self.qos['MaxMemory']*1024*1024:
                     break
                 else:
@@ -123,41 +133,59 @@ class AlnairJobDataset(Dataset):
     def data(self):
         return self.__data
     @property
+    def keys(self):
+        return self.__keys
+    @property
     def targets(self):
         return self.__targets
+
+    @property
+    def index(self):
+        return self.__index
+    @index.setter
+    def index(self, value):
+        self.__index = value
     
     def load_data(self):
-        if len(self.loaded_chunks) == len(self.chunks):  # case 1: all keys can be loaded
-            return
-        elif self.start < len(self.chunks):  # case 2: load a subset
-            self.loaded_chunks, self.start = self.load_chunksubset(self.start)
+        if self.index < len(self.chunks):
+            self.loaded_chunks, self.index = self.load_chunksubset(self.index)
             self.__data = {}
             
-            def helper(chunk, use_cache, client):
-                k = chunk['key']
+            def helper(chunks, use_cache, client):
+                names = []
                 if use_cache:
-                    while True:
-                        value = client.get(k)    
-                        if value is None: # cache missing
+                    all_keys = [chunk['key'] for chunk in chunks]
+                    values = client.mget(all_keys)
+                    for i in range(len(values)):
+                        names.append(chunks[i]['name'])
+                        if values[i] is None: # cache missing
                             with open('/share/cachemiss', 'w') as f:
-                                f.writelines([k])
-                        else:
-                            break
+                                f.writelines([all_keys[i]])
+                            while True:
+                                value = client.get(all_keys[i])
+                                if value is not None:
+                                    values[i] = value
+                                    break
                 else:
-                    value = client.get_object(Bucket=self.bucket_name, Key=k)['Body'].read()
-                return chunk['name'], value
+                    values = []
+                    for chunk in chunks:
+                        value = client.get_object(Bucket=self.bucket_name, Key=chunk['key'])['Body'].read()
+                        names.append(chunk['name'])
+                        values.append(value)
+                return names, values
             
-            with concurrent.futures.ThreadPoolExecutor(max_workers=multiprocessing.cpu_count()) as executor:
+            n_threads = multiprocessing.cpu_count()
+            with concurrent.futures.ThreadPoolExecutor(max_workers=n_threads) as executor:
                 futures = []
-                for chunk in self.loaded_chunks:
-                    futures.append(executor.submit(helper, chunk, self.qos['UseCache'], self.client))
+                l = math.ceil(len(self.loaded_chunks)/n_threads)
+                for i in range(n_threads):
+                    futures.append(executor.submit(helper, self.loaded_chunks[i*l: (i+1)*l], self.qos['UseCache'], self.client))
                 for future in concurrent.futures.as_completed(futures):    
                     result = future.result()
-                    self.__data[result[0]] = result[1]
+                    for i in range(len(result[0])):
+                        self.__data[result[0][i]] = result[1][i]
             
-            # epoch is down
-            if self.start == len(self.chunks):
-                self.start = 0                
+            self.__keys = list(self.__data.keys())
             self.__data, self.__targets = self.__preprocess__()
     
     def __preprocess__(self) -> Tuple[List, List]:
@@ -174,4 +202,4 @@ class AlnairJobDataset(Dataset):
         raise NotImplementedError
 
     def __len__(self) -> int:
-        return NotImplementedError
+        raise NotImplementedError
