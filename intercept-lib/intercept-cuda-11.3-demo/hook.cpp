@@ -92,6 +92,7 @@ CUresult CUDAAPI cuGetProcAddress(const char *symbol, void **pfn, int cudaVersio
 #pragma pop_macro("cuMemAlloc")
         *pfn = (void *)(&hook_cuMemAlloc);
 #pragma pop_macro("cuInit")
+#undef cuInit
     } else if (strcmp(symbol, CUDA_SYMBOL_STRING(cuInit)) == 0) {
 #pragma pop_macro("cuInit")
         *pfn = (void *)(&hook_cuInit);
