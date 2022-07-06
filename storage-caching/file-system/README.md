@@ -230,6 +230,6 @@ spec:
 ![image](https://user-images.githubusercontent.com/105383186/177635080-237cae64-22c2-4716-8587-1c42e3e910b9.png)
 
 
-## Notes
-1. user data/path isolation
-2. network bottleneck
+## Other Topics
+1. User Data/Path Isolation - How To Isolate And Possibly Also Share Hosted Data Between Users
+2. Network Bottlenecks - When Does Network Limit Our Training Performance
