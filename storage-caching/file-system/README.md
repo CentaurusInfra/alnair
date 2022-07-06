@@ -23,7 +23,9 @@
 ### I. Master and Worker node preparation
 
 Just follow below commands to setup the Alluxio on master first. The workers will be setup as part of steps during preparation of the master.
-This guide walks thruogh the option to setup Alluxio on Kubernetes using the Helm Charts. If you want to setup Alluxio on Bare-Metal cluster, that guide will be linked here.
+This guide walks thruogh the option to setup Alluxio on Kubernetes using the Helm Charts. If you want to setup Alluxio on Bare-Metal cluster, that guide is here: https://docs.alluxio.io/os/user/stable/en/deploy/Running-Alluxio-On-a-Cluster.html.
+
+Also, to deploy Alluxio on Kubernetes, the provided guide is here: https://docs.alluxio.io/os/user/stable/en/deploy/Running-Alluxio-On-Kubernetes.html. Although, this is being automated by my "auto-depoloy" tool.
 
 #### 1) Install Helm on Ubuntu if you don't have it:
 On Ubuntu / Debian:
