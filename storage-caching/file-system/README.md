@@ -132,7 +132,27 @@ md5 data
 MD5 (data) = bf0513403ff54711966f39b058e059a3
 ```
 
-## II. PV/PVC Configurations
+## II. This Is All Great But How Do I Delete All This ...??
+	
+Ok, I hear you! Just do this:
+```
+helm delete alluxio
+```
+Thats it!
+
+You should also delete your Persistent Volume like this:
+```
+kubectl delete -f alluxio-master-journal-pv.yaml
+```
+
+Volume deletion waits for a long time until all of the pods and the namespaces that use it are gone. You might want to run the below benign command to remove volumes after waiting for a few minutes:
+
+```
+kubectl delete persistentvolumeclaim/alluxio-journal-alluxio-master-0 persistentvolume/alluxio-journal-0 persistentvolume/alluxio-fuse3 persistentvolumeclaim/alluxio-worker-domain-socket
+```
+
+
+## III. PV/PVC Configurations
 
 As discussed in step 2 above, Alluxio first needs a Persistent Volume to load data from and persist data into. There are actually two volumes to describe.
 Volume "alluxio-journal-alluxio-master" is used for journaling, mounting and persisting your training big-data.
