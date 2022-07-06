@@ -203,8 +203,12 @@ spec:
 
 
 ## Sample Results on data loading speed with and without Alluxio
-1. within CPU cluster (cpu workloads)
-2. cross CPU and GPU network (gpu workloads)
+1. Within CPU cluster (cpu workloads)
+<Later today>
+
+2. Across CPU and GPU network (gpu workloads)
+![image](https://user-images.githubusercontent.com/105383186/177635080-237cae64-22c2-4716-8587-1c42e3e910b9.png)
+
 
 ## Notes
 1. user data/path isolation
