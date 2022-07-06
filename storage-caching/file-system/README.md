@@ -1,4 +1,22 @@
-# Alluxio based file system caching for K8s workloads
+- [Alluxio Based Data Orchestration & Filesystem Caching For Kubernetes Workloads](#alluxio-based-data-orchestration---filesystem-caching-for-kubernetes-workloads)
+  * [Alluxio Cluster Setup](#alluxio-cluster-setup)
+    + [I. Master and Worker node preparation](#i-master-and-worker-node-preparation)
+      - [1) Install Helm on Ubuntu if you don't have it:](#1--install-helm-on-ubuntu-if-you-don-t-have-it-)
+      - [2) Execute below commands to create the "disk volume" first, that Alluxio can use for any persisted data:](#2--execute-below-commands-to-create-the--disk-volume--first--that-alluxio-can-use-for-any-persisted-data-)
+      - [3) Install Alluxio using Helm now:](#3--install-alluxio-using-helm-now-)
+      - [4) Scaling of the Alluxio Cluster:](#4--scaling-of-the-alluxio-cluster-)
+        * [4a) Details of Scaling the Master:](#4a--details-of-scaling-the-master-)
+        * [4b) Details of Scaling the Workers:](#4b--details-of-scaling-the-workers-)
+      - [5) Health & Monitoring of the Alluxio Cluster:](#5--health---monitoring-of-the-alluxio-cluster-)
+      - [6) How To "get into" master:](#6--how-to--get-into--master-)
+      - [7) How To Alluxio Cluster's Functionalities?:](#7--how-to-alluxio-cluster-s-functionalities--)
+      - [8) How To Verify and Repair Persistence of Data In the Cache:](#8--how-to-verify-and-repair-persistence-of-data-in-the-cache-)
+  * [II. This Is All Great But How Do I Delete All This ...??](#ii-this-is-all-great-but-how-do-i-delete-all-this---)
+  * [III. PV/PVC Configurations](#iii-pv-pvc-configurations)
+  * [Pod yaml exmaple with Alluxio](#pod-yaml-exmaple-with-alluxio)
+  * [Sample Results on data loading speed with and without Alluxio](#sample-results-on-data-loading-speed-with-and-without-alluxio)
+  * [Notes](#notes)
+
 
 ## Alluxio Cluster Setup
 
