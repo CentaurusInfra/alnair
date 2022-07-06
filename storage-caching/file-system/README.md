@@ -115,7 +115,7 @@ One option is to persist the data for yourself, mount that as volume in your pod
 
 Get into the master by following above step, and then just run below command. This will execute built in self tests that came with Alluxio. All tests need to pass, or you can show errors using the --debug flag:
 ```
-		alluxio runTests
+alluxio runTests
 ```
 
 #### 8) How To Verify and Repair Persistence of Data In the Cache:
