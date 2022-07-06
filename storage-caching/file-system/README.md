@@ -11,9 +11,11 @@ This guide walks thruogh the option to setup Alluxio on Kubernetes using the Hel
 On Ubuntu / Debian:
 Option 1: Using `apt`
 ```
-curl https://baltocdn.com/helm/signing.asc | gpg --dearmor | sudo tee /usr/share/keyrings/helm.gpg > /dev/null
+curl https://baltocdn.com/helm/signing.asc | gpg --dearmor | \
+sudo tee /usr/share/keyrings/helm.gpg > /dev/null
 sudo apt-get install apt-transport-https --yes
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/helm.gpg] https://baltocdn.com/helm/stable/debian/ all main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/helm.gpg] \
+https://baltocdn.com/helm/stable/debian/ all main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list
 sudo apt-get update
 sudo apt-get install helm
 ```
@@ -32,7 +34,11 @@ kubectl create -f alluxio-master-journal-pv.yaml
 
 #### 3) Install Alluxio using Helm now:
 ```
-helm upgrade --install alluxio --debug --values my-alluxio-values.yaml -f config.yaml -f alluxio-configmap.yaml --set journal.format.runFormat=true --set alluxio.master.hostname=_Hostname of your master_ --set alluxio.zookeeper.enabled=true --set alluxio.zookeeper.address=[ _IP of your master_ ]  alluxio-charts/alluxio  | tee  helm.out   
+helm upgrade --install alluxio --debug --values my-alluxio-values.yaml \
+-f config.yaml -f alluxio-configmap.yaml --set journal.format.runFormat=true \
+--set alluxio.master.hostname=_Hostname of your master_ \
+--set alluxio.zookeeper.enabled=true --set alluxio.zookeeper.address=[ _IP of your master_ ] \
+ alluxio-charts/alluxio  | tee  helm.out   
 ```
 
 Now Alluxio should have been deployed. One way is to wait for a minute and then check for the pods to be running in `alluxio` namespace, like this:
