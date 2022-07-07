@@ -58,9 +58,12 @@ The solution is a workaround. See the code below.
 #include <dlfcn.h>
 #include <cuda.h>
 #include <string.h>
+#include <chrono>
+#include <fstream>
 
 #define STRINGIFY(x) STRINGIFY_AUX(x)
 #define STRINGIFY_AUX(x) #x
+const char metrices_file[] = "/var/lib/alnair/workspace/metrics.log";
 
 extern "C" { void* __libc_dlsym (void *map, const char *name); }
 extern "C" { void* __libc_dlopen_mode (const char* name, int mode); }
@@ -233,10 +236,21 @@ void* dlsym(void *handle, const char *symbol)
     return (real_dlsym(handle, symbol));
 }
 
+#define SAMPLE_CUDA(symbol)                                                                         \
+    {                                                                                               \
+        std::chrono::time_point<std::chrono::system_clock> now = std::chrono::system_clock::now();  \
+        auto duration = now.time_since_epoch();                                                     \
+        std::ofstream fmet;                                                                         \
+        fmet.open(metrices_file);                                                                   \
+        fmet << duration.count() << ',' << symbol << std::endl;                                     \
+        fmet.close();                                                                               \
+    }                                                                                               \
+
 #define GENERATE_INTERCEPT_FUNCTION(hooksymbol, funcname, params, ...)                     \
     CUresult funcname params                                                               \
     {                                                                                      \
         CUresult res = CUDA_SUCCESS;                                                       \
+        SAMPLE_CUDA(hooksymbol);                                                           \
         if (hooks[hooksymbol]) {                                                           \
             res = ((CUresult (*)params)hooks[hooksymbol])(__VA_ARGS__);                    \
         }                                                                                  \
