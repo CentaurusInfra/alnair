@@ -38,7 +38,7 @@ message ConnectResponse {
 
 // register a DLT Client (DLTC) to the Global Manager (GM)
 service Registration {
-    rpc register (RegisterRequest) returns (stream RegisterResponse) {}
+    rpc register (RegisterRequest) returns (RegisterResponse) {}
     rpc deregister (DeregisterRequest) returns (DeregisterResponse) {}
 }
 message ResourceInfo { // Pod resource info, load from proc file system
@@ -70,15 +70,9 @@ message RegisterResponse {
     }
 }
 
-message ChunkObj {
-    required string name = 1;
-    required string key = 2;
-    required int64 size = 3;
-    required int64 lastModified = 4;
-}
 message Policy {
     required int64 chunkSize = 1;
-    repeated ChunkObj chunkKeys = 2;
+    repeated string snapshot = 2;
 }
 message RedisAuth {
     required string host = 1;

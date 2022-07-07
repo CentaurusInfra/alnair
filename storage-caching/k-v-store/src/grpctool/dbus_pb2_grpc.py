@@ -83,7 +83,7 @@ class RegistrationStub(object):
         Args:
             channel: A grpc.Channel.
         """
-        self.register = channel.unary_stream(
+        self.register = channel.unary_unary(
                 '/dbus.Registration/register',
                 request_serializer=dbus__pb2.RegisterRequest.SerializeToString,
                 response_deserializer=dbus__pb2.RegisterResponse.FromString,
@@ -114,7 +114,7 @@ class RegistrationServicer(object):
 
 def add_RegistrationServicer_to_server(servicer, server):
     rpc_method_handlers = {
-            'register': grpc.unary_stream_rpc_method_handler(
+            'register': grpc.unary_unary_rpc_method_handler(
                     servicer.register,
                     request_deserializer=dbus__pb2.RegisterRequest.FromString,
                     response_serializer=dbus__pb2.RegisterResponse.SerializeToString,
@@ -146,7 +146,7 @@ class Registration(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_stream(request, target, '/dbus.Registration/register',
+        return grpc.experimental.unary_unary(request, target, '/dbus.Registration/register',
             dbus__pb2.RegisterRequest.SerializeToString,
             dbus__pb2.RegisterResponse.FromString,
             options, channel_credentials,
