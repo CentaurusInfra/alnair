@@ -250,7 +250,6 @@ void* dlsym(void *handle, const char *symbol)
     CUresult funcname params                                                               \
     {                                                                                      \
         CUresult res = CUDA_SUCCESS;                                                       \
-        SAMPLE_CUDA(hooksymbol);                                                           \
         if (hooks[hooksymbol]) {                                                           \
             res = ((CUresult (*)params)hooks[hooksymbol])(__VA_ARGS__);                    \
         }                                                                                  \
