@@ -87,20 +87,14 @@ class Client(FileSystemEventHandler):
                 resource=pb.ResourceInfo(CPUMemoryFree=get_cpu_free_mem(), GPUMemoryFree=get_gpu_free_mem())
             )
             logger.info('waiting for data preparation')
-            resp_stream = self.reg_stub.register(request)
-            resp = None
+            resp = self.reg_stub.register(request)
             logger.info('receiving registration response stream')
-            for r in resp_stream:    
-                if r.rc == pb.RC.REGISTERED:
-                    r = r.regsucc
-                    if resp is None:
-                        resp = r
-                    else:
-                        resp.policy.chunkKeys.extend(r.policy.chunkKeys)
-                else:
-                    resp = resp.regerr
-                    logger.error("failed to register job {}: {}".format(job['name'], resp.error))
-                    os.kill(os.getpid(), signal.SIGINT)
+            if resp.rc == pb.RC.REGISTERED:
+                resp = resp.regsucc
+            else:
+                resp = resp.regerr
+                logger.error("failed to register job {}: {}".format(job['name'], resp.error))
+                os.kill(os.getpid(), signal.SIGINT)
             self.reg_rj[job['name']] = resp.jinfo
             logger.info('registered job {}, assigned jobId is {}'.format(job['name'], resp.jinfo.jobId))
             with open('/share/{}.json'.format(job['name']), 'w') as f:

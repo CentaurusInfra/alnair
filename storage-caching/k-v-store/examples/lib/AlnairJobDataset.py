@@ -64,6 +64,23 @@ class AlnairJobDataset(Dataset):
         self.loaded_chunks = []
         self.load_data()
 
+    @property
+    def data(self):
+        return self.__data
+    @property
+    def keys(self):
+        return self.__keys
+    @property
+    def targets(self):
+        return self.__targets
+
+    @property
+    def index(self):
+        return self.__index
+    @index.setter
+    def index(self, value):
+        self.__index = value
+        
     def load_metainfo(self):
         with open('/jobs/{}.json'.format(self.jobname), 'r') as f:
             jobinfo = json.load(f)
@@ -83,16 +100,30 @@ class AlnairJobDataset(Dataset):
         return dotdict(jobinfo)
 
     def get_all_redis_keys(self):
-        chunks = dotdict(self.jobinfo.policy).chunkKeys
-        if self.__keys is None: return chunks
-        temp = []
-        for chunk in chunks:
-            for k in self.__keys:
-                if chunk['name'].startswith(k):
-                    temp.append(chunk)
-                    break
-        chunks = temp
-        return chunks
+        snapshot = dotdict(self.jobinfo.policy).snapshot
+        def helper(keys):
+            chunks = []
+            for k in keys:
+                if self.__keys is not None:
+                    k = "{}/{}".format(dotdict(self.jobinfo.jinfo).jobId, k)
+                fname = '/root/.cache/{}.json'.format(k)
+                if os.path.exists(fname):
+                    with open(fname, 'r') as f:
+                        for v in json.load(f).values():
+                            chunks.extend(v)
+                else:
+                    os.system('mkdir -p {}'.format('/'.join(fname.split('/')[:-1])))
+                    chunk = json.loads(self.client.get(k))
+                    for v in chunk.values():
+                        chunks.extend(v)
+                    with open(fname, 'w+') as f:
+                        json.dump(chunk, f)
+            return chunks
+        
+        if self.__keys is None:
+            return helper(snapshot)
+        else:
+            return helper(self.__keys)
     
     def get_all_s3_keys(self):
         chunks = []
@@ -128,23 +159,6 @@ class AlnairJobDataset(Dataset):
                     chunks.append(self.chunks[i])
                     i += 1
             return chunks, i
-        
-    @property
-    def data(self):
-        return self.__data
-    @property
-    def keys(self):
-        return self.__keys
-    @property
-    def targets(self):
-        return self.__targets
-
-    @property
-    def index(self):
-        return self.__index
-    @index.setter
-    def index(self, value):
-        self.__index = value
     
     def load_data(self):
         if self.index < len(self.chunks):
@@ -199,6 +213,13 @@ class AlnairJobDataset(Dataset):
         raise NotImplementedError
     
     def __getitem__(self, index: int) -> Any:
+        """
+        Args:
+            index (int): Index
+
+        Returns:
+            (Any): Sample and meta data, optionally transformed by the respective transforms.
+        """
         raise NotImplementedError
 
     def __len__(self) -> int:

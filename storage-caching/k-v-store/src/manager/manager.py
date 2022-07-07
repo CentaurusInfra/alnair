@@ -1,6 +1,5 @@
 import concurrent.futures
 import os
-from typing import List
 import grpc
 import boto3
 import threading
@@ -13,7 +12,6 @@ import redis
 import grpctool.dbus_pb2 as pb
 import grpctool.dbus_pb2_grpc as pb_grpc
 from datetime import datetime
-from google.protobuf.json_format import ParseDict
 from pymongo.mongo_client import MongoClient
 from redis import RedisCluster, Redis
 from pytz import timezone
@@ -263,73 +261,77 @@ class RegistrationService(pb_grpc.RegistrationServicer):
             if saved_job is not None:
                 for chunk in saved_job['policy']['chunks']:
                     saved_keys[chunk['name']] = chunk
-            def list_modified_objects(client: boto3.client, redis: redis.RedisCluster, bucket_name: str, prefix: str, saved_keys: dict):
-                bucket_objs = {}
-                paginator = client.get_paginator('list_objects_v2')
-                pages = paginator.paginate(Bucket=bucket_name, Prefix=prefix)
-                for page in pages:
-                    for info in page['Contents']:
-                        if saved_job is not None \
-                            and info['Key'] in saved_keys \
-                            and info['LastModified'].replace(tzinfo=timezone('UTC')).timestamp() == saved_keys[info['Key']]['lastModified'] \
-                            and redis.exists(saved_keys[info['Key']]['location'].split(':')[1]):
-                            info['Exist'] = True
-                        else:
-                            info['Exist'] = False
-                        bucket_objs[info['Key']] = info
-                return bucket_objs
+            
             bucket_objs = {}
-            with concurrent.futures.ThreadPoolExecutor(max_workers=multiprocessing.cpu_count()) as executor:
+            def list_modified_objects(prefix, page):
+                nonlocal bucket_objs
+                for info in page['Contents']:
+                    info['prefix'] = prefix
+                    if saved_job is not None \
+                        and info['Key'] in saved_keys \
+                        and info['LastModified'].replace(tzinfo=timezone('UTC')).timestamp() == saved_keys[info['Key']]['lastModified']:
+                        # and self.manager.redis.exists(saved_keys[info['Key']]['location'].split(':')[1]):
+                        info['Exist'] = True
+                    else:
+                        info['Exist'] = False
+                    bucket_objs[info['Key']] = info
+            
+            for prefix in request.datasource.keys:
+                s = time.time()
+                paginator = s3_client.get_paginator('list_objects_v2')
+                pages = paginator.paginate(Bucket=bucket_name, Prefix=prefix)
                 futures = []
-                for bk in request.datasource.keys:
-                    futures.append(executor.submit(list_modified_objects, s3_client, self.manager.redis, bucket_name, bk, saved_keys))
-                for future in concurrent.futures.as_completed(futures):
-                    bucket_objs = {**bucket_objs, **future.result()}
-
+                with concurrent.futures.ThreadPoolExecutor(max_workers=multiprocessing.cpu_count()) as executor:
+                    for page in pages:
+                        futures.append(executor.submit(list_modified_objects, prefix, page))
+                concurrent.futures.wait(futures)
+                print('used time: {}'.format(time.time()-s))
+            
             chunk_size = self.manager.calculate_chunk_size(bucket_objs)
 
             # copy data from S3 to Redis
+            snapshot = {}
             def copy_data(client: boto3.client, redis: redis.RedisCluster, info: dict, bucket_name: str):
+                nonlocal snapshot
                 chunk_keys = []
                 if not info['Exist']:
                     if info['Size'] <= chunk_size:
                         value = client.get_object(Bucket=bucket_name, Key=info['Key'])['Body'].read()
                         hash_key = hashing(value)
                         redis.set(hash_key, value)
-                        logger.info("Copy data from s3:{} to redis:{}".format(info['Key'], hash_key))
-                        chunk_keys.append({
-                            'name': info['Key'], 
-                            'key': hash_key, 
-                            'size': info['Size'], 
-                            'lastModified': int(info['LastModified'].timestamp())})
+                        # logger.info("Copy data from s3:{} to redis:{}".format(info['Key'], hash_key))
+                        obj = {'name': info['Key'], 'key': hash_key, 'size': info['Size'], 'lastModified': int(info['LastModified'].timestamp())}
+                        chunk_keys.append(obj)
                     else:
                         client.download_file(Bucket=bucket_name, Key=info['Key'], Filename='/tmp/{}'.format(info['Key']))
-                        logger.info("Download large file s3:{}, size: {}B".format(info['Key'], info['Size']))
+                        # logger.info("Download large file s3:{}, size: {}B".format(info['Key'], info['Size']))
                         with open('/tmp/{}'.format(info['Key']), 'rb') as f:
                             value = f.read(chunk_size)
                             while value:
                                 hash_key = hashing(value)
-                                chunk_keys.append({
-                                    'name': '{}'.format(info['Key']), 
-                                    'key': hash_key, 
-                                    'size': chunk_size, 
-                                    'lastModified': int(info['LastModified'].timestamp())})
+                                obj = {'name': info['Key'], 'key': hash_key, 'size': chunk_size, 'lastModified': int(info['LastModified'].timestamp())}
+                                chunk_keys.append(obj)
                                 redis.set(hash_key, value)
-                                logger.info("Copy data from /tmp/{} to redis:{}".format(info['Key'], hash_key))
+                                # logger.info("Copy data from /tmp/{} to redis:{}".format(info['Key'], hash_key))
                                 value = f.read(chunk_size)
                 else:
-                    # find hash keys given the chunk name            
-                    def search_key(name):
-                        for ck in saved_job['policy']['chunks']:
-                            if name == ck['name']:
-                                return ck['location'].split(':')[1]
+                    # find hash keys given the bucket key
+                    def search_key(bk):
+                        if bk in saved_keys:
+                            return saved_keys[bk]['location'].split(':')[1]
                         return None
                     chunk_keys.append({
                         'name': info['Key'], 
                         'key': search_key(info['Key']), 
                         'size': info['Size'], 
                         'lastModified': int(info['LastModified'].timestamp())})
-                    logger.info('Key {} exists in Redis.'.format(info['Key']))
+                    # logger.info('Key {} exists in Redis.'.format(info['Key']))
+                
+                sk = "{}/{}".format(jobId, info['prefix'])
+                if sk not in snapshot:
+                    snapshot[sk] = {info['Key']: chunk_keys}
+                else:
+                    snapshot[sk][info['Key']] = chunk_keys
                 return chunk_keys
             
             chunk_keys = []
@@ -341,6 +343,11 @@ class RegistrationService(pb_grpc.RegistrationServicer):
                 for future in concurrent.futures.as_completed(futures):
                     chunk_keys.extend(future.result())
             
+            # create job snapshot in Redis
+            for k in list(snapshot.keys()):
+                snapshot[k] = json.dumps(snapshot[k])
+            self.manager.redis.mset(snapshot)
+            
             # generate connection authorization for client
             now = datetime.utcnow().timestamp()
             token = MessageToDict(request)
@@ -348,11 +355,13 @@ class RegistrationService(pb_grpc.RegistrationServicer):
             token = hashing(token)
             # ACL command is not supported in proxy mode
             if not self.manager.managerconf['enable_proxy']:
+                auth_keys = list(map(lambda x: x['key'], chunk_keys))
+                auth_keys.extend(list(snapshot.keys()))
                 self.manager.redis.acl_setuser(
                     username=jobId, passwords=["+{}".format(token)], 
                     enabled=True,
                     commands=['+get', '+mget', '+info'],
-                    keys=list(map(lambda x: x['key'], chunk_keys)),
+                    keys=auth_keys,
                     reset=True, reset_keys=False, reset_passwords=False)
                 logger.info("Set redis user: {}".format(jobId))
             if self.manager.managerconf['enable_proxy']:
@@ -400,26 +409,22 @@ class RegistrationService(pb_grpc.RegistrationServicer):
             result = self.manager.job_col.insert_one(jobInfo)
             if result.acknowledged:
                 logger.info('user {} register job {}'.format(cred.username, jobId))
-                
-            # respond client
-            pb_chunks = [ParseDict(ck, pb.ChunkObj(), ignore_unknown_fields=True) for ck in chunk_keys]            
-            batch_size = 100
-            for i in range(0, len(pb_chunks), batch_size):
-                resp = pb.RegisterResponse(rc=pb.RC.REGISTERED, regsucc=pb.RegisterSuccess(
-                        jinfo=pb.JobInfo(
-                            jobId=jobId,
-                            token=token,
-                            createTime=grpc_ts(now),
-                            tokenTimeout=grpc_ts(now+3600),
-                            redisauth=redisauth),
-                        policy=pb.Policy(chunkSize=chunk_size, chunkKeys=pb_chunks[i:i+batch_size])))
-                yield resp
+                       
+            return pb.RegisterResponse(rc=pb.RC.REGISTERED, regsucc=pb.RegisterSuccess(
+                    jinfo=pb.JobInfo(
+                        jobId=jobId,
+                        token=token,
+                        createTime=grpc_ts(now),
+                        tokenTimeout=grpc_ts(now+3600),
+                        redisauth=redisauth),
+                    policy=pb.Policy(chunkSize=chunk_size, snapshot=list(snapshot.keys()))))
         elif rc == pb.RC.DISCONNECTED:
-            yield pb.RegisterResponse(rc=pb.RC.FAILED, regerr=pb.RegisterError(error="failed to register the jod, user is not connected."))
+            return pb.RegisterResponse(rc=pb.RC.FAILED, regerr=pb.RegisterError(error="failed to register the jod, user is not connected."))
         else:
-            yield pb.RegisterResponse(rc=pb.RC.FAILED, regerr=pb.RegisterError(error="failed to register the jod"))
+            return pb.RegisterResponse(rc=pb.RC.FAILED, regerr=pb.RegisterError(error="failed to register the jod"))
 
     def deresgister(self, request, context):
+        # TODO: job snapshot needs to be deleted
         cred = request.cred
         jobId = request.jinfo.jobId
         rc = self.manager.auth_client(cred)

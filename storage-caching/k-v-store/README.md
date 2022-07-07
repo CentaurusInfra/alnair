@@ -43,7 +43,7 @@ kubectl get pods -o wide | grep envoy-proxy | awk '{ print $7 }'
 ### Step 2. HA MongoDB Statefulset
 ```bash
 # please ensure you create diectory /mnt/data on all nodes
-cd cache-cluster/cacher/mongodb
+cd cache-cluster/mongodb
 sh setup.sh init
 
 # execute the follwing commands in the mongodb console:
