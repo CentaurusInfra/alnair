@@ -78,6 +78,9 @@ spec:
                           description: Max memory in MB can be used by DLT job
                           format: int64
                           type: integer
+                        singular:
+                          description: One object per file
+                          type: boolean
                         usecache:
                           description: Whether client should use redis or s3
                           type: boolean

@@ -21,15 +21,14 @@ import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 import torchvision.models as models
 from torch.utils.data import Subset
-from ImageNetMiniDataset import ImageNetDataset
-from lib.AlnairJobDataLoader import AlnairJobDataLoader
-
 
 model_names = sorted(name for name in models.__dict__
     if name.islower() and not name.startswith("__")
     and callable(models.__dict__[name]))
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
+parser.add_argument('data', metavar='DIR', default='imagenet',
+                    help='path to dataset (default: imagenet)')
 parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet18',
                     choices=model_names,
                     help='model architecture: ' +
@@ -114,15 +113,14 @@ def main():
         mp.spawn(main_worker, nprocs=ngpus_per_node, args=(ngpus_per_node, args))
     else:
         # Simply call main_worker function
-        exp_summary = []
-        for _ in range(5):
-            exp_start = time.time()
+        summary = []
+        for i in range(5):
+            s = time.time()
             main_worker(args.gpu, ngpus_per_node, args)
-            elapsed_time = time.time()-exp_start
-            exp_summary.append(elapsed_time)
-            print('elapsed time: %.2fs' % (exp_summary[-1]))
-        print('experiment summary: \n \t mean: %.2f \n \t std: %.2f' % (mean(exp_summary), stdev(exp_summary)))
-
+            now = time.time()
+            summary.append(now-s)
+            print('elapsed time: %.2f' % (now-s))
+        print('Summary: \n \t mean: %.2f \t std: %.2f' % (mean(summary), stdev(summary)))
 
 def main_worker(gpu, ngpus_per_node, args):
     global best_acc1
@@ -215,56 +213,64 @@ def main_worker(gpu, ngpus_per_node, args):
     cudnn.benchmark = True
 
     # Data loading code
+    traindir = os.path.join(args.data, 'train')
+    valdir = os.path.join(args.data, 'val')
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                    std=[0.229, 0.224, 0.225])
+                                     std=[0.229, 0.224, 0.225])
 
-    transform = transforms.Compose([
-        transforms.RandomResizedCrop(224),
-        transforms.RandomHorizontalFlip(),
-        transforms.ToTensor(),
-        normalize,
-    ])
-        
-    val_dataset = ImageNetDataset(keys=['imagenet-mini/val'], transform=transform)
-    
+    val_dataset = datasets.ImageFolder(
+        valdir,
+        transforms.Compose([
+            transforms.Resize(256),
+            transforms.CenterCrop(224),
+            transforms.ToTensor(),
+            normalize,
+        ]))
+
     if args.distributed:
         val_sampler = torch.utils.data.distributed.DistributedSampler(val_dataset, shuffle=False, drop_last=True)
     else:
         val_sampler = None
 
-    val_loader = AlnairJobDataLoader(
+    val_loader = torch.utils.data.DataLoader(
         val_dataset, batch_size=args.batch_size, shuffle=False,
         num_workers=args.workers, pin_memory=True, sampler=val_sampler)
-    
+
     if args.evaluate:
         validate(val_loader, model, criterion, args)
         return
-    else:
-        train_dataset = ImageNetDataset(keys=['imagenet-mini/train'], transform=transform)
-        if args.distributed:
-            train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
-        else:
-            train_sampler = None
-        train_loader = AlnairJobDataLoader(
-            train_dataset, batch_size=args.batch_size, shuffle=(train_sampler is None),
-            num_workers=args.workers, pin_memory=True, sampler=train_sampler)
 
-    train_time_hist = []
-    eval_time_hist = []
+    train_dataset = datasets.ImageFolder(
+        traindir,
+        transforms.Compose([
+            transforms.RandomResizedCrop(224),
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            normalize,
+        ]))
+    
+    if args.distributed:
+        train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
+    else:
+        train_sampler = None
+
+    train_loader = torch.utils.data.DataLoader(
+        train_dataset, batch_size=args.batch_size, shuffle=(train_sampler is None),
+        num_workers=args.workers, pin_memory=True, sampler=train_sampler)
+    
     for epoch in range(args.start_epoch, args.epochs):
         if args.distributed:
             train_sampler.set_epoch(epoch)
 
         # train for one epoch
-        train_start = time.time()
         train(train_loader, model, criterion, optimizer, epoch, args)
-        train_time_hist.append(time.time()-train_start)
-        print('train time of epoch {}: {}s'.format(epoch, train_time_hist[-1]))
 
         # evaluate on validation set
         acc1 = validate(val_loader, model, criterion, args)
         
         scheduler.step()
+
+        
         # remember best acc@1 and save checkpoint
         is_best = acc1 > best_acc1
         best_acc1 = max(acc1, best_acc1)
@@ -279,9 +285,6 @@ def main_worker(gpu, ngpus_per_node, args):
                 'optimizer' : optimizer.state_dict(),
                 'scheduler' : scheduler.state_dict()
             }, is_best)
-    
-    print('train summary: \n \t mean: {}s, \t std: {}'.format(mean(train_time_hist), stdev(train_time_hist)))
-    print('eval summary: \n \t mean: {}s, \t std: {}'.format(mean(eval_time_hist), stdev(eval_time_hist)))
 
 
 def train(train_loader, model, criterion, optimizer, epoch, args):
@@ -291,7 +294,7 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
     top1 = AverageMeter('Acc@1', ':6.2f')
     top5 = AverageMeter('Acc@5', ':6.2f')
     progress = ProgressMeter(
-        train_loader.num_batches,
+        len(train_loader),
         [batch_time, data_time, losses, top1, top5],
         prefix="Epoch: [{}]".format(epoch))
 
@@ -333,20 +336,12 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
 
 def validate(val_loader, model, criterion, args):
     with torch.no_grad():
-        # t = time.time()
-        # for i, (images, target) in enumerate(val_loader):
-        #     e = time.time()
-        
-        while True:
-            try:
-                t = time.time()
-                images, target = next(val_loader)
-                print(time.time()-t)
-            except StopIteration:
-                break
+        end = time.time()
+        for i, (images, target) in enumerate(val_loader):
+            pass
     return 1
 
-
+    
 # def validate(val_loader, model, criterion, args):
 
 #     def run_validate(loader, base_progress=0):
@@ -381,7 +376,7 @@ def validate(val_loader, model, criterion, args):
 #     top1 = AverageMeter('Acc@1', ':6.2f', Summary.AVERAGE)
 #     top5 = AverageMeter('Acc@5', ':6.2f', Summary.AVERAGE)
 #     progress = ProgressMeter(
-#         val_loader.num_batches + (args.distributed and (len(val_loader.sampler) * args.world_size < len(val_loader.dataset))),
+#         len(val_loader) + (args.distributed and (len(val_loader.sampler) * args.world_size < len(val_loader.dataset))),
 #         [batch_time, losses, top1, top5],
 #         prefix='Test: ')
 

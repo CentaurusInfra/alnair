@@ -80,6 +80,7 @@ class Client(FileSystemEventHandler):
         for job in self.rj:
             qos = job['qos']
             ds = job['datasource']
+            if 'keys' not in ds: ds['keys'] = []
             request = pb.RegisterRequest(
                 cred=self.cred,
                 datasource=pb.DataSource(name=ds['name'], bucket=ds['bucket'], keys=ds['keys']),

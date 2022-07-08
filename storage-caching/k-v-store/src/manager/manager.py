@@ -276,8 +276,9 @@ class RegistrationService(pb_grpc.RegistrationServicer):
                         info['Exist'] = False
                     bucket_objs[info['Key']] = info
             
+            if len(request.datasource.keys) == 0:
+                request.datasource.keys = [bucket_name]
             for prefix in request.datasource.keys:
-                s = time.time()
                 paginator = s3_client.get_paginator('list_objects_v2')
                 pages = paginator.paginate(Bucket=bucket_name, Prefix=prefix)
                 futures = []
@@ -285,7 +286,6 @@ class RegistrationService(pb_grpc.RegistrationServicer):
                     for page in pages:
                         futures.append(executor.submit(list_modified_objects, prefix, page))
                 concurrent.futures.wait(futures)
-                print('used time: {}'.format(time.time()-s))
             
             chunk_size = self.manager.calculate_chunk_size(bucket_objs)
 
@@ -345,7 +345,7 @@ class RegistrationService(pb_grpc.RegistrationServicer):
             
             # create job snapshot in Redis
             for k in list(snapshot.keys()):
-                snapshot[k] = json.dumps(snapshot[k])
+                snapshot[k] = pickle.dumps(snapshot[k])
             self.manager.redis.mset(snapshot)
             
             # generate connection authorization for client

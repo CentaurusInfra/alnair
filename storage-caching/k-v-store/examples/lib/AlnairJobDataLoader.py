@@ -5,20 +5,21 @@ except:
     from lib.AlnairJobDataset import AlnairJobDataset
 from torch.utils.data import DataLoader, Sampler
 
-
 T = TypeVar('T')
 _worker_init_fn_t = Callable[[int], None]
 _collate_fn_t = Callable[[List[T]], Any]
 
 
 class AlnairJobDataLoader(object):
-    def __init__(self, dataset: AlnairJobDataset, batch_size: Optional[int] = 1,
+    def __init__(self, dataset: AlnairJobDataset, 
+                 batch_size: Optional[int] = 1,
                  shuffle: bool = False, sampler: Union[Sampler, Iterable, None] = None,
                  batch_sampler: Union[Sampler[Sequence], Iterable[Sequence], None] = None,
                  num_workers: int = 0, collate_fn: Optional[_collate_fn_t] = None,
                  pin_memory: bool = False, drop_last: bool = False,
                  timeout: float = 0, worker_init_fn: Optional[_worker_init_fn_t] = None,
-                 multiprocessing_context=None, generator=None):
+                 multiprocessing_context=None, generator=None, *, prefetch_factor: int = 2,
+                 persistent_workers: bool = False):
         r"""
         Data loader. Combines a dataset and a sampler, and provides an iterable over
         the given dataset.
@@ -64,6 +65,12 @@ class AlnairJobDataLoader(object):
             generator (torch.Generator, optional): If not ``None``, this RNG will be used
                 by RandomSampler to generate random indexes and multiprocessing to generate
                 `base_seed` for workers. (default: ``None``)
+            prefetch_factor (int, optional, keyword-only arg): Number of samples loaded
+                in advance by each worker. ``2`` means there will be a total of
+                2 * num_workers samples prefetched across all workers. (default: ``2``)
+            persistent_workers (bool, optional): If ``True``, the data loader will not shutdown
+                the worker processes after a dataset has been consumed once. This allows to
+                maintain the workers `Dataset` instances alive. (default: ``False``)
 
 
         .. warning:: If the ``spawn`` start method is used, :attr:`worker_init_fn`
@@ -106,37 +113,31 @@ class AlnairJobDataLoader(object):
         self.worker_init_fn = worker_init_fn
         self.multiprocessing_context = multiprocessing_context
         self.generator = generator
+        self.prefetch_factor = prefetch_factor
+        self.persistent_workers = persistent_workers
         
-        self.__num_batches = 0
-        self.loader = self.init_loader()
+        self.init_loader()
         
     
     def init_loader(self):
         loader = DataLoader(self.dataset, self.batch_size, self.shuffle, self.sampler, self.batch_sampler, self.num_workers, self.collate_fn, 
-                            self.pin_memory, self.drop_last, self.timeout, self.worker_init_fn, self.multiprocessing_context, self.generator)
-        return iter(loader)
-    
-    @property
-    def num_batches(self):
-        if self.__num_batches == 0:
-            import math
-            self.__num_batches = math.ceil(len(self.loader) / (self.dataset.index/len(self.dataset.chunks)))
-        return self.__num_batches
+                            self.pin_memory, self.drop_last, self.timeout, self.worker_init_fn, self.multiprocessing_context, self.generator, 
+                            prefetch_factor=self.prefetch_factor, persistent_workers=self.persistent_workers)
+        self.loader = iter(loader)
         
     def __iter__(self):
         return self
     
     def __next__(self):
-        data = next(self.loader, None)
-        if data is None:
+        try:
+            data = next(self.loader)
+        except StopIteration:
+            if self.dataset.qos['Singular']: raise StopIteration
             if self.dataset.index == len(self.dataset.chunks):  # epoch is down
                 self.dataset.index = 0
                 raise StopIteration
             else:
                 self.dataset.load_data()
-                self.loader = self.init_loader()
-                return next(self.loader, None)
+                self.init_loader()
+                data = next(self.loader)
         return data
-        
-    def __len__(self):
-        return len(self.loader)

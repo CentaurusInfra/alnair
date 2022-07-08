@@ -57,6 +57,10 @@ type QoSConfigurations struct {
 	// Duration data should be stored on disk
 	// +optional
 	DurabilityInDisk int `json:"durabilityindisk"`
+
+	// One object per file
+	// +optional
+	Singular bool `json:"singular"`
 }
 
 type DataSourceStruct struct {

@@ -56,12 +56,14 @@
             "required": [
                 "UseCache",
                 "MaxMemory",
-                "DurabilityInDisk"
+                "DurabilityInDisk",
+                "Singular"
             ],
             "properties": {
                 "UseCache": {"bsonType": "bool"},
                 "MaxMemory": {"bsonType": ["long", "int"]},
-                "DurabilityInDisk": {"bsonType": "int"}
+                "DurabilityInDisk": {"bsonType": "int"},
+                "Singular": {"bsonType": "bool"}
             },
             "description": "QoS configuration"
         },
