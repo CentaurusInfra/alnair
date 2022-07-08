@@ -53,7 +53,11 @@ kubectl create -f alluxio-master-journal-pv.yaml
 ```
 
 #### 3) Install Alluxio using Helm now:
+First, add the Helm repo for Alluxio charts, then upgrade / install / upgrade with install, as below:
+
 ```
+helm repo add alluxio-charts https://alluxio-charts.storage.googleapis.com/openSource/2.8.0
+
 helm upgrade --install alluxio --debug --values my-alluxio-values.yaml \
 -f config.yaml -f alluxio-configmap.yaml --set journal.format.runFormat=true \
 --set alluxio.master.hostname=_Hostname of your master_ \

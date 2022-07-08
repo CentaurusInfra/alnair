@@ -29,7 +29,6 @@ limitations under the License.
 #define MAXPROC 1024
 
 extern int register_cgroup(const char *cgroup, const char* alnairID);
-
 /************************************************/
 #include <execinfo.h>
 static void print_trace (void)
