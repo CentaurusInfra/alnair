@@ -1,0 +1,47 @@
+#!/bin/bash
+
+set -e
+
+e="echo -e \t"
+
+product_name_ver="Futurewei Data Orchestrator v0.1"
+rootfs=/futurewei-data
+#($(kubectl get pods -n ${namespace} | grep "alluxio-master" | awk '{print $1}')) # or | sed 1d or awk 'NR>0'
+orch_masters_pods="alluxio-master-0"
+
+$e "${product_name_ver}\n"
+
+# Validate inputs and print usage
+
+[ $# -lt 1 ] && $e "Usage:\t$0 <orchestration path> [namespace] [debug: 0 | 1]" && $e &&
+    $e "\tPath needs to be a mounted path to a file or directory inside the Data Orchestration under $rootfs" && exit 1
+
+# Setup input parameters
+
+orchestration_path=$1
+[ $2 ] && namespace=$2 && $e "Namespace = $namespace" && $e || namespace="default"
+[ $3 ] && debug=$3 && $e "Debug = $debug" && $e || debug=
+
+# Print important info
+[ $debug ] && $e "Data Orchestration Master Pods : ${orch_masters_pods[*]}"
+
+# Validate the specified node is an Orchestration worker node
+
+$e "Listing the data:"
+[ $debug ] && $e "\\kubectl exec -i ${orch_masters_pods[0]} -c alluxio-master -- alluxio fs ls --recursive ${orchestration_path}"
+
+\kubectl exec -i ${orch_masters_pods[0]} -c alluxio-master -- alluxio fs ls --recursive ${orchestration_path}
+
+$e "Checking consistency of the data:"
+[ $debug ] && $e "\kubectl exec -i ${orch_masters_pods[0]} -c alluxio-master -- alluxio fs checkConsistency ${orchestration_path}"
+
+\kubectl exec -i ${orch_masters_pods[0]} -c alluxio-master -- alluxio fs checkConsistency ${orchestration_path}
+exitcode=$?
+
+[ "$retval" == "0" ] && $e "ERROR $retval: Above mentioned files are not consistent. Attempting to repair them in the ${product_name_ver}." && \
+    $e "\tThis may take several minutes and can be aborted with ^C." && \
+    \kubectl exec -i ${orch_masters_pods[0]} -c alluxio-master -- alluxio fs checkConsistency -r ${orchestration_path} && \
+    exitcode=$?
+
+[ $debug ] && $e "Return code: $exitcode"
+return $exitcode
