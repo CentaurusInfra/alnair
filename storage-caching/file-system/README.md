@@ -1,25 +1,149 @@
-- [Alluxio Based Data Orchestration & Filesystem Caching For Kubernetes Workloads](#alluxio-based-data-orchestration---filesystem-caching-for-kubernetes-workloads)
-  * [ First, Quick Notes To Get Started](#first,-quick-notes-to-get-started)
-  * [Alluxio Cluster Setup](#alluxio-cluster-setup)
-    + [I. Master and Worker node preparation](#i-master-and-worker-node-preparation)
-      - [1) Install Helm on Ubuntu if you don't have it:](#1--install-helm-on-ubuntu-if-you-don-t-have-it-)
-      - [2) Execute below commands to create the "disk volume" first, that Alluxio can use for any persisted data:](#2--execute-below-commands-to-create-the--disk-volume--first--that-alluxio-can-use-for-any-persisted-data-)
-      - [3) Install Alluxio using Helm now:](#3--install-alluxio-using-helm-now-)
-      - [4) Scaling of the Alluxio Cluster:](#4--scaling-of-the-alluxio-cluster-)
-        * [4a) Details of Scaling the Master:](#4a--details-of-scaling-the-master-)
-        * [4b) Details of Scaling the Workers:](#4b--details-of-scaling-the-workers-)
-      - [5) Health & Monitoring of the Alluxio Cluster:](#5--health---monitoring-of-the-alluxio-cluster-)
-      - [6) How To "get into" master:](#6--how-to--get-into--master-)
-      - [7) How To Alluxio Cluster's Functionalities?:](#7--how-to-alluxio-cluster-s-functionalities--)
-      - [8) How To Verify and Repair Persistence of Data In the Cache:](#8--how-to-verify-and-repair-persistence-of-data-in-the-cache-)
-  * [II. This Is All Great But How Do I Delete All This ...??](#ii-this-is-all-great-but-how-do-i-delete-all-this---)
-  * [III. PV/PVC Configurations](#iii-pv-pvc-configurations)
-  * [Pod yaml exmaple with Alluxio](#pod-yaml-exmaple-with-alluxio)
-  * [Sample Results on data loading speed with and without Alluxio](#sample-results-on-data-loading-speed-with-and-without-alluxio)
-  * [Notes](#notes)
+- [First, Quick Notes To Get Started](#first--quick-notes-to-get-started)
+- [Alluxio Cluster Setup](#alluxio-cluster-setup)
+  * [I. Master and Worker node preparation](#i-master-and-worker-node-preparation)
+    + [1) Install Helm on Ubuntu if you don't have it:](#1--install-helm-on-ubuntu-if-you-don-t-have-it-)
+    + [2) Execute below commands to create the "disk volume" first, that Alluxio can use for any persisted data:](#2--execute-below-commands-to-create-the--disk-volume--first--that-alluxio-can-use-for-any-persisted-data-)
+    + [3) Install Alluxio using Helm now:](#3--install-alluxio-using-helm-now-)
+    + [4) Scaling of the Alluxio Cluster:](#4--scaling-of-the-alluxio-cluster-)
+      - [4a) Details of Scaling the Master:](#4a--details-of-scaling-the-master-)
+      - [4b) Details of Scaling the Workers:](#4b--details-of-scaling-the-workers-)
+    + [5) Health & Monitoring of the Alluxio Cluster:](#5--health---monitoring-of-the-alluxio-cluster-)
+    + [6) How To "get into" master:](#6--how-to--get-into--master-)
+    + [7) How To Alluxio Cluster's Functionalities?:](#7--how-to-alluxio-cluster-s-functionalities--)
+    + [8) How To Verify and Repair Persistence of Data In the Cache:](#8--how-to-verify-and-repair-persistence-of-data-in-the-cache-)
+- [II. This Is All Great But How Do I Delete All This ...??](#ii-this-is-all-great-but-how-do-i-delete-all-this---)
+- [III. PV/PVC Configurations](#iii-pv-pvc-configurations)
+- [Pod yaml exmaple with Alluxio](#pod-yaml-exmaple-with-alluxio)
+- [Sample Results on data loading speed with and without Alluxio](#sample-results-on-data-loading-speed-with-and-without-alluxio)
+- [Other Topics](#other-topics)
 
 
 ## First, Quick Notes To Get Started
+
+To get yourself an Alluxio Data Orchestration Cluster started from scratch, just follow below commands / steps:
+
+### First, create a mounted volume on all "worker" nodes (can also optionally create on master nodes, if data is easier to facilitate on the master), as below:
+```
+sudo mkdir -p /mnt/fuse3/futurewei-data/{datasets,experiments} /mnt/fuse3/alluxio-journal # I am using `fuse3`, you can use `fuse`
+# Allow permissions
+sudo chown -R $USER.$USER /mnt/fuse3/futurewei-data/{datasets,experiments} /mnt/fuse3/alluxio-journal
+sudo chmod -R 0777 /mnt/fuse3/futurewei-data/{datasets,experiments} /mnt/fuse3/alluxio-journal
+```
+### Below steps will deploy Alluxio cluster
+```
+ssh <kubernetes master node, which is also going to be alluxio master, hopefully a GPU with a fast 10g+ network>
+
+mkdir -p ~/data-orchestration
+cd ~/data-orchestration
+git clone https://github.com/CentaurusInfra/alnair.git
+cd alnair
+git checkout alluxio-data-orchestration
+```
+This is the directory that contains tools to work with data orchestration
+Next, deploy cluster as explained in Install Alluxio using Helm now:](#3--install-alluxio-using-helm-now-)
+
+### The `dataorch-host-data` program will allow you to host the data. Below is how that program works:
+```
+cd ~/data-orchestration/storage-caching/file-system/futurewei-tools
+./dataorch-host-data -h
+         Futurewei Data Orchestrator v0.1
+
+         Usage: ./dataorch-host-data <node> <path> [data_type: datasets | deployment] [namespace] [debug: 0 | 1]
+
+                Node is one of the Data Orcheatration master or worker nodes and should allow ssh without password
+                Path is the directory or file to be copied into Data Orchestration
+                data_type is the type of data that helps decide storage location in the Data Orchestration system
+                  Two data_types are currently supported: datasets or deployment
+```
+### Use it like this:
+
+Suppose you want to host into Alluxio in-memory cache, the dataset from some folder "~/my-awesome-datasets/some_smaller_coco_dataset_dir/data", which happens to be not on the master node where you are loggedin, but some worker node, say "fw0013512", then here's how you will host that data:
+
+```
+./dataorch-host-data fw0013512 ~/my-awesome-datasets/some_smaller_coco_dataset_dir datasets default 1
+# Argument 0 is the program name
+# Argument 1, fw0013512 is the node / machine name where data is currently available, needs to be an Alluxio master or worker
+# Argument 2, ~/alluxio-2.7.4/webui/master/build/, is the origin / source path to the file or directory of your data
+# Argument 3, "datasets", is the type of data. It can be either "datasets" or "deployment". This type is used to organize data correctly in the orchestration.
+#   The datasets are cached under /futurewei-data/datasets/ and the experiments / programs under /futurewei-data/experiments.
+# Arvument 4, default in our example is an OPTIONAL namespace name. The default value is namespace=default. Please specify correct namespace where Alluxio was deployed.
+# Argu,ent 5, the "1", enables debug logs on screen, any other value will skip on screen logging.
+```
+
+If necessary, we can enhance the program argument handling etc later. The prioriy rightnow is to experiment with the orchestration v1.0.
+
+The program will MOVE your data from ~/my-awesome-datasets/some_smaller_coco_dataset_dir to /mnt/fuse3/datasets/some_smaller_coco_dataset_dir and then copy it into Alluxio's in-memory cache, at /futurewei-data/datasets/some_smaller_coco_dataset_dir. _(Isn't that cool ?!)_
+
+Your cached data is hosted inside /opt/domain on Alluxio worker pods [only], and it's a SHAME that Alluxio documentation keeps this key piece of info as poorly documented _secret_!
+
+Alluxio will distribute / balance your data across all workers even though commands are sent to master or any one worker.
+
+The above program will produce below screen output:
+```
+         Futurewei Data Orchestrator v0.1
+         Data type = datasets
+         Namespace = default
+         Debug = 1
+
+         Directory / file to be copied  : drwxr-xr-x 3 nikunj nikunj 4096 May  2 13:35 /home/nikunj/my-awesome-datasets/some_smaller_coco_dataset_dir
+         Node this data is hosted on    : fw0013512
+         Kubernetes cluster nodes       : fw0013511 fw0013512 fw0013513
+         Data Orchestration Master Pods : alluxio-master-0
+         Data Orchestration Worker Pods : alluxio-worker-57jvr alluxio-worker-zm2hd
+
+         STEP 1 of 2: For speed, *MOVING*, not copying the data into filesystem volume mount /mnt/fuse3 on node fw0013512:
+
+         New data is located at /mnt/fuse3/datasets/some_smaller_coco_dataset_dir on fw0013512:
+total 64
+-rw-r--r-- 1 nikunj nikunj  1323 May  2 13:35 asset-manifest.json
+-rw-r--r-- 1 nikunj nikunj 24838 May  2 13:35 image1.jpg
+-rw-r--r-- 1 nikunj nikunj  2221 May  2 13:35 index.html
+-rw-r--r-- 1 nikunj nikunj   316 May  2 13:35 image2.jpg
+-rw-r--r-- 1 nikunj nikunj 13966 May  2 13:35 image3.jpg
+-rw-r--r-- 1 nikunj nikunj  1041 May  2 13:35 image4.jpg
+drwxr-xr-x 5 nikunj nikunj  4096 May  2 13:35 image5.jpg
+....
+
+         STEP 2 of 2: Now hosting data at /mnt/fuse3/datasets/some_smaller_coco_dataset_dir on node fw0013512 into Futurewei Data Orchestrator v0.1 if it wasn't already hosted...
+
+Copied file:///opt/domain/datasets/some_smaller_coco_dataset_dir/asset-manifest.json to /futurewei-data/datasets/some_smaller_coco_dataset_dir/asset-manifest.json
+Copied file:///opt/domain/datasets/some_smaller_coco_dataset_dir/image1.jpg to /futurewei-data/datasets/some_smaller_coco_dataset_dir/image1.jpg
+Copied file:///opt/domain/datasets/some_smaller_coco_dataset_dir/index.html to /futurewei-data/datasets/some_smaller_coco_dataset_dir/index.html
+Copied file:///opt/domain/datasets/some_smaller_coco_dataset_dir/image2.jpg to /futurewei-data/datasets/some_smaller_coco_dataset_dir/image2.jpg
+Copied file:///opt/domain/datasets/some_smaller_coco_dataset_dir/image3.jpg to /futurewei-data/datasets/some_smaller_coco_dataset_dir/image3.jpg
+...
+and so on
+...
+```
+
+### There it is! You can now reference the data by adding a PersistentVolume and PersistentVolumeClaim like below in your existing Pod / Job description yaml:
+```
+apiVersion: v1
+kind: Pod
+metadata:
+  name: my-awesome-training-pod
+spec:
+  containers:
+  - name: my-awesome-training-service
+
+    image: centaurusinfra/my-awesome-docker-image
+    command: ["python3", "my-awesome-training-program.py"]
+...
+...
+    volumeMounts:
+      - mountPath: /the-path-to-dataset-that-your-python-training-wants # <------------ Line 1 of 2 changed
+         #- mountPath: /opt/domain/cifar10-data/, or /opt/domain/datasets etc
+        name: my-awesome-alluxio-data
+
+  volumes:
+  - name: my-awesome-alluxio-data
+    hostPath:
+    # For Alluxio
+      path: /mnt/fuse3/datasets/some_smaller_coco_dataset_dir  # <---------- Line 2 of 2 changed! That's it! Remember I told you about this path above?
+      type: DirectoryOrCreate
+      
+```
+
 
 ## Alluxio Cluster Setup
 
