@@ -17,10 +17,6 @@ product_name_ver="Futurewei Data Orchestrator v0.1"
 actual_mount_point=/opt/domain
 printed_mount_point=/mnt/fuse3/datasets # This is the domain socket. Please check path provided in the PV
 
-orchestrated_data=$1
-base=`basename ${orchestrated_data}`
-new_data_location=${actual_mount_point}/$(basename `dirname ${orchestrated_data}`)/$base
-
 $e "${product_name_ver}\n"
 
 # Validate inputs and print usage
@@ -30,6 +26,10 @@ $e "${product_name_ver}\n"
     $e "\tPath is the directory or file to be downloaded from Data Orchestration" && exit 1
 
 # Setup input parameters
+
+orchestrated_data=$1
+base=`basename ${orchestrated_data}`
+new_data_location=${actual_mount_point}/$(basename `dirname ${orchestrated_data}`)/$base
 
 [ $2 ] && namespace=$2 && $e "Namespace = $namespace" && $e || namespace="default"
 [ $3 ] && debug=$3 && $e "Debug = $debug" && $e || debug=yea
