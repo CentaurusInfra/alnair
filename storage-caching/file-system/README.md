@@ -50,7 +50,7 @@ cd ~/data-orchestration/storage-caching/file-system/futurewei-tools
 
          Usage: ./dataorch-host-data <node> <path> [data_type: datasets | deployment] [namespace] [debug: 0 | 1]
 
-                Node is one of the Data Orcheatration master or worker nodes and should allow ssh without password
+                Node is one of the Data Orcheatration worker nodes and should allow ssh without password
                 Path is the directory or file to be copied into Data Orchestration
                 data_type is the type of data that helps decide storage location in the Data Orchestration system
                   Two data_types are currently supported: datasets or deployment
@@ -62,7 +62,7 @@ Suppose you want to host into Alluxio in-memory cache, the dataset from some fol
 ```
 ./dataorch-host-data fw0013512 ~/my-awesome-datasets/some_smaller_coco_dataset_dir datasets default 1
 # Argument 0 is the program name
-# Argument 1, fw0013512 is the node / machine name where data is currently available, needs to be an Alluxio master or worker
+# Argument 1, fw0013512 is the node / machine name where data is currently available, needs to be an Alluxio worker
 # Argument 2, ~/alluxio-2.7.4/webui/master/build/, is the origin / source path to the file or directory of your data
 # Argument 3, "datasets", is the type of data. It can be either "datasets" or "deployment". This type is used to organize data correctly in the orchestration.
 #   The datasets are cached under /futurewei-data/datasets/ and the experiments / programs under /futurewei-data/experiments.
@@ -141,7 +141,7 @@ spec:
     # For Alluxio
       path: /mnt/fuse3/datasets/some_smaller_coco_dataset_dir  # <---------- Line 2 of 2 changed! That's it! Remember I told you about this path above?
       type: DirectoryOrCreate
-      
+
 ```
 
 !! Note: Alluxio copies data from server into the case ONLY ONCE. If you repeatedly run the program, Alluxio will NOT copy same data again, and will generate error mesages. !!
@@ -201,7 +201,7 @@ helm upgrade --install alluxio --debug --values my-alluxio-values.yaml \
 -f config.yaml -f alluxio-configmap.yaml --set journal.format.runFormat=true \
 --set alluxio.master.hostname=_Hostname of your master_ \
 --set alluxio.zookeeper.enabled=true --set alluxio.zookeeper.address=[ _IP of your master_ ] \
- alluxio-charts/alluxio  | tee  helm.out   
+ alluxio-charts/alluxio  | tee  helm.out
 ```
 
 Now Alluxio should have been deployed. One way is to wait for a minute and then check for the pods to be running in `alluxio` namespace, like this:
@@ -296,7 +296,7 @@ MD5 (data) = bf0513403ff54711966f39b058e059a3
 ```
 
 ## II. This Is All Great But How Do I Delete All This ...??
-	
+
 Ok, I hear you! Just do this:
 ```
 helm delete alluxio

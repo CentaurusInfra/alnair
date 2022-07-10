@@ -22,7 +22,7 @@ $e "${product_name_ver}\n"
 # Validate inputs and print usage
 
 [ $# -lt 2 ] && $e "Usage:\t$0 <node> <path> [data_type: datasets | deployment] [namespace] [debug: 0 | 1]" && $e &&
-    $e "\tNode is one of the Data Orcheatration master or worker nodes and should allow ssh without password" &&
+    $e "\tNode is one of the Data Orcheatration worker nodes and should allow ssh without password" &&
     $e "\tPath is the directory or file to be copied into Data Orchestration" &&
     $e "\tdata_type is the type of data that helps decide storage location in the Data Orchestration system" &&
     $e "\t  Two data_types are currently supported: datasets or deployment" && exit 1

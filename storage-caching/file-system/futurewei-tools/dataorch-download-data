@@ -26,7 +26,7 @@ $e "${product_name_ver}\n"
 # Validate inputs and print usage
 
 [ $# -lt 1 ] && $e "Usage:\t$0 <orchestration path> [namespace] [debug: 0 | 1]" && $e &&
-    $e "\tNode is one of the Data Orcheatration master or worker nodes and should allow ssh without password" &&
+    $e "\tNode is one of the Data Orcheatration worker nodes and should allow ssh without password" &&
     $e "\tPath is the directory or file to be downloaded from Data Orchestration" && exit 1
 
 # Setup input parameters
