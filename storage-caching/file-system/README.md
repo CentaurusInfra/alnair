@@ -144,6 +144,18 @@ spec:
       
 ```
 
+!! Note: Alluxio copies data from server into the case ONLY ONCE. If you repeatedly run the program, Alluxio will NOT copy same data again, and will generate error mesages. !!
+
+The other scripts are easier and self-explanatory:
+```
+ls -l /home/nikunj/data-orchestration/alnair/storage-caching/file-system/futurewei-tools
+-rwxrwxr-x 1 nikunj nikunj 2.0K Jul  9 19:17 dataorch-check-data
+-rwxrwxr-x 1 nikunj nikunj 1.9K Jul  9 19:17 dataorch-delete-data
+-rwxrwxr-x 1 nikunj nikunj 2.1K Jul  9 19:17 dataorch-download-data
+-rwxrwxr-x 1 nikunj nikunj 4.1K Jul  9 19:32 dataorch-host-data
+```
+
+
 
 ## Alluxio Cluster Setup
 
