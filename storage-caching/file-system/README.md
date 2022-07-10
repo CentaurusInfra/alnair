@@ -50,7 +50,7 @@ cd ~/data-orchestration/storage-caching/file-system/futurewei-tools
 
          Usage: ./dataorch-host-data <node> <path> [data_type: datasets | deployment] [namespace] [debug: 0 | 1]
 
-                Node is one of the Data Orcheatration master or worker nodes and should allow ssh without password
+                Node is one of the Data Orcheatration worker nodes and should allow ssh without password
                 Path is the directory or file to be copied into Data Orchestration
                 data_type is the type of data that helps decide storage location in the Data Orchestration system
                   Two data_types are currently supported: datasets or deployment
@@ -62,7 +62,7 @@ Suppose you want to host into Alluxio in-memory cache, the dataset from some fol
 ```
 ./dataorch-host-data fw0013512 ~/my-awesome-datasets/some_smaller_coco_dataset_dir datasets default 1
 # Argument 0 is the program name
-# Argument 1, fw0013512 is the node / machine name where data is currently available, needs to be an Alluxio master or worker
+# Argument 1, fw0013512 is the node / machine name where data is currently available, needs to be an Alluxio worker
 # Argument 2, ~/alluxio-2.7.4/webui/master/build/, is the origin / source path to the file or directory of your data
 # Argument 3, "datasets", is the type of data. It can be either "datasets" or "deployment". This type is used to organize data correctly in the orchestration.
 #   The datasets are cached under /futurewei-data/datasets/ and the experiments / programs under /futurewei-data/experiments.
