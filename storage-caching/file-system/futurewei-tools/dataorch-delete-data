@@ -6,8 +6,6 @@ e="echo -e \t"
 
 product_name_ver="Futurewei Data Orchestrator v0.1"
 rootfs=/futurewei-data
-#($(kubectl get pods -n ${namespace} | grep "alluxio-master" | awk '{print $1}')) # or | sed 1d or awk 'NR>0'
-orch_masters_pods="alluxio-master-0"
 
 $e "${product_name_ver}\n"
 
@@ -21,16 +19,18 @@ $e "${product_name_ver}\n"
 orchestration_path=$1
 [ $2 ] && namespace=$2 && $e "Namespace = $namespace" && $e || namespace="default"
 [ $3 ] && debug=$3 && $e "Debug = $debug" && $e || debug=
+#($(kubectl get pods -n ${namespace} | grep "alluxio-master" | awk '{print $1}')) # or | sed 1d or awk 'NR>0'
+orch_masters_pods="alluxio-master-0"
 
 # Print important info
-[ $debug ] && $e "Data Orchestration Master Pods : ${orch_masters_pods[*]}"
+[ "$debug" != "0" ] && $e "Data Orchestration Master Pods : ${orch_masters_pods[*]}"
 
 # Validate the specified node is an Orchestration worker node
 
 $e "Listing the data:"
-[ $debug ] && $e "\\kubectl exec -i ${orch_masters_pods[0]} -c alluxio-master -- alluxio fs ls --recursive ${orchestration_path}"
+[ "$debug" != "0" ] && $e "\\kubectl exec -n ${namespace} -i ${orch_masters_pods[0]} -c alluxio-master -- alluxio fs ls --recursive ${orchestration_path}"
 
-\kubectl exec -i ${orch_masters_pods[0]} -c alluxio-master -- alluxio fs ls --recursive ${orchestration_path}
+\kubectl exec -n ${namespace} -i ${orch_masters_pods[0]} -c alluxio-master -- alluxio fs ls --recursive ${orchestration_path}
 
 echo -n -e "\t Are you sure to delete it? [Y/n]: "
 read prompt
@@ -39,10 +39,10 @@ read prompt
 
 $e "Deleting the data from ${product_name_ver} only. The under storage of this data at original location will not be affected."
 
-[ $debug ] && $e "\kubectl exec -i ${orch_masters_pods[0]} -c alluxio-master -- alluxio fs rm -r --alluxioOnly ${orchestration_path}"
+[ "$debug" != "0" ] && $e "\kubectl exec -n ${namespace} -i ${orch_masters_pods[0]} -c alluxio-master -- alluxio fs rm -r --alluxioOnly ${orchestration_path}"
 
-\kubectl exec -i ${orch_masters_pods[0]} -c alluxio-master -- alluxio fs rm -r --alluxioOnly ${orchestration_path}
+\kubectl exec -n ${namespace} -i ${orch_masters_pods[0]} -c alluxio-master -- alluxio fs rm -r --alluxioOnly ${orchestration_path}
 
 exitcode=$?
-[ $debug ] && $e "Return code: $exitcode"
+[ "$debug" != "0" ] && $e "Return code: $exitcode"
 return $exitcode
