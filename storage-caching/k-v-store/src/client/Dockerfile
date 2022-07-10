@@ -7,4 +7,5 @@ COPY grpctool ./grpctool
 RUN pip3 install -r requirements.txt
 RUN chmod +x *
 RUN apt update && apt install -y nano nvidia-utils-460
-CMD [ "python3", "client.py" ]
+# CMD [ "python3", "client.py" ]
+CMD [ "bash" ]

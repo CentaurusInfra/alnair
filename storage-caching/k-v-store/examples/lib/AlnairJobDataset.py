@@ -43,7 +43,7 @@ class AlnairJobDataset(Dataset):
         if self.qos['UseCache']: # use datasource from Redis
             r = dotdict(self.jobinfo.jinfo).redisauth
             r = dotdict(r)
-            self.client = redis.Redis(host=r.host, port=r.port, username=r.username, password=r.password)
+            self.client = redis.RedisCluster(host=r.host, port=r.port, username=r.username, password=r.password)
             self.chunks = self.get_all_redis_keys()
         else:
             import configparser, boto3

@@ -54,7 +54,7 @@ class Manager(object):
         else:
             self.job_col = mongo_client.Cacher.Job
     
-        if self.managerconf['enable_proxy']:
+        if self.managerconf.getboolean('enable_proxy'):
             host = random.choice(self.redis_proxy_conf['hosts'].split(','))
             self.redis = Redis(host=host, port=self.redis_proxy_conf['port'], 
                                username=os.environ.get('REDIS_PROXY_USERNAME'), password=os.environ.get("REDIS_PROXY_PWD"))
@@ -123,7 +123,7 @@ class Manager(object):
                  },
                 {"$match": {"chunk": {"$ne": None}}},
                 {"$sort": {"lastAccessTime": 1}},
-                {"$limit": int(self.managerconf['flush_amount'])},
+                {"$limit": self.managerconf.getint('flush_amount')},
                 {"$match": {"hasBackup": {"$eq": False}}},
                 {"$project": {"key": 1}},
                 {"$group": {"_id": "$_id", "keys": {"$push": "$key"}}}
@@ -146,7 +146,7 @@ class Manager(object):
                 },
                 {"$match": {"chunks": {"$ne": None}}},
                 {"$sort": {"totalAccessTime": 1}},
-                {"$limit": int(self.managerconf['flush_amount'])},
+                {"$limit": self.managerconf.getint('flush_amount')},
                 {"$match": {"hasBackup": {"$eq": False}}},
                 {"$project": {"key": 1}},
                 {"$group": {"_id": "$_id", "keys": {"$push": "$key"}}},
@@ -177,7 +177,7 @@ class Manager(object):
                     {"policy.chunks": {"$elemMatch": {"key": {"$in": backup_keys}}}},
                     {"$set": {"policy.chunks.$.hasBackup": True}}
                 )
-            time.sleep(int(self.managerconf['flush_frequency']) * 60)
+            time.sleep(self.managerconf.getint('flush_frequency') * 60)
 
 
 class ConnectionService(pb_grpc.ConnectionServicer):
@@ -344,38 +344,40 @@ class RegistrationService(pb_grpc.RegistrationServicer):
                     chunk_keys.extend(future.result())
             
             # create job snapshot in Redis
+            hsnapshot = {}
             for k in list(snapshot.keys()):
-                snapshot[k] = pickle.dumps(snapshot[k])
-            self.manager.redis.mset(snapshot)
+                hsnapshot["{%s}%s" % (jobId, k)] = pickle.dumps(snapshot[k])
+            self.manager.redis.mset(hsnapshot)
             
             # generate connection authorization for client
             now = datetime.utcnow().timestamp()
             token = MessageToDict(request)
             token['time'] = now
             token = hashing(token)
-            # ACL command is not supported in proxy mode
-            if not self.manager.managerconf['enable_proxy']:
-                auth_keys = list(map(lambda x: x['key'], chunk_keys))
-                auth_keys.extend(list(snapshot.keys()))
-                self.manager.redis.acl_setuser(
-                    username=jobId, passwords=["+{}".format(token)], 
-                    enabled=True,
-                    commands=['+get', '+mget', '+info'],
-                    keys=auth_keys,
-                    reset=True, reset_keys=False, reset_passwords=False)
-                logger.info("Set redis user: {}".format(jobId))
-            if self.manager.managerconf['enable_proxy']:
+            if self.manager.managerconf.getboolean('enable_proxy'):
                 redisauth= pb.RedisAuth(
                             host=random.choice(self.manager.redis_proxy_conf['hosts'].split(',')), 
                             port=int(self.manager.redis_proxy_conf['port']), 
                             username=os.environ.get("REDIS_PROXY_USERNAME"), 
                             password=os.environ.get("REDIS_PROXY_PWD"))
             else:
+                # ACL command is not supported in proxy mode
+                # TODO: ACL connection failed at AlnairJobDataset
+                # auth_keys = list(map(lambda x: x['key'], chunk_keys))
+                # auth_keys.extend(list(snapshot.keys()))
+                # self.manager.redis.acl_setuser(
+                #     username=jobId, passwords=["+{}".format(token)], 
+                #     enabled=True,
+                #     categories=["+@all"],
+                #     commands=["+get", "+mget", "+command", "+cluster"],
+                #     keys=auth_keys,
+                #     reset=True)
+                # logger.info("Set redis user: {}".format(jobId))
                 redisauth= pb.RedisAuth(
                             host="redis-cluster", 
                             port=int(self.manager.redis_conf['port']), 
-                            username=jobId, 
-                            password=token)
+                            username="default", 
+                            password=self.manager.redis_conf['requirepass'])
             
             # save jobinfo to database
             chunks = []
@@ -397,7 +399,7 @@ class RegistrationService(pb_grpc.RegistrationServicer):
                     "resourceInfo": MessageToDict(request.resource),
                     "createTime": bson.timestamp.Timestamp(int(now), inc=1),
                     "token": token,
-                    "tokenTimeout": bson.timestamp.Timestamp(int(now+int(self.manager.managerconf['token_life'])), inc=1)
+                    "tokenTimeout": bson.timestamp.Timestamp(int(now+self.manager.managerconf.getint('token_life')), inc=1)
                 },
                 "QoS": MessageToDict(request.qos),
                 "policy": {
