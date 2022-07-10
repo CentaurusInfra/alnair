@@ -1,4 +1,13 @@
 #!/bin/bash
+###############################################
+# Futurewei Technologies, Inc
+# All Rights Reserved
+# Copyright 2022+
+# Author: Nikunj J Parekh
+# Email: nparekh@futurewei.com
+# Date of original commit: 8th July, 2022
+###############################################
+
 
 set -e
 
