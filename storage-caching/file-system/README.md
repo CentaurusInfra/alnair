@@ -1,4 +1,5 @@
 - [Alluxio Based Data Orchestration & Filesystem Caching For Kubernetes Workloads](#alluxio-based-data-orchestration---filesystem-caching-for-kubernetes-workloads)
+  * [ First, Quick Notes To Get Started](#first,-quick-notes-to-get-started)
   * [Alluxio Cluster Setup](#alluxio-cluster-setup)
     + [I. Master and Worker node preparation](#i-master-and-worker-node-preparation)
       - [1) Install Helm on Ubuntu if you don't have it:](#1--install-helm-on-ubuntu-if-you-don-t-have-it-)
@@ -17,6 +18,8 @@
   * [Sample Results on data loading speed with and without Alluxio](#sample-results-on-data-loading-speed-with-and-without-alluxio)
   * [Notes](#notes)
 
+
+## First, Quick Notes To Get Started
 
 ## Alluxio Cluster Setup
 
