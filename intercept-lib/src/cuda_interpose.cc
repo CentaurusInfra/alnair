@@ -146,13 +146,15 @@ static void* real_omp_get_num_threads = NULL;
 typedef void* (*fnDlsym)(void*, const char*);
 static void* real_dlsym(void *handle, const char* symbol)
 {
-    // static fnDlsym internal_dlsym = (fnDlsym)__libc_dlsym(__libc_dlopen_mode("libdl.so.2", RTLD_LAZY), "dlsym");
-    // return (*internal_dlsym)(handle, symbol);
-//   typedef void *(*fnDlsym)(void *, const char *);
+    static fnDlsym internal_dlsym = (fnDlsym)__libc_dlsym(__libc_dlopen_mode("libdl.so.2", RTLD_LAZY), "dlsym");
+    return (*internal_dlsym)(handle, symbol);  
+}
+
+static void* real_dlsym2(void *handle, const char* symbol)
+{
     static fnDlsym internal_dlsym = (fnDlsym)__libc_dlsym(libdlHandle, "dlsym");
     return (*internal_dlsym)(handle, symbol);    
 }
-
 void* dlsym(void *handle, const char *symbol) 
 {
     if (strcmp(symbol, "omp_get_num_threads") == 0) {
@@ -164,7 +166,7 @@ void* dlsym(void *handle, const char *symbol)
     if (strncmp(symbol, "cu", 2) != 0) {
         return real_dlsym(handle, symbol);
     }
-
+    
     if (strcmp(symbol, STRINGIFY(cuInit)) == 0) {
         return (void*)(&cuInit);
     } else if (strcmp(symbol, STRINGIFY(cuMemAlloc)) == 0) {
@@ -187,6 +189,8 @@ void* dlsym(void *handle, const char *symbol)
         return (void*)(&cuDeviceTotalMem);
     } else if (strcmp(symbol, STRINGIFY(cuMemGetInfo)) == 0) {
         return (void*)(&cuMemGetInfo);
+    } else if (strcmp(symbol, STRINGIFY(cuGetProcAddress)) == 0) {
+        return (void *)(&cuGetProcAddress);
     }
 
     return (real_dlsym(handle, symbol));
@@ -266,7 +270,7 @@ CUresult CUDAAPI cuGetProcAddress(const char *symbol, void **pfn, int cudaVersio
     typedef decltype(&cuGetProcAddress) funcType;
     funcType actualFunc;
     if(!real_func[SYM_CU_HOOK_GET_PROC_ADDRESS])
-        actualFunc = (funcType)real_dlsym(libcudaHandle, STRINGIFY_AUX(cuGetProcAddress));
+        actualFunc = (funcType)real_dlsym2(libcudaHandle, STRINGIFY_AUX(cuGetProcAddress));
     else
         actualFunc = (funcType)real_func[SYM_CU_HOOK_GET_PROC_ADDRESS];
     CUresult result = actualFunc(symbol, pfn, cudaVersion, flags);
