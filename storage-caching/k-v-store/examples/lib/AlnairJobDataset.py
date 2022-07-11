@@ -88,6 +88,34 @@ class AlnairJobDataset(Dataset):
             val = self.client.get_object(Bucket=self.bucket_name, Key=key)['Body'].read()
         return val
 
+    def mload(self, chunks):
+        if self.qos['UseCache']:
+            keys = [x['key'] for x in chunks]
+            vals = self.client.mget(keys)
+            for i in range(len(vals)):
+                if vals[i] is None:
+                    with open('/share/cachemiss', 'w') as f:
+                        f.writelines(keys[i])
+                    while True:
+                        val = self.client.get(keys[i])
+                        if val is not None:
+                            vals[i] = val
+                            break
+                self.__keys.append(chunks[i]['name'])
+                self.__data[chunks[i]['name']] = vals[i]
+        else:
+            vals = []
+            def helper(chunk):
+                val = self.client.get_object(Bucket=self.bucket_name, Key=chunk['key'])['Body'].read()
+                self.__keys.append(chunk['key'])
+                self.__data[chunk['name']] = val
+            with concurrent.futures.ThreadPoolExecutor(max_workers=multiprocessing.cpu_count()) as executor:
+                futures = []
+                for chunk in chunks:
+                    futures.append(executor.submit(helper, chunk))
+            concurrent.futures.wait(futures)
+        return vals
+                    
     def get_data(self, index):
         if self.qos['LazyLoading']:
             return self.load(self.data[index])
@@ -118,26 +146,35 @@ class AlnairJobDataset(Dataset):
     def load_all_redis_keys(self):
         snapshot = dotdict(self.jobinfo.policy).snapshot
         maxmem = self.qos['MaxMemory']*1024*1024
-        maxmem = inf if maxmem==0 else maxmem
         keys = snapshot if self.__keys is None else self.__keys
-        total_size = 0
-        self.chunks.append([])
-        for k in keys:
-            if self.__keys is not None:
-                k = "{%s}%s" % (dotdict(self.jobinfo.jinfo).jobId, k)
-            snapshot = pickle.loads(self.client.get(k))
-            for chunk in snapshot.values():
-                for chk in chunk:
-                    s = int(chk['size'])
-                    total_size += s
-                    if total_size > maxmem:
-                        self.chunks.append([])
-                        total_size = 0
-                    elif s > maxmem:
-                        raise Exception('File {} size is greater than assigned MaxMemory.'.format(chk['name']))
-                    else:
-                        self.chunks[-1].append(chk)
-    
+        keys = []
+        if self.__keys is not None:
+            for k in self.__keys:
+                keys.append("{%s}%s" % (dotdict(self.jobinfo.jinfo).jobId, k))
+        else:
+            keys = snapshot
+        tmp = []
+        for s in self.client.mget(keys):
+            for obj in pickle.loads(s).values():
+                tmp.extend(obj)
+        snapshot = tmp
+
+        if maxmem == 0:
+            self.chunks.append(snapshot)
+        else:
+            total_size = 0
+            self.chunks.append([])
+            for chunk in snapshot:
+                s = int(chunk['size'])
+                total_size += s
+                if total_size > maxmem:
+                    self.chunks.append([])
+                    total_size = 0
+                elif s > maxmem:
+                    raise Exception('File {} size is greater than assigned MaxMemory.'.format(chunk['name']))
+                else:
+                    self.chunks[-1].append(chunk)
+        
     def load_all_s3_keys(self):
         paginator = self.client.get_paginator('list_objects_v2')
         if self.__keys is not None:
@@ -172,15 +209,16 @@ class AlnairJobDataset(Dataset):
                 self.__keys.append(chunk['name'])
                 self.__data[chunk['name']] = chunk['key']
         else:
-            def helper(chk):
-                val = self.load(chk['key'])
-                self.__keys.append(chk['name'])
-                self.__data[chk['name']] = val
-            with concurrent.futures.ThreadPoolExecutor(max_workers=multiprocessing.cpu_count()) as executor:
-                futures = []
-                for chunk in self.chunks[index]:
-                    futures.append(executor.submit(helper, chunk))
-            concurrent.futures.wait(futures)
+            # def helper(chk):
+            #     val = self.load(chk['key'])
+            #     self.__keys.append(chk['name'])
+            #     self.__data[chk['name']] = val
+            # with concurrent.futures.ThreadPoolExecutor(max_workers=multiprocessing.cpu_count()) as executor:
+            #     futures = []
+            #     for chunk in self.chunks[index]:
+            #         futures.append(executor.submit(helper, chunk))
+            # concurrent.futures.wait(futures)
+            self.mload(self.chunks[index])
         self.__data, self.__targets = self.__convert__()
     
     def __convert__(self) -> Tuple[List, List]:

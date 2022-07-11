@@ -297,7 +297,7 @@ class RegistrationService(pb_grpc.RegistrationServicer):
                 if not info['Exist']:
                     if info['Size'] <= chunk_size:
                         value = client.get_object(Bucket=bucket_name, Key=info['Key'])['Body'].read()
-                        hash_key = hashing(value)
+                        hash_key = "{%s}%s" % (request.datasource.name, hashing(value))
                         redis.set(hash_key, value)
                         # logger.info("Copy data from s3:{} to redis:{}".format(info['Key'], hash_key))
                         obj = {'name': info['Key'], 'key': hash_key, 'size': info['Size'], 'lastModified': int(info['LastModified'].timestamp())}
@@ -309,7 +309,7 @@ class RegistrationService(pb_grpc.RegistrationServicer):
                         with open('/tmp/{}'.format(info['Key']), 'rb') as f:
                             value = f.read(chunk_size)
                             while value:
-                                hash_key = hashing(value)
+                                hash_key = "{%s}%s" % (request.datasource.name, hashing(value))
                                 obj = {'name': info['Key'], 'key': hash_key, 'size': chunk_size, 'lastModified': int(info['LastModified'].timestamp())}
                                 chunk_keys.append(obj)
                                 values[hash_key] = value

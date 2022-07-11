@@ -1,13 +1,10 @@
-from typing import Any, Callable, Optional, Callable, Union, Sequence, Iterable, TypeVar, List
+from typing import Optional, Union, Sequence, Iterable
 try:
     from AlnairJobDataset import AlnairJobDataset
 except:
     from lib.AlnairJobDataset import AlnairJobDataset
 from torch.utils.data import DataLoader, Sampler
-
-T = TypeVar('T')
-_worker_init_fn_t = Callable[[int], None]
-_collate_fn_t = Callable[[List[T]], Any]
+from torch.utils.data.dataloader import _worker_init_fn_t, _collate_fn_t
 
 
 class AlnairJobDataLoader(object):
@@ -63,7 +60,7 @@ class AlnairJobDataLoader(object):
                 worker subprocess with the worker id (an int in ``[0, num_workers - 1]``) as
                 input, after seeding and before data loading. (default: ``None``)
             generator (torch.Generator, optional): If not ``None``, this RNG will be used
-                by RandomSampler to generate random indexes and multiprocessing to generate
+                by RandomSampler to generate random self.indexes and multiprocessing to generate
                 `base_seed` for workers. (default: ``None``)
             prefetch_factor (int, optional, keyword-only arg): Number of samples loaded
                 in advance by each worker. ``2`` means there will be a total of
@@ -119,19 +116,18 @@ class AlnairJobDataLoader(object):
         self.init_loader()
         self.index = 1
         
-    
     def init_loader(self):
         loader = DataLoader(self.dataset, self.batch_size, self.shuffle, self.sampler, self.batch_sampler, self.num_workers, self.collate_fn, 
                             self.pin_memory, self.drop_last, self.timeout, self.worker_init_fn, self.multiprocessing_context, self.generator, 
                             prefetch_factor=self.prefetch_factor, persistent_workers=self.persistent_workers)
-        self.loader = iter(loader)
+        self.loader = loader._get_iterator()
         
     def __iter__(self):
         return self
     
     def __next__(self):
         try:
-            data = next(self.loader)
+            data = self.loader.next()
         except StopIteration:
             if self.index == len(self.dataset.chunks):  # epoch is down
                 self.index = 1
@@ -139,6 +135,6 @@ class AlnairJobDataLoader(object):
             else:
                 self.dataset.load_data(self.index)
                 self.init_loader()
-                data = next(self.loader)
+                data = self.loader.next()
                 self.index += 1
         return data
