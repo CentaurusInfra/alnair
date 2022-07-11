@@ -54,7 +54,7 @@ message QoS {
     optional bool UseCache = 1 [default = true];
     optional int64 MaxMemory = 2;
     optional int32 DurabilityInDisk = 3 [default = 1440];
-    optional bool Singular = 4 [default = false];
+    optional bool LazyLoading = 4 [default = true];
 }
 message RegisterRequest {
     required Credential cred = 1;

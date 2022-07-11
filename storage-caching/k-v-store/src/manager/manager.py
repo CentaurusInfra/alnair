@@ -305,15 +305,17 @@ class RegistrationService(pb_grpc.RegistrationServicer):
                     else:
                         client.download_file(Bucket=bucket_name, Key=info['Key'], Filename='/tmp/{}'.format(info['Key']))
                         # logger.info("Download large file s3:{}, size: {}B".format(info['Key'], info['Size']))
+                        values = {}
                         with open('/tmp/{}'.format(info['Key']), 'rb') as f:
                             value = f.read(chunk_size)
                             while value:
                                 hash_key = hashing(value)
                                 obj = {'name': info['Key'], 'key': hash_key, 'size': chunk_size, 'lastModified': int(info['LastModified'].timestamp())}
                                 chunk_keys.append(obj)
-                                redis.set(hash_key, value)
+                                values[hash_key] = value
                                 # logger.info("Copy data from /tmp/{} to redis:{}".format(info['Key'], hash_key))
                                 value = f.read(chunk_size)
+                        redis.mset(values)
                 else:
                     # find hash keys given the bucket key
                     def search_key(bk):
@@ -327,7 +329,7 @@ class RegistrationService(pb_grpc.RegistrationServicer):
                         'lastModified': int(info['LastModified'].timestamp())})
                     # logger.info('Key {} exists in Redis.'.format(info['Key']))
                 
-                sk = "{}/{}".format(jobId, info['prefix'])
+                sk = "{%s}%s" % (jobId, info['prefix'])
                 if sk not in snapshot:
                     snapshot[sk] = {info['Key']: chunk_keys}
                 else:
@@ -344,10 +346,9 @@ class RegistrationService(pb_grpc.RegistrationServicer):
                     chunk_keys.extend(future.result())
             
             # create job snapshot in Redis
-            hsnapshot = {}
             for k in list(snapshot.keys()):
-                hsnapshot["{%s}%s" % (jobId, k)] = pickle.dumps(snapshot[k])
-            self.manager.redis.mset(hsnapshot)
+                snapshot[k] = pickle.dumps(snapshot[k])
+            self.manager.redis.mset(snapshot)
             
             # generate connection authorization for client
             now = datetime.utcnow().timestamp()

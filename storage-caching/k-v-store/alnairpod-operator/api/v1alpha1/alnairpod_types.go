@@ -58,9 +58,9 @@ type QoSConfigurations struct {
 	// +optional
 	DurabilityInDisk int `json:"durabilityindisk"`
 
-	// One object per file
+	// Load data in a lazy way
 	// +optional
-	Singular bool `json:"singular"`
+	LazyLoading bool `json:"lazyloading"`
 }
 
 type DataSourceStruct struct {

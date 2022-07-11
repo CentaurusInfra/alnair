@@ -19,8 +19,8 @@ spec:
       - imagenet-mini/val
     configurations:
       usecache: true
-      maxmemory: 128
+      maxmemory: 0
       durabilityindisk: 1440
-      singular: true
+      lazyloading: true
     tty: true
     stdin: true

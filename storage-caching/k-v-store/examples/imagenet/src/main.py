@@ -341,7 +341,6 @@ def validate(val_loader, model, criterion, args):
             try:
                 t = time.time()
                 images, target = next(val_loader)
-                print(time.time()-t)
             except StopIteration:
                 break
     return 1

@@ -40,8 +40,9 @@ class ImageNetDataset(AlnairJobDataset):
     
     def __getitem__(self, index: int):
         img, target = self.get_data(index), self.get_target(index)
-        img = Image.open(io.BytesIO(img))
-        img = img.convert("RGB")
+        with io.BytesIO(img) as stream:
+            img = Image.open(stream)
+            img = img.convert("RGB")
         if self.transform is not None:
             img = self.transform(img)
         if self.target_transform is not None:

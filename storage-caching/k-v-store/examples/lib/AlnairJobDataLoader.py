@@ -117,6 +117,7 @@ class AlnairJobDataLoader(object):
         self.persistent_workers = persistent_workers
         
         self.init_loader()
+        self.index = 1
         
     
     def init_loader(self):
@@ -132,12 +133,12 @@ class AlnairJobDataLoader(object):
         try:
             data = next(self.loader)
         except StopIteration:
-            if self.dataset.qos['Singular']: raise StopIteration
-            if self.dataset.index == len(self.dataset.chunks):  # epoch is down
-                self.dataset.index = 0
+            if self.index == len(self.dataset.chunks):  # epoch is down
+                self.index = 1
                 raise StopIteration
             else:
-                self.dataset.load_data()
+                self.dataset.load_data(self.index)
                 self.init_loader()
                 data = next(self.loader)
+                self.index += 1
         return data
