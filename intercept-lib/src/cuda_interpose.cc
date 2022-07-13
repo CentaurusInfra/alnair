@@ -58,7 +58,6 @@ The solution is a workaround. See the code below.
 #include <dlfcn.h>
 #include <cuda.h>
 #include <string.h>
-#include <chrono>
 #include <fstream>
 
 #define STRINGIFY(x) STRINGIFY_AUX(x)
@@ -69,9 +68,6 @@ CUresult CUDAAPI cuGetProcAddress(const char *symbol, void **pfn, int cudaVersio
 extern "C" { void* __libc_dlsym (void *map, const char *name); }
 extern "C" { void* __libc_dlopen_mode (const char* name, int mode); }
 
-const char metrices_file[] = "/var/lib/alnair/workspace/metrics.log";
-void *libcudaHandle = __libc_dlopen_mode("libcuda.so", RTLD_LAZY);
-void *libdlHandle = __libc_dlopen_mode("libdl.so", RTLD_LAZY);
 
 typedef enum HookSymbolsEnum {
     SYM_CU_INIT,
@@ -123,6 +119,7 @@ static void* hooks[SYM_CU_SYMBOLS] = {
     (void*) cuLaunchKernel_hook,
     (void*) cuLaunchCooperativeKernel_hook,
     NULL,
+    NULL,
     NULL
 };
 
@@ -137,24 +134,23 @@ static void* post_hooks[SYM_CU_SYMBOLS] = {
     NULL,
     NULL,
     (void*) cuDeviceTotalMem_posthook,
-    (void*) cuMemGetInfo_posthook
+    (void*) cuMemGetInfo_posthook,
+    NULL
 };
 
 static void* real_func[SYM_CU_SYMBOLS];
 static void* real_omp_get_num_threads = NULL;
 
-typedef void* (*fnDlsym)(void*, const char*);
-static void* real_dlsym(void *handle, const char* symbol)
-{
-    static fnDlsym internal_dlsym = (fnDlsym)__libc_dlsym(__libc_dlopen_mode("libdl.so.2", RTLD_LAZY), "dlsym");
-    return (*internal_dlsym)(handle, symbol);  
-}
+void *libcudaHandle = __libc_dlopen_mode("libcuda.so", RTLD_LAZY);
+void *libdlHandle = __libc_dlopen_mode("libdl.so", RTLD_LAZY);
 
-static void* real_dlsym2(void *handle, const char* symbol)
+typedef void *(*fnDlsym)(void *, const char *);
+static void *real_dlsym(void *handle, const char *symbol)
 {
     static fnDlsym internal_dlsym = (fnDlsym)__libc_dlsym(libdlHandle, "dlsym");
-    return (*internal_dlsym)(handle, symbol);    
+    return (*internal_dlsym)(handle, symbol);
 }
+
 void* dlsym(void *handle, const char *symbol) 
 {
     if (strcmp(symbol, "omp_get_num_threads") == 0) {
@@ -167,29 +163,84 @@ void* dlsym(void *handle, const char *symbol)
         return real_dlsym(handle, symbol);
     }
     
-    if (strcmp(symbol, STRINGIFY(cuInit)) == 0) {
+ if (strcmp(symbol, STRINGIFY(cuInit)) == 0) {
+        if(real_func[SYM_CU_INIT] == NULL) {
+            real_func[SYM_CU_INIT] = real_dlsym(handle, symbol);
+        }
         return (void*)(&cuInit);
-    } else if (strcmp(symbol, STRINGIFY(cuMemAlloc)) == 0) {
+    }
+
+    if (strcmp(symbol, STRINGIFY(cuMemAlloc)) == 0) {
+        if(real_func[SYM_CU_MEM_ALLOC] == NULL) {
+            real_func[SYM_CU_MEM_ALLOC] = real_dlsym(handle, symbol);
+        }
         return (void*)(&cuMemAlloc);
-    } else if (strcmp(symbol, STRINGIFY(cuMemAllocManaged)) == 0) {
+    }
+
+    if (strcmp(symbol, STRINGIFY(cuMemAllocManaged)) == 0) {
+        if(real_func[SYM_CU_MEM_ALLOC_MANAGED] == NULL) {
+            real_func[SYM_CU_MEM_ALLOC_MANAGED] = real_dlsym(handle, symbol);
+        }
         return (void*)(&cuMemAllocManaged);
-    } else if (strcmp(symbol, STRINGIFY(cuMemAllocPitch)) == 0) {
+    }
+
+    if (strcmp(symbol, STRINGIFY(cuMemAllocPitch)) == 0) {
+        if(real_func[SYM_CU_MEM_ALLOC_PITCH] == NULL) {
+            real_func[SYM_CU_MEM_ALLOC_PITCH] = real_dlsym(handle, symbol);
+        }
         return (void*)(&cuMemAllocPitch);
-    } else if (strcmp(symbol, STRINGIFY(cuArrayCreate)) == 0) {
+    }
+
+    if (strcmp(symbol, STRINGIFY(cuArrayCreate)) == 0) {
+        if(real_func[SYM_CU_ARRAY_CREATE] == NULL) {
+            real_func[SYM_CU_ARRAY_CREATE] = real_dlsym(handle, symbol);
+        }
         return (void*)(&cuArrayCreate);
-    } else if (strcmp(symbol, STRINGIFY(cuArray3DCreate)) == 0) {
+    }
+
+    if (strcmp(symbol, STRINGIFY(cuArray3DCreate)) == 0) {
+        if(real_func[SYM_CU_ARRAY_3D_CREATE] == NULL) {
+            real_func[SYM_CU_ARRAY_3D_CREATE] = real_dlsym(handle, symbol);
+        }
         return (void*)(&cuArray3DCreate);
-    } else if (strcmp(symbol, STRINGIFY(cuMipmappedArrayCreate)) == 0) {
+    }
+
+    if (strcmp(symbol, STRINGIFY(cuMipmappedArrayCreate)) == 0) {
+        if(real_func[SYM_CU_MIP_ARRAY_CREATE] == NULL) {
+            real_func[SYM_CU_MIP_ARRAY_CREATE] = real_dlsym(handle, symbol);
+        }
         return (void*)(&cuMipmappedArrayCreate);
-    } else if (strcmp(symbol, STRINGIFY(cuLaunchKernel)) == 0) {
+    }
+
+    if (strcmp(symbol, STRINGIFY(cuLaunchKernel)) == 0) {
+        if(real_func[SYM_CU_LAUNCH_KERNEL] == NULL) {
+            real_func[SYM_CU_LAUNCH_KERNEL] = real_dlsym(handle, symbol);
+        }
         return (void*)(&cuLaunchKernel);
-    } else if (strcmp(symbol, STRINGIFY(cuLaunchCooperativeKernel)) == 0) {
+    }
+
+    if (strcmp(symbol, STRINGIFY(cuLaunchCooperativeKernel)) == 0) {
+        if(real_func[SYM_CU_LAUNCH_COOP_KERNEL] == NULL) {
+            real_func[SYM_CU_LAUNCH_COOP_KERNEL] = real_dlsym(handle, symbol);
+        }
         return (void*)(&cuLaunchCooperativeKernel);
-    } else if (strcmp(symbol, STRINGIFY(cuDeviceTotalMem)) == 0) {
+    }
+
+    if (strcmp(symbol, STRINGIFY(cuDeviceTotalMem)) == 0) {
+        if(real_func[SYM_CU_DEVICE_TOTAL_MEM] == NULL) {
+            real_func[SYM_CU_DEVICE_TOTAL_MEM] = real_dlsym(handle, symbol);
+        }
         return (void*)(&cuDeviceTotalMem);
-    } else if (strcmp(symbol, STRINGIFY(cuMemGetInfo)) == 0) {
+    }
+
+    if (strcmp(symbol, STRINGIFY(cuMemGetInfo)) == 0) {
+        if(real_func[SYM_CU_MEM_GET_INFO] == NULL) {
+            real_func[SYM_CU_MEM_GET_INFO] = real_dlsym(handle, symbol);
+        }
         return (void*)(&cuMemGetInfo);
-    } else if (strcmp(symbol, STRINGIFY(cuGetProcAddress)) == 0) {
+    }
+    
+    if (strcmp(symbol, STRINGIFY(cuGetProcAddress)) == 0) {
         return (void *)(&cuGetProcAddress);
     }
 
@@ -197,18 +248,10 @@ void* dlsym(void *handle, const char *symbol)
 }
 
 
-#define SAMPLE_CUDA(symbol)                                                                         \
-    {                                                                                               \
-        std::chrono::time_point<std::chrono::system_clock> now = std::chrono::system_clock::now();  \
-        auto duration = now.time_since_epoch();                                                     \
-        std::ofstream fmet;                                                                         \
-        fmet.open(metrices_file);                                                                   \
-        fmet << duration.count() << ',' << symbol << std::endl;                                     \
-        fmet.close();                                                                               \
-    }                                                                                               \
+                                                                                          \
 
-#define GENERATE_INTERCEPT_FUNCTION(hookname, hooksymbol, funcname, params, ...)                     \
-    CUresult hookname params                                                               \
+#define GENERATE_INTERCEPT_FUNCTION(hooksymbol, funcname, params, ...)                     \
+    CUresult funcname params                                                               \
     {                                                                                      \
         CUresult res = CUDA_SUCCESS;                                                       \
         if (hooks[hooksymbol]) {                                                           \
@@ -224,43 +267,41 @@ void* dlsym(void *handle, const char *symbol)
         return res;                                                                        \
     }
 
-GENERATE_INTERCEPT_FUNCTION(hook_cuInit, SYM_CU_INIT, cuInit, (unsigned int Flags), Flags)
-GENERATE_INTERCEPT_FUNCTION(hook_cuMemAlloc, SYM_CU_MEM_ALLOC, cuMemAlloc, (CUdeviceptr* dptr, size_t bytesize), dptr, bytesize)
-GENERATE_INTERCEPT_FUNCTION(hook_cuMemAllocManaged, SYM_CU_MEM_ALLOC_MANAGED, cuMemAllocManaged, 
+GENERATE_INTERCEPT_FUNCTION(SYM_CU_INIT, cuInit, (unsigned int Flags), Flags)
+GENERATE_INTERCEPT_FUNCTION(SYM_CU_MEM_ALLOC, cuMemAlloc, (CUdeviceptr* dptr, size_t bytesize), dptr, bytesize)
+GENERATE_INTERCEPT_FUNCTION(SYM_CU_MEM_ALLOC_MANAGED, cuMemAllocManaged, 
                             (CUdeviceptr *dptr, size_t bytesize, unsigned int flags),
                             dptr, bytesize, flags)
-GENERATE_INTERCEPT_FUNCTION(hook_cuMemAllocPitch, SYM_CU_MEM_ALLOC_PITCH, cuMemAllocPitch, 
+GENERATE_INTERCEPT_FUNCTION(SYM_CU_MEM_ALLOC_PITCH, cuMemAllocPitch, 
                             (CUdeviceptr* dptr, size_t* pPitch, size_t WidthInBytes, 
                              size_t Height, unsigned int ElementSizeBytes), 
                             dptr, pPitch, WidthInBytes, Height, ElementSizeBytes)
-GENERATE_INTERCEPT_FUNCTION(hook_cuArrayCreate, SYM_CU_ARRAY_CREATE, cuArrayCreate, 
+GENERATE_INTERCEPT_FUNCTION(SYM_CU_ARRAY_CREATE, cuArrayCreate, 
                             (CUarray *pHandle, const CUDA_ARRAY_DESCRIPTOR *pAllocateArray), 
                             pHandle, pAllocateArray)
-GENERATE_INTERCEPT_FUNCTION(hook_cuArray3DCreate, SYM_CU_ARRAY_3D_CREATE, cuArray3DCreate, 
+GENERATE_INTERCEPT_FUNCTION(SYM_CU_ARRAY_3D_CREATE, cuArray3DCreate, 
                             (CUarray *pHandle, const CUDA_ARRAY3D_DESCRIPTOR *pAllocateArray), 
                             pHandle, pAllocateArray)
-GENERATE_INTERCEPT_FUNCTION(hook_cuMipmappedArrayCreate, SYM_CU_MIP_ARRAY_CREATE, cuMipmappedArrayCreate, 
+GENERATE_INTERCEPT_FUNCTION(SYM_CU_MIP_ARRAY_CREATE, cuMipmappedArrayCreate, 
                             (CUmipmappedArray *pHandle, 
                              const CUDA_ARRAY3D_DESCRIPTOR *pMipmappedArrayDesc, unsigned int numMipmapLevels), 
                             pHandle, pMipmappedArrayDesc, numMipmapLevels)                            
-GENERATE_INTERCEPT_FUNCTION(hook_cuLaunchKernel, SYM_CU_LAUNCH_KERNEL, cuLaunchKernel, 
+GENERATE_INTERCEPT_FUNCTION(SYM_CU_LAUNCH_KERNEL, cuLaunchKernel, 
                             (CUfunction f, unsigned int gridDimX, unsigned int gridDimY, unsigned int gridDimZ, 
                              unsigned int blockDimX, unsigned int blockDimY, unsigned int blockDimZ, 
                              unsigned int sharedMemBytes, CUstream hStream, void** kernelParams, void** extra), 
                             f, gridDimX, gridDimY, gridDimZ, blockDimX, blockDimY, blockDimZ, 
                             sharedMemBytes, hStream, kernelParams, extra)
-GENERATE_INTERCEPT_FUNCTION(hook_cuLaunchCooperativeKernel, SYM_CU_LAUNCH_COOP_KERNEL, cuLaunchCooperativeKernel,
+GENERATE_INTERCEPT_FUNCTION(SYM_CU_LAUNCH_COOP_KERNEL, cuLaunchCooperativeKernel,
                             (CUfunction f, unsigned int gridDimX, unsigned int gridDimY, 
                              unsigned int gridDimZ, unsigned int blockDimX, unsigned int blockDimY,
                              unsigned int blockDimZ, unsigned int sharedMemBytes, 
                              CUstream hStream, void **kernelParams),
                             f, gridDimX, gridDimY, gridDimZ, blockDimX, blockDimY, blockDimZ, 
                             sharedMemBytes, hStream, kernelParams)
-GENERATE_INTERCEPT_FUNCTION(hook_cuDeviceTotalMem, SYM_CU_DEVICE_TOTAL_MEM, cuDeviceTotalMem, 
+GENERATE_INTERCEPT_FUNCTION(SYM_CU_DEVICE_TOTAL_MEM, cuDeviceTotalMem, 
                             (size_t* bytes, CUdevice dev), bytes, dev)
-GENERATE_INTERCEPT_FUNCTION(hook_cuMemGetInfo, SYM_CU_MEM_GET_INFO, cuMemGetInfo, (size_t* free, size_t* total), free, total)
-
-
+GENERATE_INTERCEPT_FUNCTION(SYM_CU_MEM_GET_INFO, cuMemGetInfo, (size_t* free, size_t* total), free, total)
 
 CUresult CUDAAPI cuGetProcAddress(const char *symbol, void **pfn, int cudaVersion, cuuint64_t flags) {
 #ifdef _DEBUG
@@ -270,7 +311,7 @@ CUresult CUDAAPI cuGetProcAddress(const char *symbol, void **pfn, int cudaVersio
     typedef decltype(&cuGetProcAddress) funcType;
     funcType actualFunc;
     if(!real_func[SYM_CU_HOOK_GET_PROC_ADDRESS])
-        actualFunc = (funcType)real_dlsym2(libcudaHandle, STRINGIFY_AUX(cuGetProcAddress));
+        actualFunc = (funcType)real_dlsym(libcudaHandle, STRINGIFY_AUX(cuGetProcAddress));
     else
         actualFunc = (funcType)real_func[SYM_CU_HOOK_GET_PROC_ADDRESS];
     CUresult result = actualFunc(symbol, pfn, cudaVersion, flags);
@@ -286,7 +327,7 @@ CUresult CUDAAPI cuGetProcAddress(const char *symbol, void **pfn, int cudaVersio
         if(real_func[SYM_CU_MEM_GET_INFO] == NULL) {
             real_func[SYM_CU_MEM_GET_INFO] = *pfn;
         }
-        *pfn = (void *)(&hook_cuMemAlloc);
+        *pfn = (void *)(&cuMemAlloc);
 #pragma push_macro("cuMemAllocManaged")
 #undef cuMemAllocManaged
     } else if (strcmp(symbol, STRINGIFY_AUX(cuMemAllocManaged)) == 0) {
@@ -294,7 +335,7 @@ CUresult CUDAAPI cuGetProcAddress(const char *symbol, void **pfn, int cudaVersio
         if(real_func[SYM_CU_MEM_ALLOC_MANAGED] == NULL) {
             real_func[SYM_CU_MEM_ALLOC_MANAGED] = *pfn;
         }
-        *pfn = (void *)(&hook_cuMemAllocManaged);
+        *pfn = (void *)(&cuMemAllocManaged);
 #pragma push_macro("cuMemAllocPitch")
 #undef cuMemAllocPitch
     } else if (strcmp(symbol, STRINGIFY_AUX(cuMemAllocPitch)) == 0) {
@@ -302,7 +343,7 @@ CUresult CUDAAPI cuGetProcAddress(const char *symbol, void **pfn, int cudaVersio
         if(real_func[SYM_CU_MEM_ALLOC_PITCH] == NULL) {
             real_func[SYM_CU_MEM_ALLOC_PITCH] = *pfn;
         }
-        *pfn = (void *)(&hook_cuMemAllocPitch);
+        *pfn = (void *)(&cuMemAllocPitch);
 #pragma push_macro("cuLaunchKernel")
 #undef cuLaunchKernel
     } else if  (strcmp(symbol, STRINGIFY_AUX(cuLaunchKernel)) == 0) { 
@@ -310,7 +351,7 @@ CUresult CUDAAPI cuGetProcAddress(const char *symbol, void **pfn, int cudaVersio
         if(real_func[SYM_CU_LAUNCH_KERNEL] == NULL) {
             real_func[SYM_CU_LAUNCH_KERNEL] = *pfn;
         }
-        *pfn = (void *)(&hook_cuLaunchKernel);
+        *pfn = (void *)(&cuLaunchKernel);
 #pragma push_macro("cuLaunchCooperativeKernel")
 #undef cuLaunchCooperativeKernel
     } else if  (strcmp(symbol, STRINGIFY_AUX(cuLaunchCooperativeKernel)) == 0) {
@@ -318,7 +359,7 @@ CUresult CUDAAPI cuGetProcAddress(const char *symbol, void **pfn, int cudaVersio
         if(real_func[SYM_CU_LAUNCH_COOP_KERNEL] == NULL) {
             real_func[SYM_CU_LAUNCH_COOP_KERNEL] = *pfn;
         }
-        *pfn = (void *)(&hook_cuLaunchCooperativeKernel);
+        *pfn = (void *)(&cuLaunchCooperativeKernel);
 #pragma push_macro("cuArrayCreate")
 #undef cuArrayCreate
     } else if  (strcmp(symbol, STRINGIFY_AUX(cuArrayCreate)) == 0) {
@@ -326,7 +367,7 @@ CUresult CUDAAPI cuGetProcAddress(const char *symbol, void **pfn, int cudaVersio
         if(real_func[SYM_CU_ARRAY_CREATE] == NULL) {
             real_func[SYM_CU_ARRAY_CREATE] = *pfn;
         }
-        *pfn = (void *)(&hook_cuArrayCreate);
+        *pfn = (void *)(&cuArrayCreate);
 #pragma push_macro("cuArray3DCreate")
 #undef cuArray3DCreate
     } else if  (strcmp(symbol, STRINGIFY_AUX(cuArray3DCreate)) == 0) {
@@ -334,7 +375,7 @@ CUresult CUDAAPI cuGetProcAddress(const char *symbol, void **pfn, int cudaVersio
         if(real_func[SYM_CU_ARRAY_3D_CREATE] == NULL) {
             real_func[SYM_CU_ARRAY_3D_CREATE] = *pfn;
         }
-        *pfn = (void *)(&hook_cuArray3DCreate);
+        *pfn = (void *)(&cuArray3DCreate);
 #pragma push_macro("cuMipmappedArrayCreate")
 #undef cuMipmappedArrayCreate
     } else if  (strcmp(symbol, STRINGIFY_AUX(cuMipmappedArrayCreate)) == 0) {
@@ -342,7 +383,7 @@ CUresult CUDAAPI cuGetProcAddress(const char *symbol, void **pfn, int cudaVersio
         if(real_func[SYM_CU_MIP_ARRAY_CREATE] == NULL) {
             real_func[SYM_CU_MIP_ARRAY_CREATE] = *pfn;
         }
-        *pfn = (void *)(&hook_cuMipmappedArrayCreate);
+        *pfn = (void *)(&cuMipmappedArrayCreate);
 #pragma push_macro("cuDeviceTotalMem")
 #undef cuDeviceTotalMem
     } else if (strcmp(symbol, STRINGIFY(cuDeviceTotalMem)) == 0) {
@@ -350,7 +391,7 @@ CUresult CUDAAPI cuGetProcAddress(const char *symbol, void **pfn, int cudaVersio
         if(real_func[SYM_CU_DEVICE_TOTAL_MEM] == NULL) {
             real_func[SYM_CU_DEVICE_TOTAL_MEM] = *pfn;
         }
-        *pfn = (void *)(&hook_cuDeviceTotalMem);
+        *pfn = (void *)(&cuDeviceTotalMem);
 
 #pragma push_macro("cuMemGetInfo")
 #undef cuMemGetInfo
@@ -359,16 +400,13 @@ CUresult CUDAAPI cuGetProcAddress(const char *symbol, void **pfn, int cudaVersio
         if(real_func[SYM_CU_MEM_GET_INFO] == NULL) {
             real_func[SYM_CU_MEM_GET_INFO] = *pfn;
         }
-        *pfn = (void *)(&hook_cuMemGetInfo);
+        *pfn = (void *)(&cuMemGetInfo);
 #pragma push_macro("cuInit")
 #undef cuInit
     } else if (strcmp(symbol, STRINGIFY(cuInit)) == 0) {
 #pragma pop_macro("cuInit")
-        *pfn = (void *)(&hook_cuInit);
+        *pfn = (void *)(&cuInit);
     } 
     
-#ifdef _DEBUG
-    //printf("Leave %s\n", SYMBOL_STRING(cuGetProcAddress));
-#endif
     return (result);
 }
