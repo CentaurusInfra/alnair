@@ -18,7 +18,7 @@ spec:
   volumes:
   - name: imagenet-mini
     hostPath:
-      path: /data1/imagenet-mini
+      path: /home/zhuangwei/imagenet-mini
       type: Directory
   - name: shmem
     hostPath:

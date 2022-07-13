@@ -25,6 +25,8 @@ spec:
       labels:
         app: redis-cluster
     spec:
+      nodeSelector:
+        alnair: CacheCluster
       initContainers:
       - name: config
         image: redis:6.2.3-alpine

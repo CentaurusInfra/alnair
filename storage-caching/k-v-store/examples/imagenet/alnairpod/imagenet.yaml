@@ -6,6 +6,8 @@ metadata:
 spec:
   secret:
     name: alnairpod-client-secret
+  nodeSelector:
+    alnair: Client
   jobs:
   - name: job
     image: zhuangweikang/imagenet:latest
@@ -19,7 +21,7 @@ spec:
       - imagenet-mini/val
     configurations:
       usecache: true
-      maxmemory: 1024
+      maxmemory: 0
       durabilityindisk: 1440
       lazyloading: true
     tty: true

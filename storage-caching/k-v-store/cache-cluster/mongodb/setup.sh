@@ -6,26 +6,31 @@ then
     NODES=$(kubectl get nodes | awk '(NR>1) { print $1 }')
     kubectl label nodes --overwrite $NODES db=mongo
     kubectl apply -k .
-    sleep 5
+    sleep 20
+    while [[ $(kubectl get pod mongo-0 | awk '{print $3}' | tail -n 1) != "Running" ]]
+    do
+        sleep 3
+    done
+    
     kubectl exec -it mongo-0 -n default -- mongo admin
     # TODO: Execute the following commands in mongodb
-    # rs.initiate()
-    # var cfg = rs.conf()
-    # cfg.members[0].host="mongo-0.mongo:27017"
-    # rs.reconfig(cfg)
-    # rs.add("mongo-1.mongo:27017")
-    # rs.status()
-    # db.createUser(
-    # {
-    #     user: "alnair",
-    #     pwd: "alnair",
-    #     roles: [
-    #             { role: "userAdminAnyDatabase", db: "admin" },
-    #             { role: "readWriteAnyDatabase", db: "admin" },
-    #             { role: "dbAdminAnyDatabase", db: "admin" },
-    #             { role: "clusterAdmin", db: "admin" }
-    #         ]
-    # })
+    rs.initiate()
+    var cfg = rs.conf()
+    cfg.members[0].host="mongo-0.mongo:27017"
+    rs.reconfig(cfg)
+    rs.add("mongo-1.mongo:27017")
+    rs.status()
+    db.createUser(
+    {
+        user: "alnair",
+        pwd: "alnair",
+        roles: [
+                { role: "userAdminAnyDatabase", db: "admin" },
+                { role: "readWriteAnyDatabase", db: "admin" },
+                { role: "dbAdminAnyDatabase", db: "admin" },
+                { role: "clusterAdmin", db: "admin" }
+            ]
+    })
 elif [ $1 == "del" ]
 then
     kubectl delete -k .

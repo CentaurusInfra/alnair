@@ -28,6 +28,8 @@ spec:
       labels:
         app: manager
     spec:
+      nodeSelector:
+        alnair: CacheCluster
       containers:
       - name: alnairpod-manager
         image: zhuangweikang/alnairpod:manager

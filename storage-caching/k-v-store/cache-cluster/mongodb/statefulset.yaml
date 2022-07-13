@@ -4,7 +4,7 @@ metadata:
   name: mongo
 spec:
   serviceName: mongo
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: mongo
@@ -14,6 +14,8 @@ spec:
         app: mongo
         selector: mongo
     spec:
+      nodeSelector:
+        alnair: CacheCluster
       containers:
       - name: mongodb
         image: docker.io/mongo:4.2

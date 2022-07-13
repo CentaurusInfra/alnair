@@ -22,6 +22,8 @@ then
     fi
 elif [ $1 == "del" ]
 then
+    pvc=$(kubectl get pvc | grep data-redis-cluster | awk '{print $1}')
+    kubectl delete pvc $pvc
     kubectl delete -f .
     kubectl delete -f ../sc.yaml
     sudo rm -r /storage/data*

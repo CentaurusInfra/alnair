@@ -11,6 +11,7 @@ class ImageNetDataset(AlnairJobDataset):
         super().__init__(keys)
         self.transform = transform
         self.target_transform = target_transform
+        self.count = 0
     
     def find_classes(self, keys):
         cls_keys = {}

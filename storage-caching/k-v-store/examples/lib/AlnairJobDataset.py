@@ -46,6 +46,7 @@ class AlnairJobDataset(Dataset):
         if self.qos['UseCache']: # use datasource from Redis
             r = dotdict(self.jobinfo.jinfo).redisauth
             r = dotdict(r)
+            self.redispool = redis.ConnectionPool(host=r.host, port=r.port, db=0, username=r.username, password=r.password)
             self.client = redis.RedisCluster(host=r.host, port=r.port, username=r.username, password=r.password)
             self.load_all_redis_keys()
         else:
@@ -91,6 +92,10 @@ class AlnairJobDataset(Dataset):
     def mload(self, chunks):
         if self.qos['UseCache']:
             keys = [x['key'] for x in chunks]
+            # with self.client.pipeline() as pl:
+            #     for k in keys:
+            #         pl.get(k)
+            #     vals = pl.execute()
             vals = self.client.mget(keys)
             for i in range(len(vals)):
                 if vals[i] is None:
