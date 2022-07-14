@@ -1,5 +1,8 @@
 #!/bin/bash
 
+kubectl label node $(hostname) alnair=Client
+workers=$(kubectl get nodes --no-headers=true --selector=kubernetes.io/hostname!=$(hostname) | awk '{print $1}')
+kubectl label node $workers alnair=CacheCluster
 if [ $1 == "init" ]
 then
     kubectl apply -f secret.yaml

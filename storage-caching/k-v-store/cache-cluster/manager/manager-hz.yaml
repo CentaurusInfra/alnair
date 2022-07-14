@@ -43,8 +43,8 @@ spec:
         volumeMounts:
         - name: configuration
           mountPath: /configs/manager
-        - name: redisconfig
-          mountPath: /configs/redis
+        - name: hzconfig
+          mountPath: /configs/
         - mountPath: /data
           name: nfs-volume
         stdin: true
@@ -53,9 +53,9 @@ spec:
         - name: configuration
           configMap:
             name: alnairpod-manager-config
-        - name: redisconfig
+        - name: hzconfig
           configMap:
-            name: redis-config
+            name: hazelcast-jet-configuration
         - name: nfs-volume
           persistentVolumeClaim:
             claimName: nfs-pvc

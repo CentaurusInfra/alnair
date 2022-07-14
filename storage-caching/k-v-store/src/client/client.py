@@ -25,7 +25,7 @@ class Client(FileSystemEventHandler):
         secret.read("/secret/client.conf")
         aws_s3_sec = dict(secret["aws_s3"].items())
         
-        self.rj = [] # jobs using redis cache
+        self.rj = [] # jobs using cache cluster
         self.sj = [] # jobs using s3
         for f in glob.glob('/jobs/*.json'):
             with open(f, 'rb') as f:

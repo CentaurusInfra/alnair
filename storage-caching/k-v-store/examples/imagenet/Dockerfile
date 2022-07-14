@@ -6,3 +6,4 @@ COPY imagenet/src ./
 RUN pip install -r requirements.txt
 RUN chmod +x *
 # CMD [ "python3", "main.py" ]
+CMD [ "bash" ]

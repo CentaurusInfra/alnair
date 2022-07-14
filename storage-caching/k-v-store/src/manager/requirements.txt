@@ -6,3 +6,5 @@ pickle-mixin
 pymongo
 protobuf
 pytz
+hazelcast-python-client
+pyyaml
