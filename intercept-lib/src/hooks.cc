@@ -26,22 +26,22 @@ limitations under the License.
 #include <nvml.h>
 #include <cuda.h>
 #include <sys/time.h>
+#include "cuda_metrics.h"
 
 #define MAXPROC 1024
 
 extern int register_cgroup(const char *cgroup, const char* alnairID);
 
-const char metrices_file[] = "/var/lib/alnair/workspace/metrics.log";
-static void log_api_call(const char *symbol) 
-{                                                                                               
-    std::chrono::time_point<std::chrono::system_clock> now = std::chrono::system_clock::now();  
-    auto duration = now.time_since_epoch();                                                     
-    std::ofstream fmet;                                                                         
-    fmet.open(metrices_file, std::fstream::app);  
-    //print timestamp at nano seconds when a cuda API is called                                                                     
-    fmet << duration.count() << ',' << symbol << std::endl;                                     
-    fmet.close();                                                                               
-}  
+//////////////////////////////////////////////////////
+//
+// cuda metrics
+//
+/////////////////////////////////////////////////////
+extern cuda_metrics_t pf;
+extern pthread_t pf_thread;
+extern void log_api_call(const char *pid, const int memUsed, const int kernelCnt, const int tokens);
+extern void* profiling_thread_func(void *arg);
+
 /************************************************/
 #include <execinfo.h>
 static void print_trace (void)
@@ -197,6 +197,13 @@ static int get_current_mem_usage(unsigned long long* totalUsage)
         unsigned int pid = procInfos[i].pid;
         if(pids.find(pid) != pids.end()) (*totalUsage) += procInfos[i].usedGpuMemory;
     }
+
+//////////////////////////////////
+// 
+//  profiling memory usage
+//
+//////////////////////////////////
+    pf.memUsed = *totalUsage;
 
     return 0;
 }
@@ -382,6 +389,12 @@ static void post_cuinit(void)
         fprintf(stderr,"token bucket thread creation failed, errno=%d\n", errno);
     }
 
+    // initialize for profiler
+    res = pthread_create(&pf_thread, NULL, profiling_thread_func, NULL);
+    if(res < 0) {
+        fprintf(stderr,"profiler failed to start, errno=%d\n", errno);
+    }
+    
     post_initialized = true;
 }
 
@@ -395,6 +408,7 @@ CUresult cuInit_hook (unsigned int Flags)
     if(res < 0) {
         fprintf(stderr,"pre_cuinit failed, errno=%d\n", errno);
     }
+
 
     return cures;
 }
@@ -415,10 +429,6 @@ CUresult cuInit_posthook (unsigned int Flags)
 
 CUresult cuMemAlloc_hook (CUdeviceptr* dptr, size_t bytesize)
 {
-    std::stringstream ss;
-    ss << "cuMemAlloc," << bytesize;
-    log_api_call(ss.str().c_str());
-
     return validate_memory(bytesize);
 }
 
@@ -498,6 +508,14 @@ CUresult cuLaunchKernel_hook(CUfunction f, unsigned int gridDimX, unsigned int g
         if(tb.cur_tokens >= cost) {
             tb.cur_tokens = tb.cur_tokens - cost;
             pthread_mutex_unlock(&tb.mutex);
+////////////////////////////////////////////////////////////
+// 
+//  profiling kernel count and token usage
+//
+//////////////////////////////////////////////////////////
+            pf.kernelCnt ++;
+            pf.token = tb.cur_tokens;
+
             break;
         }
         pthread_mutex_unlock(&tb.mutex);

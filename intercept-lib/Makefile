@@ -24,6 +24,9 @@ $(OBJ_DIR)/%.o: src/%.c
 $(OBJ_DIR)/cuda_interpose.o: src/cuda_interpose.cc
 	$(CXX) -I$(CUDA_INCLUDE_DIR) $(CXXFLAGS) -c -o $@ $^
 
+$(OBJ_DIR)/cuda_metrics.o: src/cuda_metrics.cc
+	$(CXX) -I$(CUDA_INCLUDE_DIR) $(CXXFLAGS) -c -o $@ $^
+
 .PHONY: clean
 clean:
 	rm -f $(OBJ_DIR)/* $(BIN_DIR)/client-tool $(LIB_DIR)/libcuinterpose.so
