@@ -12,13 +12,32 @@ Installing
 
 .. code-block:: bash
 
-    pip3 install pyalnair
+    pip3 install alnairjob
 
 Usage
 =====
 
-.. code-block:: bash
+.. code-block:: python
 
-    >>> from src.example import custom_sklearn
-    >>> custom_sklearn.get_sklearn_version()
-    '0.24.2'
+    from AlnairJob import AlnairJobDataset, AlnairJobDataLoader
+    
+    # ImageNetDataset Class Example:
+    class ImageNetDataset(AlnairJobDataset):
+        def __init__(keys, ...):
+            super().__init__(keys)
+            ...
+        
+        def __convert__(self):
+            ...
+        
+        def __getitem__(self):
+            ...
+        
+        def __len__(self):
+            ...
+    
+    # In your main program
+    val_dataset = ImageNetDataset(keys=['imagenet-mini/val'], transform=transform)
+    ...
+    val_loader = AlnairJobDataLoader(val_dataset, ...)
+    
