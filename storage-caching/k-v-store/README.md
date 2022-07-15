@@ -10,7 +10,7 @@ This project aims to develop a K8s-based storage caching system for speeding up 
     - performs data persistence by periodically flushing data into NFS storage
 - AlnairPod: is a [CRD](./alnairpod-operator) resource associated with a ConfigMap and a Pod, in which the latter hosts a Client container and a DLJob container.
     - Client Container: communicates with GM and share data location in Redis with DLJob. This container is automatically created when deploying an AlnairPod, and act as a daemon process of bridging DLJobs and Cache Cluster.
-    - DLJob Container: is the container where DL training or inference jobs are running. Users are required to subclass our [AlnairJobDataset](./examples/lib/AlnairJobDataset.py) class and initialize the [AlnairJobDataLoader](./examples/lib/AlnairJobDataLoader.py) class, as what they do when defining Pytorch custom Dataset.
+    - DLJob Container: is the container where DL training or inference jobs are running. Users are required to subclass our AlnairJobDataset class and initialize the AlnairJobDataLoader, as what they do when defining Pytorch custom Dataset.
 - Redis Cluster: is a key-value caching system deployed as a K8s StatefulSet.
     - Content hashing is executed when generating keys. 
     - When data eviction is enabled, GM automatically dumps data that are likely to be evicted into NFS. 
@@ -45,7 +45,7 @@ git pull origin main
 cd alnair-k-v-store/storage-caching/k-v-store
 ```
 
-### Step 1. Cache Cluster
+### Step 1. Redis Statefulset
 Redis configurations are saved in [config.yaml](./cache-cluster/cacher/Redis/cluster/config.yaml). To run more servers (default to 3), change the `replicas` field in the [cluster.yaml]((./cache-cluster/cacher/Redis/cluster/cluster.yaml)) file.
 
 ```bash
@@ -79,24 +79,28 @@ sh nfs.sh <CIDR> # example: sh nfs.sh 192.168.41.0/24
 # deploy GM
 kubectl apply -f .
 ```
-### Step 4. 
-Follow the [README](./alnairpod-operator/README.md) file to deploy AlnairPod operator and run its controller in your cluster.
 
 ## AlnairPod Development and Deployment
-### Step 1. Write Deep Learning Job
-Install the alnairjob library using pip.
+### Step 1. Create CRD 
+```bash
+cd alnairpod-operator
+make install run
+```
+
+### Step 2. Write Deep Learning Job
+Install the [alnairjob](https://pypi.org/project/alnairjob/) library using pip.
 ```bash
 pip3 install alnairjob
 ```
 All datasets that represent a map from keys to data samples should subclass
-the [AlnairJobDataset](./examples/lib/AlnairJobDataset.py) class. All subclasses should overwrite:
+the AlnairJobDataset class. All subclasses should overwrite:
 - meth:`__convert__`: supporting pre-processing loaded data. Data are saved as key-value map before calling this method. You are responsible for reshaping the dict to desired array.
 - meth:`__getitem__`: supporting fetching a data sample for a given index.
 - meth:`__len__`: returning the size of the dataset
 
-To traverse the created dataset, initialize an object of [AlnairJobDataLoader](./examples/lib/AlnairJobDataLoader.py) as the normal way of creating a PyTorch Dataloader. 
+To traverse the created dataset, initialize an object of AlnairJobDataLoader as the normal way of creating a PyTorch Dataloader. 
 
-### Step 2. Example: Create an Imagenet AlnirPod
+### Step 3. Example: Create an Imagenet AlnirPod
 The Imagenet-Mini dataset is availabel on [Kaggle](https://www.kaggle.com/datasets/ifigotin/imagenetmini-1000).
 
 Please refer [ImageNetMiniDataset](./examples/imagenet/src/ImageNetMiniDataset.py) for Dataset implementation. Then, in your main program:
@@ -116,7 +120,7 @@ The below shows an example alnairpod secret and ImageNet AlnairPod. Make sure yo
 apiVersion: v1
 kind: Secret
 metadata:
-  name: alnairpod-client-secret
+  name: client-secret
   namespace: default
 type: Opaque
 stringData:
@@ -133,7 +137,7 @@ metadata:
   namespace: default
 spec:
   secret:  # ensure you have created the Secret that contains 
-    name: alnairpod-client-secret
+    name: client-secret
   jobs: # all fields supported by a regular Pod container are supported here.
   - name: job
     image: centaurusinfra/imagenet:latest
@@ -152,4 +156,4 @@ spec:
     tty: true
     stdin: true
 ```
-DL Job will automatically start once data are loaded from S3 to Redis. The GM checks and copies data only if they are unavailable in the Cache Cluster or modified since last use. Therefore, the time in the first execution includes the time of downloading data.
+The Imagenet job will automatically start once data are loaded from S3 to Redis. The GM checks and copies data only if they are unavailable in the Cache Cluster or modified since last use. Therefore, the time in the first execution includes the time of downloading data.
