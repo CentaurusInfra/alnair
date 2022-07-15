@@ -27,9 +27,8 @@ limitations under the License.
 #include "cuda_metrics.h"
 
 const char metrices_file[] = "/var/lib/alnair/workspace/metrics.log";
-static pthread_t pf_thread;
 
-static struct cuda_metrics_t pf = {
+cuda_metrics_t pf = {
     .mutex = PTHREAD_MUTEX_INITIALIZER,
     .kernelCnt = 0,
     .memUsed = 0,
@@ -41,27 +40,25 @@ static struct cuda_metrics_t pf = {
     }
 };
 
-static void log_api_call(const char *pid, const int memUsed, const int kernelCnt, const int tokens) 
+void log_api_call(const int pid, const int memUsed, const int kernelCnt, const int tokens) 
 {                                                                                               
     std::chrono::time_point<std::chrono::system_clock> now = std::chrono::system_clock::now();  
     auto duration = now.time_since_epoch();                                                     
     std::ofstream fmet (metrices_file);                                                                         
     //print timestamp at nano seconds when a cuda API is called                                                                     
-    fmet << pid << " " << kernelCnt << " " << memUsed << " "  << tokens << std::endl;                                     
+    fmet << "pid:" << pid << "\nkernel-cnt:" << kernelCnt << "\nmem-used:" << memUsed << "\ntoken-cnt: "  << tokens << std::endl;                                     
     fmet.close();                                                                               
 }  
 
-static void* profiling_thread_func(void *arg) 
+void* profiling_thread_func(void *arg) 
 {
     
     while(true) {
         unsigned int curGroupUsage;
         int ret;
-        pthread_mutex_lock(&pf.mutex);
-        log_api_call(pf.pid, pf.memUsed, pf.kernelCnt, pf.token) 
-        pthread_mutex_unlock(&pf.mutex);        
-
-wait:
+        // pthread_mutex_lock(&pf.mutex);
+        log_api_call(pf.pid, pf.memUsed, pf.kernelCnt, pf.token);
+        // pthread_mutex_unlock(&pf.mutex);        
         nanosleep(&pf.period, NULL);
     }
 
