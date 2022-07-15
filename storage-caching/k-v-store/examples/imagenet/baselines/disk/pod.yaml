@@ -4,6 +4,8 @@ metadata:
   name: imagenet-base
   namespace: default
 spec:
+  nodeSelector:
+    alnair: Client
   containers:
   - name: job
     image: zhuangweikang/imagenet-base:latest

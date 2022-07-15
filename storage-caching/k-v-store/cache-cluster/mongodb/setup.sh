@@ -12,25 +12,8 @@ then
         sleep 3
     done
     
-    kubectl exec -it mongo-0 -n default -- mongo admin
-    # TODO: Execute the following commands in mongodb
-    # rs.initiate()
-    # var cfg = rs.conf()
-    # cfg.members[0].host="mongo-0.mongo:27017"
-    # rs.reconfig(cfg)
-    # rs.add("mongo-1.mongo:27017")
-    # rs.status()
-    # db.createUser(
-    # {
-    #     user: "alnair",
-    #     pwd: "alnair",
-    #     roles: [
-    #             { role: "userAdminAnyDatabase", db: "admin" },
-    #             { role: "readWriteAnyDatabase", db: "admin" },
-    #             { role: "dbAdminAnyDatabase", db: "admin" },
-    #             { role: "clusterAdmin", db: "admin" }
-    #         ]
-    # })
+    kubectl cp init.js mongo-0:/tmp
+    kubectl exec -it mongo-0 -n default -- mongo admin < /tmp/init.js
 elif [ $1 == "del" ]
 then
     kubectl delete -k .

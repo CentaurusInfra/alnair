@@ -27,6 +27,8 @@ spec:
     metadata:
       labels:
         app: manager
+      annotations:
+        k8s.v1.cni.cncf.io/networks: macvlan-conf
     spec:
       nodeSelector:
         alnair: CacheCluster

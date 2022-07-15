@@ -89,7 +89,7 @@ class Manager(object):
         return rc           
     
     def auth_job(self, jobId):
-        result = self.cacherdb.Job.find_one(filter={"meta.jobId": jobId})
+        result = self.job_col.find_one(filter={"meta.jobId": jobId})
         return result if result is not None else None
     
     def calculate_chunk_size(self, dataset_info: dict, qos=None):
@@ -152,9 +152,9 @@ class Manager(object):
                 {"$group": {"_id": "$_id", "keys": {"$push": "$key"}}},
             ]
         
-        if 'maxmemory-policy' not in self.redis_conf:
-            evict_policy = self.redis_config['maxmemory-policy']
-        else:
+        try:
+            evict_policy = self.redis_conf['maxmemory-policy']
+        except:
             evict_policy = "allkeys-lru"
         try:
             pipeline = {
@@ -491,7 +491,7 @@ class CacheMissService(pb_grpc.CacheMissServicer):
         rc = self.manager.auth_client(cred, conn_check=True)
         if rc != pb.RC.CONNECTED:
             return
-        chunk = self.cacherdb.Job.aggregate([
+        chunk = self.manager.job_col.aggregate([
             {"$project": {
                 "_id": 0, 
                 "chunk": {
