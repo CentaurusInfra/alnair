@@ -24,8 +24,8 @@ spec:
     metadata:
       labels:
         app: redis-cluster
-      annotations:
-        k8s.v1.cni.cncf.io/networks: macvlan-conf
+      # annotations:
+      #   k8s.v1.cni.cncf.io/networks: macvlan-conf
     spec:
       nodeSelector:
         alnair: CacheCluster

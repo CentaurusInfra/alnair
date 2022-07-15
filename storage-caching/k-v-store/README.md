@@ -26,16 +26,34 @@ This project aims to develop a K8s-based storage caching system for speeding up 
 - AWS S3 Credential
 
 In the below example, we'll run the Cache Cluster on Worker nodes and AlnairPods on the Master node.
+```bash
+kubectl taint nodes $(hostname | awk '{print tolower($0)}') node-role.kubernetes.io/master-
 
-### Step 1. Redis Statefulset (3 replicas)
-Redis configurations are saved in [config.yaml](./cache-cluster/cacher/Redis/cluster/config.yaml). Please change and remember the `masterauth` and `requirepass` fields and uncomment the `bind=0.0.0.0`. For data eviction, consider to configure `maxmemory-policy`, `maxmemory` and `maxmemory-samples`. To run more instances, change the `replicas` field in the [cluster.yaml]((./cache-cluster/cacher/Redis/cluster/cluster.yaml)) file.
+kubectl label node --overwrite $(hostname) alnair=Client
+workers=$(kubectl get nodes --no-headers=true --selector=kubernetes.io/hostname!=$(hostname) | awk '{print $1}')
+kubectl label node --overwrite $workers alnair=CacheCluster
+```
+Clone the repository
+```bash
+mkdir alnair-k-v-store
+cd alnair-k-v-store
+git init
+git remote add -f origin https://github.com/CentaurusInfra/alnair.git
+git config core.sparsecheckout true
+echo "storage-caching/k-v-store" >> .git/info/sparse-checkout
+git pull origin main
+cd alnair-k-v-store/storage-caching/k-v-store
+```
+
+### Step 1. Cache Cluster
+Redis configurations are saved in [config.yaml](./cache-cluster/cacher/Redis/cluster/config.yaml). To run more servers (default to 3), change the `replicas` field in the [cluster.yaml]((./cache-cluster/cacher/Redis/cluster/cluster.yaml)) file.
 
 ```bash
 cd cache-cluster/cacher/Redis/cluster
-sh setup.sh init direct # enter `yes` when you see the prompt
+sh setup.sh init # enter `yes` when you see the prompt
 ```
 
-If clients are from a different K8s cluster than the Cache Cluster, please set the `enable_proxy` knob to true in the [config.yaml](./cache-cluster/manager/configmap.yaml). This will enable the envoy-proxy mode. Then, execute:
+(Optional) If clients are from a different K8s cluster than the Cache Cluster, please set the `enable_proxy` knob to true in the [config.yaml](./cache-cluster/manager/configmap.yaml). This will enable the envoy-proxy mode. Then, execute:
 ```bash
 kubectl apply -f envoy-proxy-config.yaml
 kubectl apply -f envoy-proxy-deploy.yaml
@@ -53,28 +71,48 @@ sh setup.sh init
 ```
 
 ### Step 3. Global Manager (GM) Deployment
-Edit the [configmap.yaml](cache-cluster/manager/configmap.yaml) to define configurations of the manager, mongodb, and redis_proxy. To enable data persistence, execute [nfs.sh](cache-cluster/manager/nfs.sh) to set up NFS server on all worker nodes. Then execute:
+Edit the [configmap.yaml](cache-cluster/manager/configmap.yaml) to define configurations of the manager and mongodb. To enable data persistence, execute [nfs.sh](cache-cluster/manager/nfs.sh) to set up NFS server on all worker nodes.
 ```bash
 cd cache-cluster/manager/
+sh nfs.sh <CIDR> # example: sh nfs.sh 192.168.41.0/24
+
+# deploy GM
 kubectl apply -f .
 ```
-### Step 4. Deploy AlnairPod CRD
+### Step 4. 
 Follow the [README](./alnairpod-operator/README.md) file to deploy AlnairPod operator and run its controller in your cluster.
 
 ## AlnairPod Development and Deployment
 ### Step 1. Write Deep Learning Job
+Install the alnairjob library using pip.
+```bash
+pip3 install alnairjob
+```
 All datasets that represent a map from keys to data samples should subclass
 the [AlnairJobDataset](./examples/lib/AlnairJobDataset.py) class. All subclasses should overwrite:
 - meth:`__convert__`: supporting pre-processing loaded data. Data are saved as key-value map before calling this method. You are responsible for reshaping the dict to desired array.
-- meth:`__getitem__`: supporting fetching a data sample for a given index. Subclasses could also optionally overwrite
+- meth:`__getitem__`: supporting fetching a data sample for a given index.
 - meth:`__len__`: returning the size of the dataset
 
 To traverse the created dataset, initialize an object of [AlnairJobDataLoader](./examples/lib/AlnairJobDataLoader.py) as the normal way of creating a PyTorch Dataloader. 
 
-More examples can be found [here](./examples/). Please create a Docker image for the application before moving to the next step.
 ### Step 2. Example: Create an Imagenet AlnirPod
-The below shows an example alnairpod secret and ImageNet AlnairPod.
+The Imagenet-Mini dataset is availabel on [Kaggle](https://www.kaggle.com/datasets/ifigotin/imagenetmini-1000).
+
+Please refer [ImageNetMiniDataset](./examples/imagenet/src/ImageNetMiniDataset.py) for Dataset implementation. Then, in your main program:
+```python
+from AlnairJob import AlnairJobDataset, AlnairJobDataLoader
+
+val_dataset = ImageNetDataset(keys=['imagenet-mini/val'], transform=transform)
+...
+val_loader = AlnairJobDataLoader(val_dataset, batch_size=args.batch_size, shuffle=False num_workers=args.workers, pin_memory=True, sampler=val_sampler)
+...
+```
+
+The below shows an example alnairpod secret and ImageNet AlnairPod. Make sure you have wrapped your DL Job in a Docker image.
+
 ```yaml
+---
 apiVersion: v1
 kind: Secret
 metadata:
@@ -98,20 +136,20 @@ spec:
     name: alnairpod-client-secret
   jobs: # all fields supported by a regular Pod container are supported here.
   - name: job
-    image: <your repository>/imagenet:latest
+    image: centaurusinfra/imagenet:latest
     command: ["python3", "main.py"]
     datasource: # required field
       name: ImageNet-Mini
       bucket: <your s3 bucket name>
-      keys: # prefix is supported
+      keys: # prefix is supported, must be valid object keys/prefix in S3
       - imagenet-mini/train
       - imagenet-mini/val
     configurations:
       usecache: true # use Cache Cluster(true) or S3(false)
       maxmemory: 0 # unlimited
       durabilityindisk: 1440
-      lazyloading: true # lazy loading saves memory
+      lazyloading: true # lazy loading mode saves memory
     tty: true
     stdin: true
 ```
-DL Job will automatically start once data are loaded from S3 to Redis. The framework checks and copies data only if it's unavailable in the Cache Cluster or modified since last use.
+DL Job will automatically start once data are loaded from S3 to Redis. The GM checks and copies data only if they are unavailable in the Cache Cluster or modified since last use. Therefore, the time in the first execution includes the time of downloading data.

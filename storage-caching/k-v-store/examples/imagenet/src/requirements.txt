@@ -2,4 +2,4 @@ torch
 torchvision
 redis
 boto3
-hazelcast-python-client
+alnairjob
