@@ -145,6 +145,8 @@ static pthread_once_t post_cuinit_ctrl = PTHREAD_ONCE_INIT;
 static volatile bool pre_initialized = false;
 static volatile bool post_initialized = false;
 
+static unsigned int proc_id; // GPU proc_id on the pod, assume there is only one GPU assigned, and one process per pod on the GPU
+
 static std::string parse_containerID(const std::string& cgroup) // func not used, and the "docker-" may not exist due to different k8s version
 {
     std::size_t begin = cgroup.find("docker-");
@@ -184,7 +186,7 @@ static int get_current_mem_usage(unsigned long long* totalUsage)
 {
     // get process ids within the same container
     std::set<unsigned int> pids;
-    read_pids(pids);
+    // read_pids(pids);
 
     // get per process gpu memory usage
     unsigned int numProc = MAXPROC;
@@ -195,7 +197,11 @@ static int get_current_mem_usage(unsigned long long* totalUsage)
     *totalUsage = 0;
     for(int i=0; i < numProc; ++i) {
         unsigned int pid = procInfos[i].pid;
-        if(pids.find(pid) != pids.end()) (*totalUsage) += procInfos[i].usedGpuMemory;
+        // if(pids.find(pid) != pids.end()) (*totalUsage) += procInfos[i].usedGpuMemory;
+        if(pid == proc_id) {
+            (*totalUsage) += procInfos[i].usedGpuMemory;
+            break;
+        }
     }
 
 //////////////////////////////////
@@ -247,7 +253,7 @@ static size_t get_size_of(CUarray_format fmt)
     return bytesize;
 }
 
-static int get_current_group_usage(unsigned int* groupUsage)
+static unsigned int find_proc()
 {
     nvmlReturn_t ret;
     nvmlDevice_t device;
@@ -273,10 +279,48 @@ static int get_current_group_usage(unsigned int* groupUsage)
         return -1;
     }
 
+    for(int i=0; i < numProc; ++i) {
+        unsigned int pid = sample[i].pid;
+        if(pids.find(pid) != pids.end()) return pid;
+    }
+
+    return -1;
+}
+
+static int get_current_group_usage(unsigned int* groupUsage)
+{
+    nvmlReturn_t ret;
+    nvmlDevice_t device;
+    nvmlProcessUtilizationSample_t sample[1024];
+    unsigned int numProc = 1024;
+    struct timeval now;
+    size_t microsec;
+
+    std::set<unsigned int> pids;
+    // read_pids(pids);
+
+    ret = nvmlDeviceGetHandleByIndex(0, &device);   //limits: only assume this container mount 1 GPU
+    if(NVML_SUCCESS != ret) {
+        fprintf(stderr, "Failed nvmlDeviceGetHandleByIndex: %s\n", nvmlErrorString(ret));
+        return -1;
+    }
+
+    gettimeofday(&now, NULL);
+    microsec = (now.tv_sec-1)*1000000 + now.tv_usec;
+    ret = nvmlDeviceGetProcessUtilization(device, sample, &numProc, microsec);
+    if(NVML_SUCCESS != ret) {
+        fprintf(stderr, "Failed nvmlDeviceGetProcessUtilization: %s\n", nvmlErrorString(ret));
+        return -1;
+    }
+
     *groupUsage = 0;
     for(int i=0; i < numProc; ++i) {
         unsigned int pid = sample[i].pid;
-        if(pids.find(pid) != pids.end()) (*groupUsage) += sample[i].smUtil;
+        // if(pids.find(pid) != pids.end()) (*groupUsage) += sample[i].smUtil;
+        if(pid == proc_id) {
+            (*groupUsage) += sample[i].smUtil;
+            break;
+        }
     }
 
     return 0;
@@ -382,6 +426,15 @@ static void post_cuinit(void)
     tb.cur_tokens = tb.fill_rate_cap;
     //fprintf(stderr, "fill_rate_cap: %u, max_burst: %u\n", tb.fill_rate_cap, tb.max_burst);
 
+    //
+    // find proc_id for the GPU process
+    //
+    proc_id = find_proc();
+    if (proc_id < 0) {
+        fprintf(stderr,"ERROR: there is no valid process id for GPU process.\n");
+    }
+    pf.pid = proc_id;
+    
     // thread to fill the token bucket
     pthread_t tb_thread;
     res = pthread_create(&tb_thread, NULL, tb_thread_start, NULL);
@@ -545,7 +598,7 @@ CUresult cuMemGetInfo_posthook(size_t* free, size_t* total)
 {
     // get process ids within the same container
     std::set<unsigned int> pids;
-    read_pids(pids);
+    // read_pids(pids);
 
     // get per process gpu memory usage
     unsigned int procCount = MAXPROC;
@@ -558,7 +611,11 @@ CUresult cuMemGetInfo_posthook(size_t* free, size_t* total)
 
     for(int i=0; i < procCount; ++i) {
         unsigned int pid = procInfos[i].pid;
-        if(pids.find(pid) != pids.end()) totalUsed += procInfos[i].usedGpuMemory;
+        // if(pids.find(pid) != pids.end()) totalUsed += procInfos[i].usedGpuMemory;
+        if(pid == proc_id) {
+            totalUsed += procInfos[i].usedGpuMemory;
+            break;
+        } 
     }
 
     *total = gpuMemLimit;
