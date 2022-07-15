@@ -25,7 +25,7 @@ class Client(FileSystemEventHandler):
         secret.read("/secret/client.conf")
         aws_s3_sec = dict(secret["aws_s3"].items())
         
-        self.rj = [] # jobs using redis cache
+        self.rj = [] # jobs using cache cluster
         self.sj = [] # jobs using s3
         for f in glob.glob('/jobs/*.json'):
             with open(f, 'rb') as f:
@@ -80,6 +80,7 @@ class Client(FileSystemEventHandler):
         for job in self.rj:
             qos = job['qos']
             ds = job['datasource']
+            if 'keys' not in ds: ds['keys'] = []
             request = pb.RegisterRequest(
                 cred=self.cred,
                 datasource=pb.DataSource(name=ds['name'], bucket=ds['bucket'], keys=ds['keys']),
@@ -87,20 +88,14 @@ class Client(FileSystemEventHandler):
                 resource=pb.ResourceInfo(CPUMemoryFree=get_cpu_free_mem(), GPUMemoryFree=get_gpu_free_mem())
             )
             logger.info('waiting for data preparation')
-            resp_stream = self.reg_stub.register(request)
-            resp = None
+            resp = self.reg_stub.register(request)
             logger.info('receiving registration response stream')
-            for r in resp_stream:    
-                if r.rc == pb.RC.REGISTERED:
-                    r = r.regsucc
-                    if resp is None:
-                        resp = r
-                    else:
-                        resp.policy.chunkKeys.extend(r.policy.chunkKeys)
-                else:
-                    resp = resp.regerr
-                    logger.error("failed to register job {}: {}".format(job['name'], resp.error))
-                    os.kill(os.getpid(), signal.SIGINT)
+            if resp.rc == pb.RC.REGISTERED:
+                resp = resp.regsucc
+            else:
+                resp = resp.regerr
+                logger.error("failed to register job {}: {}".format(job['name'], resp.error))
+                os.kill(os.getpid(), signal.SIGINT)
             self.reg_rj[job['name']] = resp.jinfo
             logger.info('registered job {}, assigned jobId is {}'.format(job['name'], resp.jinfo.jobId))
             with open('/share/{}.json'.format(job['name']), 'w') as f:

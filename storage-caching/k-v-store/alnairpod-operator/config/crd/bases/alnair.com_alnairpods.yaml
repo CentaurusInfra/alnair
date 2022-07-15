@@ -74,6 +74,9 @@ spec:
                         durabilityindisk:
                           description: Duration data should be stored on disk
                           type: integer
+                        lazyloading:
+                          description: Load data in a lazy way
+                          type: boolean
                         maxmemory:
                           description: Max memory in MB can be used by DLT job
                           format: int64

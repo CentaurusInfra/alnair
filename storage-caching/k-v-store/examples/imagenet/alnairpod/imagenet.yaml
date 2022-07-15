@@ -6,6 +6,8 @@ metadata:
 spec:
   secret:
     name: alnairpod-client-secret
+  nodeSelector:
+    alnair: Client
   jobs:
   - name: job
     image: zhuangweikang/imagenet:latest
@@ -21,5 +23,6 @@ spec:
       usecache: true
       maxmemory: 0
       durabilityindisk: 1440
+      lazyloading: true
     tty: true
     stdin: true

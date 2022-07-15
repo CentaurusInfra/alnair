@@ -216,7 +216,7 @@ def main_worker(gpu, ngpus_per_node, args):
 
     # Data loading code
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                     std=[0.229, 0.224, 0.225])
+                                    std=[0.229, 0.224, 0.225])
 
     transform = transforms.Compose([
         transforms.RandomResizedCrop(224),
@@ -224,17 +224,22 @@ def main_worker(gpu, ngpus_per_node, args):
         transforms.ToTensor(),
         normalize,
     ])
-                                   
+    
+    t = time.time()
     val_dataset = ImageNetDataset(keys=['imagenet-mini/val'], transform=transform)
+    print('dataset init time: ', time.time()-t)
+    
     if args.distributed:
         val_sampler = torch.utils.data.distributed.DistributedSampler(val_dataset, shuffle=False, drop_last=True)
     else:
         val_sampler = None
 
+    t = time.time()
     val_loader = AlnairJobDataLoader(
         val_dataset, batch_size=args.batch_size, shuffle=False,
         num_workers=args.workers, pin_memory=True, sampler=val_sampler)
-
+    print('dataloader init time: ', time.time()-t)
+    
     if args.evaluate:
         validate(val_loader, model, criterion, args)
         return
@@ -332,9 +337,15 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
 
 def validate(val_loader, model, criterion, args):
     with torch.no_grad():
-        end = time.time()
-        for i, (images, target) in enumerate(val_loader):
-            pass
+        t = time.time()
+        while True:
+            try:
+                next(val_loader)
+                e = time.time()
+                print(e-t)
+                t = e
+            except StopIteration:
+                break
     return 1
 
 

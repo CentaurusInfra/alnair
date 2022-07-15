@@ -1,11 +1,12 @@
-import multiprocessing
+from math import inf
+import pickle
 import os
 import json
 from typing import Any, List, Tuple
 import redis
-import math
-from torch.utils.data import Dataset
 import concurrent.futures
+import multiprocessing
+from torch.utils.data import Dataset
 
 
 class dotdict(dict):
@@ -40,11 +41,13 @@ class AlnairJobDataset(Dataset):
         self.__keys = keys
         self.qos = self.load_metainfo()['qos']
         self.jobinfo = self.load_jobinfo()
+        self.chunks = []
+        self.__targets = None
         if self.qos['UseCache']: # use datasource from Redis
-            r = dotdict(self.jobinfo.jinfo).redisauth
+            r = dotdict(self.jobinfo.jinfo).ccauth
             r = dotdict(r)
-            self.client = redis.Redis(host=r.host, port=r.port, username=r.username, password=r.password)
-            self.chunks = self.get_all_redis_keys()
+            self.client = redis.RedisCluster(host=r.host, port=r.port, username=r.username, password=r.password)
+            self.load_all_redis_keys()
         else:
             import configparser, boto3
             
@@ -58,12 +61,74 @@ class AlnairJobDataset(Dataset):
             )
             self.client = s3_session.client('s3')
             self.bucket_name = self.jobinfo['datasource']['bucket']
-            self.chunks = self.get_all_s3_keys()
-        
-        self.__index = 0
-        self.loaded_chunks = []
-        self.load_data()
+            self.load_all_s3_keys()
+        self.load_data(0)
 
+    @property
+    def data(self):
+        return self.__data
+    @property
+    def keys(self):
+        return self.__keys
+    @property
+    def targets(self):
+        return self.__targets
+    
+    def load(self, key):
+        if self.qos['UseCache']:
+            val = self.client.get(key)
+            if val is None: # cache missing
+                with open('/share/cachemiss', 'w') as f:
+                    f.writelines(key)
+                while True:
+                    val = self.client.get(key)
+                    if val is not None:
+                        break
+        else:
+            val = self.client.get_object(Bucket=self.bucket_name, Key=key)['Body'].read()
+        return val
+
+    def mload(self, chunks):
+        if self.qos['UseCache']:
+            keys = [x['key'] for x in chunks]
+            # with self.client.pipeline() as pl:
+            #     for k in keys:
+            #         pl.get(k)
+            #     vals = pl.execute()
+            vals = self.client.mget(keys)
+            for i in range(len(vals)):
+                if vals[i] is None:
+                    with open('/share/cachemiss', 'w') as f:
+                        f.writelines(keys[i])
+                    while True:
+                        val = self.client.get(keys[i])
+                        if val is not None:
+                            vals[i] = val
+                            break
+                self.__keys.append(chunks[i]['name'])
+                self.__data[chunks[i]['name']] = vals[i]
+        else:
+            vals = []
+            def helper(chunk):
+                val = self.client.get_object(Bucket=self.bucket_name, Key=chunk['key'])['Body'].read()
+                self.__keys.append(chunk['key'])
+                self.__data[chunk['name']] = val
+            with concurrent.futures.ThreadPoolExecutor(max_workers=multiprocessing.cpu_count()) as executor:
+                futures = []
+                for chunk in chunks:
+                    futures.append(executor.submit(helper, chunk))
+            concurrent.futures.wait(futures)
+        return vals
+                    
+    def get_data(self, index):
+        if self.qos['LazyLoading']:
+            return self.load(self.data[index])
+        else:
+            return self.data[index]
+    
+    def get_target(self, index):
+        return self.targets[index]
+        
     def load_metainfo(self):
         with open('/jobs/{}.json'.format(self.jobname), 'r') as f:
             jobinfo = json.load(f)
@@ -82,114 +147,86 @@ class AlnairJobDataset(Dataset):
             jobinfo = self.load_metainfo()
         return dotdict(jobinfo)
 
-    def get_all_redis_keys(self):
-        chunks = dotdict(self.jobinfo.policy).chunkKeys
-        if self.__keys is None: return chunks
-        temp = []
-        for chunk in chunks:
+    def load_all_redis_keys(self):
+        snapshot = dotdict(self.jobinfo.policy).snapshot
+        maxmem = self.qos['MaxMemory']*1024*1024
+        keys = snapshot if self.__keys is None else self.__keys
+        keys = []
+        if self.__keys is not None:
             for k in self.__keys:
-                if chunk['name'].startswith(k):
-                    temp.append(chunk)
-                    break
-        chunks = temp
-        return chunks
-    
-    def get_all_s3_keys(self):
-        chunks = []
-        for bk in self.jobinfo['datasource']['keys']:
-            paginator = self.client.get_paginator('list_objects_v2')
-            pages = paginator.paginate(Bucket=self.bucket_name, Prefix=bk)
-            for page in pages:
-                for item in page['Contents']:
-                    if self.__keys is not None:
-                        for k in self.__keys:
-                            if item['Key'].startswith(k):
-                                chunks.append({'name': item['Key'], 'key': item['Key'], 'size': item['Size']})
-                                break
-                    else:
-                        chunks.append({'name': item['Key'], 'key': item['Key'], 'size': item['Size']})
-        return chunks
-    
-    def load_chunksubset(self, start):
-        if self.qos['MaxMemory'] == 0: # load all data into memory
-            chunks = self.get_all_redis_keys() if self.qos['UseCache'] else self.get_all_s3_keys()
-            return chunks, len(self.chunks)
+                keys.append("{%s}%s" % (dotdict(self.jobinfo.jinfo).jobId, k))
         else:
-            chunks = []
-            total_size = 0
-            i = start
-            while i < len(self.chunks):
-                total_size += int(self.chunks[i]['size'])
-                if self.chunks[i]['size'] > self.qos['MaxMemory']*1024*1024:
-                    raise Exception('File {} size is greater than assigned MaxMemory.'.format(self.chunks[i]['name']))
-                if total_size > self.qos['MaxMemory']*1024*1024:
-                    break
-                else:
-                    chunks.append(self.chunks[i])
-                    i += 1
-            return chunks, i
-        
-    @property
-    def data(self):
-        return self.__data
-    @property
-    def keys(self):
-        return self.__keys
-    @property
-    def targets(self):
-        return self.__targets
+            keys = snapshot
+        tmp = []
+        for s in self.client.mget(keys):
+            for obj in pickle.loads(s).values():
+                tmp.extend(obj)
+        snapshot = tmp
 
-    @property
-    def index(self):
-        return self.__index
-    @index.setter
-    def index(self, value):
-        self.__index = value
-    
-    def load_data(self):
-        if self.index < len(self.chunks):
-            self.loaded_chunks, self.index = self.load_chunksubset(self.index)
-            self.__data = {}
-            
-            def helper(chunks, use_cache, client):
-                names = []
-                if use_cache:
-                    all_keys = [chunk['key'] for chunk in chunks]
-                    values = client.mget(all_keys)
-                    for i in range(len(values)):
-                        names.append(chunks[i]['name'])
-                        if values[i] is None: # cache missing
-                            with open('/share/cachemiss', 'w') as f:
-                                f.writelines([all_keys[i]])
-                            while True:
-                                value = client.get(all_keys[i])
-                                if value is not None:
-                                    values[i] = value
-                                    break
+        if maxmem == 0:
+            self.chunks.append(snapshot)
+        else:
+            total_size = 0
+            self.chunks.append([])
+            for chunk in snapshot:
+                s = int(chunk['size'])
+                total_size += s
+                if total_size > maxmem:
+                    self.chunks.append([])
+                    total_size = 0
+                elif s > maxmem:
+                    raise Exception('File {} size is greater than assigned MaxMemory.'.format(chunk['name']))
                 else:
-                    values = []
-                    for chunk in chunks:
-                        value = client.get_object(Bucket=self.bucket_name, Key=chunk['key'])['Body'].read()
-                        names.append(chunk['name'])
-                        values.append(value)
-                return names, values
-            
-            n_threads = multiprocessing.cpu_count()
-            with concurrent.futures.ThreadPoolExecutor(max_workers=n_threads) as executor:
-                futures = []
-                l = math.ceil(len(self.loaded_chunks)/n_threads)
-                for i in range(n_threads):
-                    futures.append(executor.submit(helper, self.loaded_chunks[i*l: (i+1)*l], self.qos['UseCache'], self.client))
-                for future in concurrent.futures.as_completed(futures):    
-                    result = future.result()
-                    for i in range(len(result[0])):
-                        self.__data[result[0][i]] = result[1][i]
-            
-            self.__keys = list(self.__data.keys())
-            self.__data, self.__targets = self.__preprocess__()
+                    self.chunks[-1].append(chunk)
+        
+    def load_all_s3_keys(self):
+        paginator = self.client.get_paginator('list_objects_v2')
+        if self.__keys is not None:
+            pages = []
+            for k in self.__keys:
+                pages.extend(paginator.paginate(Bucket=self.bucket_name, Prefix=k))
+        else:
+            pages = paginator.paginate(Bucket=self.bucket_name)
+        
+        maxmem = self.qos['MaxMemory']*1024*1024
+        maxmem = inf if maxmem==0 else maxmem
+        total_size = 0
+        self.chunks.append([])
+        for page in pages:
+            for item in page['Contents']:
+                chk = {'name': item['Key'], 'key': item['Key'], 'size': item['Size']}
+                s = int(chk['size'])
+                total_size += s
+                if total_size > maxmem:
+                    self.chunks.append([])
+                    total_size = 0
+                elif s > maxmem:
+                    raise Exception('File {} size is greater than assigned MaxMemory.'.format(chk['name']))
+                else:
+                    self.chunks[-1].append(chk)
     
-    def __preprocess__(self) -> Tuple[List, List]:
-        """preprocess self.__data
+    def load_data(self, index):
+        self.__data = {}
+        self.__keys = []        
+        if self.qos['LazyLoading']:
+            for chunk in self.chunks[index]:
+                self.__keys.append(chunk['name'])
+                self.__data[chunk['name']] = chunk['key']
+        else:
+            # def helper(chk):
+            #     val = self.load(chk['key'])
+            #     self.__keys.append(chk['name'])
+            #     self.__data[chk['name']] = val
+            # with concurrent.futures.ThreadPoolExecutor(max_workers=multiprocessing.cpu_count()) as executor:
+            #     futures = []
+            #     for chunk in self.chunks[index]:
+            #         futures.append(executor.submit(helper, chunk))
+            # concurrent.futures.wait(futures)
+            self.mload(self.chunks[index])
+        self.__data, self.__targets = self.__convert__()
+    
+    def __convert__(self) -> Tuple[List, List]:
+        """convert self.__data
 
         Return iteratable X, y that can be indexed by __get_item__
         
@@ -199,7 +236,15 @@ class AlnairJobDataset(Dataset):
         raise NotImplementedError
     
     def __getitem__(self, index: int) -> Any:
+        """
+        Args:
+            index (int): Index
+
+        Returns:
+            (Any): Sample and meta data, optionally transformed by the respective transforms.
+        """
         raise NotImplementedError
+
 
     def __len__(self) -> int:
         raise NotImplementedError

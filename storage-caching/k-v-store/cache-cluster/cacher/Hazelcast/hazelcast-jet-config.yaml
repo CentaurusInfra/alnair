@@ -5,6 +5,7 @@ metadata:
 data:
   hazelcast.yaml: |-
     hazelcast:
+      cluster-name: Alnair
       network:
         join:
           multicast:
@@ -20,10 +21,18 @@ data:
               enabled: true
       map:
         default:
-          in-memory-format: BINARY
-        statistics-enabled: true
+          read-backup-data: true
+          backup-count: 0
+          in-memory-format: OBJECT
+          time-to-live-seconds: 0
+          max-idle-seconds: 0
+          eviction:
+            eviction-policy: LRU
+            max-size-policy: PER_NODE
+            size: 0
+        statistics-enabled: false
       metrics:
-        enabled: true
+        enabled: false
         collection-frequency-seconds: 5
         jmx:
-          enabled: true
+          enabled: false

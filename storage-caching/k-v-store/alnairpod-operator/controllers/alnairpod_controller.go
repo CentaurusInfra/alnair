@@ -231,8 +231,9 @@ func (r *AlnairPodReconciler) createPod(ctx context.Context, alnairpod v1alpha1.
 			APIVersion: APIVersion,
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      alnairpod.Name,
-			Namespace: alnairpod.Namespace,
+			Name:        alnairpod.Name,
+			Namespace:   alnairpod.Namespace,
+			Annotations: map[string]string{"k8s.v1.cni.cncf.io/networks": "macvlan-conf"},
 		},
 		Spec: corev1.PodSpec{
 			Volumes:       volumes,

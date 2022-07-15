@@ -18,6 +18,7 @@ limitations under the License.
 #include <iostream>
 #include <string>
 #include <fstream>
+#include <chrono>
 #include <sstream>
 #include <set>
 #include <unistd.h>
@@ -30,6 +31,17 @@ limitations under the License.
 
 extern int register_cgroup(const char *cgroup, const char* alnairID);
 
+const char metrices_file[] = "/var/lib/alnair/workspace/metrics.log";
+static void log_api_call(const char *symbol) 
+{                                                                                               
+    std::chrono::time_point<std::chrono::system_clock> now = std::chrono::system_clock::now();  
+    auto duration = now.time_since_epoch();                                                     
+    std::ofstream fmet;                                                                         
+    fmet.open(metrices_file, std::fstream::app);  
+    //print timestamp at nano seconds when a cuda API is called                                                                     
+    fmet << duration.count() << ',' << symbol << std::endl;                                     
+    fmet.close();                                                                               
+}  
 /************************************************/
 #include <execinfo.h>
 static void print_trace (void)
@@ -403,6 +415,10 @@ CUresult cuInit_posthook (unsigned int Flags)
 
 CUresult cuMemAlloc_hook (CUdeviceptr* dptr, size_t bytesize)
 {
+    std::stringstream ss;
+    ss << "cuMemAlloc," << bytesize;
+    log_api_call(ss.str().c_str());
+
     return validate_memory(bytesize);
 }
 
@@ -465,6 +481,9 @@ CUresult cuLaunchKernel_hook(CUfunction f, unsigned int gridDimX, unsigned int g
 {
     CUresult cures = CUDA_SUCCESS;
     unsigned int cost = gridDimX * gridDimY * gridDimZ * blockDimX * blockDimY * blockDimZ;
+
+    //log_api_call("cuLaunchKernel");
+
     if(gpuComputeLimit == 100) goto exit;
     if(!pre_initialized) {
         fprintf(stderr, "pre_cuinit not finished yet\n");

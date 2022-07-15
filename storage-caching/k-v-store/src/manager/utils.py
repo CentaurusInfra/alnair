@@ -2,7 +2,6 @@ import logging
 from google.protobuf.timestamp_pb2 import Timestamp
 import pickle
 import hashlib
-import threading
 import boto3
 
 
