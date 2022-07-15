@@ -24,6 +24,7 @@ const (
 	alnairvGPUMemResource = "alnair/vgpu-memory"
 
 	alnairGPUID      = "ai.centaurus.io/alnair-gpu-id"
+	alnairID         = "ai.centaurus.io/alnair-id"
 	physicalGPUcnt   = "ai.centaurus.io/physical-gpu-count"
 	physicalGPUuuids = "ai.centaurus.io/physical-gpu-uuids"
 	virtualGPUcnt    = "ai.centaurus.io/vitual-gpu-count"
@@ -99,11 +100,11 @@ func PatchNode() error {
 	return nil
 }
 
-func PatchPod(gpuIds string, gpuCnt int) error {
+func PatchPod(gpuIds string, alnairIds string, gpuCnt int) error {
 
 	pod, _ := getPendingAlnairPod(gpuCnt)
 
-	patchData := map[string]interface{}{"metadata": map[string]map[string]string{"annotations": {alnairGPUID: gpuIds}}}
+	patchData := map[string]interface{}{"metadata": map[string]map[string]string{"annotations": {alnairGPUID: gpuIds, alnairID: alnairIds}}}
 	playLoadBytes, _ := json.Marshal(patchData)
 	namespace := pod.Namespace
 	podName := pod.Name
