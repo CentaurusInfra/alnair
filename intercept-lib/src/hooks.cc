@@ -185,7 +185,9 @@ static int get_current_mem_usage(unsigned long long* totalUsage)
 {
     // get process ids within the same container
     std::set<unsigned int> pids;
-    read_pids(pids);
+
+    if (proc_id == NO_PID)
+        read_pids(pids);
 
     // get per process gpu memory usage
     unsigned int numProc = MAXPROC;
@@ -196,13 +198,12 @@ static int get_current_mem_usage(unsigned long long* totalUsage)
     *totalUsage = 0;
     for(int i=0; i < numProc; ++i) {
         unsigned int pid = procInfos[i].pid;
-        if(pids.find(pid) != pids.end()) (*totalUsage) += procInfos[i].usedGpuMemory;
-        // if(pid == proc_id) {
-        //     proc_id = pid;
-
-        //     (*totalUsage) += procInfos[i].usedGpuMemory;
-        //     break;
-        // }
+        if (proc_id == NO_PID) {
+            if(pids.find(pid) != pids.end()) {(*totalUsage) += procInfos[i].usedGpuMemory;proc_id = pf.pid = pid; break;};
+        } else if(pid == proc_id) {
+            (*totalUsage) += procInfos[i].usedGpuMemory;
+            break;
+        }
     }
 
 //////////////////////////////////
@@ -285,7 +286,7 @@ static unsigned int find_proc()
         if(pids.find(pid) != pids.end()) return pid;
     }
 
-    return -2;
+    return NO_PID;
 }
 
 static int get_current_group_usage(unsigned int* groupUsage)
@@ -298,7 +299,8 @@ static int get_current_group_usage(unsigned int* groupUsage)
     size_t microsec;
 
     std::set<unsigned int> pids;
-    read_pids(pids);
+    if (proc_id == NO_PID)
+        read_pids(pids);
 
     ret = nvmlDeviceGetHandleByIndex(0, &device);   //limits: only assume this container mount 1 GPU
     if(NVML_SUCCESS != ret) {
@@ -317,13 +319,12 @@ static int get_current_group_usage(unsigned int* groupUsage)
     *groupUsage = 0;
     for(int i=0; i < numProc; ++i) {
         unsigned int pid = sample[i].pid;
-        if(pids.find(pid) != pids.end()) {(*groupUsage) += sample[i].smUtil; pf.pid = pid;};
-        // if(pid == proc_id) {
-        //     (*groupUsage) += sample[i].smUtil;
-        //     proc_id = pid;
-
-        //     break;
-        // }
+        if (proc_id == NO_PID) {
+            if(pids.find(pid) != pids.end()) {(*groupUsage) += sample[i].smUtil; proc_id = pf.pid = pid; break;};
+        } else if(pid == proc_id) {
+            (*groupUsage) += sample[i].smUtil;
+            break;
+        }
     }
 
     return 0;
@@ -603,7 +604,8 @@ CUresult cuMemGetInfo_posthook(size_t* free, size_t* total)
 {
     // get process ids within the same container
     std::set<unsigned int> pids;
-    read_pids(pids);
+    if (proc_id == NO_PID)
+        read_pids(pids);
 
     // get per process gpu memory usage
     unsigned int procCount = MAXPROC;
@@ -616,12 +618,13 @@ CUresult cuMemGetInfo_posthook(size_t* free, size_t* total)
 
     for(int i=0; i < procCount; ++i) {
         unsigned int pid = procInfos[i].pid;
-        if(pids.find(pid) != pids.end()) totalUsed += procInfos[i].usedGpuMemory;
-        // if(pid == proc_id) {
-        //     totalUsed += procInfos[i].usedGpuMemory;
-        //     proc_id = pid;
-        //     break;
-        // } 
+
+        if (proc_id == NO_PID) {
+            if(pids.find(pid) != pids.end()) {totalUsed += procInfos[i].usedGpuMemory; proc_id = pf.pid = pid; break;};
+        } else if(pid == proc_id) {
+            totalUsed += procInfos[i].usedGpuMemory;
+            break;
+        } 
     }
 
     *total = gpuMemLimit;

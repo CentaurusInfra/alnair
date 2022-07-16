@@ -15,6 +15,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+#define NO_PID  -2
+
 typedef struct cuda_metrics {
     pthread_mutex_t mutex;
     unsigned int kernelCnt;
@@ -23,3 +25,4 @@ typedef struct cuda_metrics {
     unsigned int token;
     struct timespec period;
 } cuda_metrics_t;
+
