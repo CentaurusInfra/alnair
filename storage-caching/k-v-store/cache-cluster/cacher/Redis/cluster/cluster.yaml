@@ -47,7 +47,7 @@ spec:
         command: ["sh", "-c"]
         args:
           - |
-            redis-server /etc/redis/redis.conf --bind $(ip route | grep net1 | awk '{print $NF}') --requirepass $REDIS_PWD --masterauth $REDIS_PWD
+            redis-server /etc/redis/redis.conf --bind $(cat /etc/hosts | grep redis | awk '{ print $1 }') --requirepass $REDIS_PWD --masterauth $REDIS_PWD
         ports:
         - containerPort: 6379
           protocol: TCP

@@ -156,4 +156,42 @@ spec:
     tty: true
     stdin: true
 ```
-The Imagenet job will automatically start once data are loaded from S3 to Redis. The GM checks and copies data only if they are unavailable in the Cache Cluster or modified since last use. Therefore, the time in the first execution includes the time of downloading data.
+You should see the following resources after execution:
+```text
+NAME                                     READY   STATUS    RESTARTS   AGE
+pod/alnairpod-manager-75b69c6d44-dxbcq   1/1     Running   0          4m28s
+pod/alnairpod-manager-75b69c6d44-m9jhv   1/1     Running   0          4m28s
+pod/alnairpod-manager-75b69c6d44-w76d6   1/1     Running   0          4m28s
+pod/imagenet-mini0                       2/2     Running   0          58s
+pod/mongo-0                              1/1     Running   0          7m42s
+pod/mongo-1                              1/1     Running   0          7m40s
+pod/redis-cluster-0                      1/1     Running   0          20m
+pod/redis-cluster-1                      1/1     Running   0          20m
+pod/redis-cluster-2                      1/1     Running   0          20m
+
+NAME                        TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)           AGE
+service/alnairpod-manager   NodePort    10.97.125.143    <none>        50051:32200/TCP   4m28s
+service/kubernetes          ClusterIP   10.96.0.1        <none>        443/TCP           33m
+service/mongo               NodePort    10.96.65.198     <none>        27017:30017/TCP   7m42s
+service/redis-cluster       ClusterIP   10.111.134.223   <none>        6379/TCP          20m
+
+NAME                                READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/alnairpod-manager   3/3     3            3           4m28s
+
+NAME                                           DESIRED   CURRENT   READY   AGE
+replicaset.apps/alnairpod-manager-75b69c6d44   3         3         3       4m28s
+
+NAME                             READY   AGE
+statefulset.apps/mongo           2/2     7m42s
+statefulset.apps/redis-cluster   3/3     20m
+```
+The Imagenet job is ready to execute once data are loaded from S3 to Redis. You should see Client starts sending Heartbeat message to GM:
+```bash
+$ kubectl logs -f imagenet-mini0 --container client
+2022-07-15 23:53:44,578 - __main__ - INFO - connect to server
+2022-07-15 23:53:44,590 - __main__ - INFO - waiting for data preparation
+2022-07-15 23:57:08,081 - __main__ - INFO - receiving registration response stream
+2022-07-15 23:57:08,081 - __main__ - INFO - registered job job, assigned jobId is alnair-client/ImageNet-Mini
+2022-07-15 23:57:08,082 - __main__ - INFO - send heartbeat
+```
+Note that the GM checks and copies data only if they are unavailable in the Cache Cluster or modified since last use. Therefore, the time in the first execution includes the time of downloading data.
