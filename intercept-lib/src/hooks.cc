@@ -144,7 +144,7 @@ static pthread_once_t post_cuinit_ctrl = PTHREAD_ONCE_INIT;
 static volatile bool pre_initialized = false;
 static volatile bool post_initialized = false;
 
-static unsigned int proc_id; // GPU proc_id on the pod, assume there is only one GPU assigned, and one process per pod on the GPU
+static unsigned int proc_id = NO_PID; // GPU proc_id on the pod, assume there is only one GPU assigned, and one process per pod on the GPU
 
 static std::string parse_containerID(const std::string& cgroup) // func not used, and the "docker-" may not exist due to different k8s version
 {
