@@ -20,7 +20,7 @@ limitations under the License.
 typedef struct cuda_metrics {
     pthread_mutex_t mutex;
     unsigned int kernelCnt;
-    unsigned int memUsed;
+    unsigned long long memUsed;
     unsigned int pid;
     unsigned int token;
     struct timespec period;

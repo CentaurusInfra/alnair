@@ -46,7 +46,7 @@ void log_api_call(const int pid, const int memUsed, const int kernelCnt, const i
     auto duration = now.time_since_epoch();                                                     
     std::ofstream fmet (metrices_file);                                                                         
     //print timestamp at nano seconds when a cuda API is called                                                                     
-    fmet << "pid:" << pid << "\nkernel-cnt:" << kernelCnt << "\nmem-used:" << memUsed << "\ntoken-cnt: "  << tokens << std::endl;                                     
+    fmet << "pid:" << pid << "\nkernel-cnt:" << kernelCnt << "\nmem-used:" << memUsed << "\ntoken-cnt:"  << tokens << std::endl;                                     
     fmet.close();                                                                               
 }  
 
