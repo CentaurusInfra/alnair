@@ -81,6 +81,12 @@ data:
     pod\n            label: \"app=profiler\" \n    relabel_configs:\n    - source_labels:
     [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]\n      action:
     replace\n      regex: ([^:]+)(?::\\d+)?;(\\d+)\n      replacement: $1:$2\n      target_label:
+    __address__\n  - job_name: 'alnair-exporter'\n    scrape_interval: 1s\n    metrics_path:
+    '/metrics'\n    kubernetes_sd_configs:\n      - role: pod\n        namespaces:\n
+    \         names:\n            - alnair\n        selectors:\n          - role:
+    pod\n            label: \"app=alnair-exporter\"\n    relabel_configs:\n    - source_labels:
+    [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]\n      action:
+    replace\n      regex: ([^:]+)(?::\\d+)?;(\\d+)\n      replacement: $1:$2\n      target_label:
     __address__\n"
 kind: ConfigMap
 metadata:
@@ -202,6 +208,36 @@ spec:
       volumes:
       - emptyDir: {}
         name: mongo-temp-storage
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: alnair-exporter-daemonset
+  namespace: alnair
+spec:
+  selector:
+    matchLabels:
+      app: alnair-exporter
+  template:
+    metadata:
+      annotations:
+        prometheus.io/path: /metrics
+        prometheus.io/port: "9876"
+        prometheus.io/scrape: "true"
+      labels:
+        app: alnair-exporter
+    spec:
+      containers:
+      - env:
+        - name: MY_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        image: centaurusinfra/alnair-exporter:0.4.0
+        imagePullPolicy: Always
+        name: alnair-exporter
+        ports:
+        - containerPort: 9876
 ---
 apiVersion: apps/v1
 kind: DaemonSet
