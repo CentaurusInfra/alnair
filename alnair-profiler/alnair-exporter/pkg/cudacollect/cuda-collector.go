@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	alnairWorkSpace = "/var/lib/alnair/workspace/"
+	alnairWorkSpace = "/var/lib/alnair/workspace/" //"/tmp/alnair/"
 	metricFile      = "metrics.log"
 	podFile         = "podInfo"
 )
@@ -29,10 +29,10 @@ type cudaCollector struct {
 
 // data struct for parsing metrics.log and PodInfo file
 type CudaStat struct {
+	Pid       float64
 	KernelCnt float64
 	MemUsed   float64
 	TokenCnt  float64
-	Pid       float64
 	PodName   string
 	Namespace string
 }
@@ -103,7 +103,7 @@ func GetCudaStat() []CudaStat {
 }
 
 func parseMetrics(alnairID string) ([]float64, error) {
-	var metrics []string
+	var vals []string
 	var metrics64 []float64
 	alnairFolder := path.Join(alnairWorkSpace, alnairID)
 	metricf, err := os.Open(path.Join(alnairFolder, metricFile))
@@ -112,14 +112,17 @@ func parseMetrics(alnairID string) ([]float64, error) {
 		return metrics64, err
 	}
 	defer metricf.Close()
-	//parse metrics
+	//parse metrics.log file
+	//pid:1234
+	//kernel-cnt:1222222
+	//mem-used:35000
+	//token-cnt:5555
 	scanner := bufio.NewScanner(metricf)
 	scanner.Split(bufio.ScanLines)
-
 	for scanner.Scan() {
-		metrics = strings.Split(scanner.Text(), ",")
+		vals = append(vals, strings.Split(scanner.Text(), ":")[1])
 	}
-	for _, m := range metrics {
+	for _, m := range vals {
 		if n, err := strconv.ParseFloat(m, 64); err == nil {
 			metrics64 = append(metrics64, n)
 		}
