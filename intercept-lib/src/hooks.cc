@@ -26,22 +26,21 @@ limitations under the License.
 #include <nvml.h>
 #include <cuda.h>
 #include <sys/time.h>
+#include "cuda_metrics.h"
 
 #define MAXPROC 1024
 
 extern int register_cgroup(const char *cgroup, const char* alnairID);
 
-const char metrices_file[] = "/var/lib/alnair/workspace/metrics.log";
-static void log_api_call(const char *symbol) 
-{                                                                                               
-    std::chrono::time_point<std::chrono::system_clock> now = std::chrono::system_clock::now();  
-    auto duration = now.time_since_epoch();                                                     
-    std::ofstream fmet;                                                                         
-    fmet.open(metrices_file, std::fstream::app);  
-    //print timestamp at nano seconds when a cuda API is called                                                                     
-    fmet << duration.count() << ',' << symbol << std::endl;                                     
-    fmet.close();                                                                               
-}  
+//////////////////////////////////////////////////////
+//
+// cuda metrics
+//
+/////////////////////////////////////////////////////
+extern cuda_metrics_t pf;
+extern void log_api_call(const char *pid, const int memUsed, const int kernelCnt, const int tokens);
+extern void* profiling_thread_func(void *arg);
+
 /************************************************/
 #include <execinfo.h>
 static void print_trace (void)
@@ -145,6 +144,8 @@ static pthread_once_t post_cuinit_ctrl = PTHREAD_ONCE_INIT;
 static volatile bool pre_initialized = false;
 static volatile bool post_initialized = false;
 
+static unsigned int proc_id = NO_PID; // GPU proc_id on the pod, assume there is only one GPU assigned, and one process per pod on the GPU
+
 static std::string parse_containerID(const std::string& cgroup) // func not used, and the "docker-" may not exist due to different k8s version
 {
     std::size_t begin = cgroup.find("docker-");
@@ -184,7 +185,9 @@ static int get_current_mem_usage(unsigned long long* totalUsage)
 {
     // get process ids within the same container
     std::set<unsigned int> pids;
-    read_pids(pids);
+
+    if (proc_id == NO_PID)
+        read_pids(pids);
 
     // get per process gpu memory usage
     unsigned int numProc = MAXPROC;
@@ -195,8 +198,20 @@ static int get_current_mem_usage(unsigned long long* totalUsage)
     *totalUsage = 0;
     for(int i=0; i < numProc; ++i) {
         unsigned int pid = procInfos[i].pid;
-        if(pids.find(pid) != pids.end()) (*totalUsage) += procInfos[i].usedGpuMemory;
+        if (proc_id == NO_PID) {
+            if(pids.find(pid) != pids.end()) {(*totalUsage) += procInfos[i].usedGpuMemory;proc_id = pf.pid = pid; break;};
+        } else if(pid == proc_id) {
+            (*totalUsage) += procInfos[i].usedGpuMemory;
+            break;
+        }
     }
+
+//////////////////////////////////
+// 
+//  profiling memory usage
+//
+//////////////////////////////////
+    pf.memUsed = *totalUsage;
 
     return 0;
 }
@@ -240,7 +255,7 @@ static size_t get_size_of(CUarray_format fmt)
     return bytesize;
 }
 
-static int get_current_group_usage(unsigned int* groupUsage)
+static unsigned int find_proc()
 {
     nvmlReturn_t ret;
     nvmlDevice_t device;
@@ -266,10 +281,50 @@ static int get_current_group_usage(unsigned int* groupUsage)
         return -1;
     }
 
+    for(int i=0; i < numProc; ++i) {
+        unsigned int pid = sample[i].pid;
+        if(pids.find(pid) != pids.end()) return pid;
+    }
+
+    return NO_PID;
+}
+
+static int get_current_group_usage(unsigned int* groupUsage)
+{
+    nvmlReturn_t ret;
+    nvmlDevice_t device;
+    nvmlProcessUtilizationSample_t sample[1024];
+    unsigned int numProc = 1024;
+    struct timeval now;
+    size_t microsec;
+
+    std::set<unsigned int> pids;
+    if (proc_id == NO_PID)
+        read_pids(pids);
+
+    ret = nvmlDeviceGetHandleByIndex(0, &device);   //limits: only assume this container mount 1 GPU
+    if(NVML_SUCCESS != ret) {
+        fprintf(stderr, "Failed nvmlDeviceGetHandleByIndex: %s\n", nvmlErrorString(ret));
+        return -1;
+    }
+
+    gettimeofday(&now, NULL);
+    microsec = (now.tv_sec-1)*1000000 + now.tv_usec;
+    ret = nvmlDeviceGetProcessUtilization(device, sample, &numProc, microsec);
+    if(NVML_SUCCESS != ret) {
+        fprintf(stderr, "Failed nvmlDeviceGetProcessUtilization: %s\n", nvmlErrorString(ret));
+        return -1;
+    }
+
     *groupUsage = 0;
     for(int i=0; i < numProc; ++i) {
         unsigned int pid = sample[i].pid;
-        if(pids.find(pid) != pids.end()) (*groupUsage) += sample[i].smUtil;
+        if (proc_id == NO_PID) {
+            if(pids.find(pid) != pids.end()) {(*groupUsage) += sample[i].smUtil; proc_id = pf.pid = pid; break;};
+        } else if(pid == proc_id) {
+            (*groupUsage) += sample[i].smUtil;
+            break;
+        }
     }
 
     return 0;
@@ -375,6 +430,15 @@ static void post_cuinit(void)
     tb.cur_tokens = tb.fill_rate_cap;
     //fprintf(stderr, "fill_rate_cap: %u, max_burst: %u\n", tb.fill_rate_cap, tb.max_burst);
 
+    //
+    // find proc_id for the GPU process
+    //
+    proc_id = find_proc();
+    if (proc_id < 0) {
+        fprintf(stderr,"ERROR: there is no valid process id for GPU process.\n");
+    }
+    pf.pid = proc_id;
+
     // thread to fill the token bucket
     pthread_t tb_thread;
     res = pthread_create(&tb_thread, NULL, tb_thread_start, NULL);
@@ -382,6 +446,14 @@ static void post_cuinit(void)
         fprintf(stderr,"token bucket thread creation failed, errno=%d\n", errno);
     }
 
+    // initialize for profiler
+    pthread_t pf_thread;
+
+    res = pthread_create(&pf_thread, NULL, profiling_thread_func, NULL);
+    if(res < 0) {
+        fprintf(stderr,"profiler failed to start, errno=%d\n", errno);
+    }
+    
     post_initialized = true;
 }
 
@@ -395,6 +467,7 @@ CUresult cuInit_hook (unsigned int Flags)
     if(res < 0) {
         fprintf(stderr,"pre_cuinit failed, errno=%d\n", errno);
     }
+
 
     return cures;
 }
@@ -415,10 +488,6 @@ CUresult cuInit_posthook (unsigned int Flags)
 
 CUresult cuMemAlloc_hook (CUdeviceptr* dptr, size_t bytesize)
 {
-    std::stringstream ss;
-    ss << "cuMemAlloc," << bytesize;
-    log_api_call(ss.str().c_str());
-
     return validate_memory(bytesize);
 }
 
@@ -498,6 +567,14 @@ CUresult cuLaunchKernel_hook(CUfunction f, unsigned int gridDimX, unsigned int g
         if(tb.cur_tokens >= cost) {
             tb.cur_tokens = tb.cur_tokens - cost;
             pthread_mutex_unlock(&tb.mutex);
+////////////////////////////////////////////////////////////
+// 
+//  profiling kernel count and token usage
+//
+//////////////////////////////////////////////////////////
+            pf.kernelCnt ++;
+            pf.token = tb.cur_tokens;
+
             break;
         }
         pthread_mutex_unlock(&tb.mutex);
@@ -527,7 +604,8 @@ CUresult cuMemGetInfo_posthook(size_t* free, size_t* total)
 {
     // get process ids within the same container
     std::set<unsigned int> pids;
-    read_pids(pids);
+    if (proc_id == NO_PID)
+        read_pids(pids);
 
     // get per process gpu memory usage
     unsigned int procCount = MAXPROC;
@@ -540,7 +618,13 @@ CUresult cuMemGetInfo_posthook(size_t* free, size_t* total)
 
     for(int i=0; i < procCount; ++i) {
         unsigned int pid = procInfos[i].pid;
-        if(pids.find(pid) != pids.end()) totalUsed += procInfos[i].usedGpuMemory;
+
+        if (proc_id == NO_PID) {
+            if(pids.find(pid) != pids.end()) {totalUsed += procInfos[i].usedGpuMemory; proc_id = pf.pid = pid; break;};
+        } else if(pid == proc_id) {
+            totalUsed += procInfos[i].usedGpuMemory;
+            break;
+        } 
     }
 
     *total = gpuMemLimit;
