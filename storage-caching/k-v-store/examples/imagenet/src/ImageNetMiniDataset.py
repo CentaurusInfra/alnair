@@ -1,7 +1,7 @@
 from typing import Callable, Optional
 from PIL import Image
 import io
-from lib.AlnairJobDataset import *
+from AlnairJob import AlnairJobDataset
 
 
 class ImageNetDataset(AlnairJobDataset):

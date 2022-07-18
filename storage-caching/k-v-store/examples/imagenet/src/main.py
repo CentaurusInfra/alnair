@@ -22,7 +22,7 @@ import torchvision.datasets as datasets
 import torchvision.models as models
 from torch.utils.data import Subset
 from ImageNetMiniDataset import ImageNetDataset
-from lib.AlnairJobDataLoader import AlnairJobDataLoader
+from AlnairJob import AlnairJobDataLoader
 
 
 model_names = sorted(name for name in models.__dict__

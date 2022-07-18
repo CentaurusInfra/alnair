@@ -34,7 +34,7 @@ spec:
     spec:
       containers:
         - name: envoy-redis-proxy
-          image:  zhuangweikang/alnair-envoy-redisproxy:latest
+          image:  centaurusinfra/alnair-envoy-redisproxy:latest
           imagePullPolicy: Always
           envFrom:
           - secretRef:

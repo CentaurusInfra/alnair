@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path"
 	"strings"
 	"time"
 
@@ -100,7 +101,7 @@ func PatchNode() error {
 	return nil
 }
 
-func PatchPod(gpuIds string, alnairIds string, gpuCnt int) error {
+func PatchPod(gpuIds string, alnairIds string, gpuCnt int, alnairHostPath string) error {
 
 	pod, _ := getPendingAlnairPod(gpuCnt)
 
@@ -114,7 +115,26 @@ func PatchPod(gpuIds string, alnairIds string, gpuCnt int) error {
 		return err
 	}
 	log.Printf("===patch done for current allocate request!")
+	//write pod name and namespace to /var/lib/alnair/workspace/<alnairID>/podInfo file
+	if err := savePodInfo(alnairHostPath, alnairIds, podName, namespace); err != nil {
+		log.Printf("Error: failed to save pod info to alnair workspace on the host machine")
+		return err
+	} 
 	return nil
+}
+
+func savePodInfo(alnairHostPath string, alnairIds string, podName string, namespace string) error{
+	//usually only one id
+	ids := strings.Split(alnairIds, ",")
+	for _, id := range ids {
+		hostWorkSpacePath := path.Join(alnairHostPath, id)
+		podInfoFilepath := path.Join(hostWorkSpacePath, "podInfo")
+		info := fmt.Sprintf("podName:%v\nnamespace:%v\n", podName, namespace)
+		if err := os.WriteFile(podInfoFilepath, []byte(info), 0644); err != nil {
+			return err
+		}
+	} 
+	return nil    
 }
 
 func getPendingAlnairPod(reqCnt int) (*v1.Pod, error) {

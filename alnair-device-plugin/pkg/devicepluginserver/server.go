@@ -219,7 +219,7 @@ func (s *GPUMemoryDPServer) Allocate(ctx context.Context, req *pluginapi.Allocat
 		totalAlnairIDs = append(totalAlnairIDs, alnairID)
 
 	}
-	PatchPod(strings.Join(totalDeviceIDs[:], ","), strings.Join(totalAlnairIDs[:], ","), totalDeviceCnt)
+	PatchPod(strings.Join(totalDeviceIDs[:], ","), strings.Join(totalAlnairIDs[:], ","), totalDeviceCnt, vs.AlnairContainerWorkspaceRoot)
 	return &resp, nil
 }
 

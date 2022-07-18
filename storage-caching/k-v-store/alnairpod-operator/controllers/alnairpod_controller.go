@@ -39,7 +39,7 @@ const (
 	PodKind       = "Pod"
 	SecretKind    = "Secret"
 	ConfigMapKind = "ConfigMap"
-	ClientImage   = "zhuangweikang/alnairpod:client"
+	ClientImage   = "centaurusinfra/alnairpod:client"
 )
 
 // AlnairPodReconciler reconciles a AlnairPod object
@@ -231,9 +231,9 @@ func (r *AlnairPodReconciler) createPod(ctx context.Context, alnairpod v1alpha1.
 			APIVersion: APIVersion,
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        alnairpod.Name,
-			Namespace:   alnairpod.Namespace,
-			Annotations: map[string]string{"k8s.v1.cni.cncf.io/networks": "macvlan-conf"},
+			Name:      alnairpod.Name,
+			Namespace: alnairpod.Namespace,
+			// Annotations: map[string]string{"k8s.v1.cni.cncf.io/networks": "macvlan-conf"},
 		},
 		Spec: corev1.PodSpec{
 			Volumes:       volumes,
