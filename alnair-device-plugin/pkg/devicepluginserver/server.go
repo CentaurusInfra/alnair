@@ -175,7 +175,7 @@ func (s *GPUMemoryDPServer) ListAndWatch(e *pluginapi.Empty, lws pluginapi.Devic
 
 func (s *GPUMemoryDPServer) Allocate(ctx context.Context, req *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
 	var resp pluginapi.AllocateResponse
-	var totalDeviceIDs []string
+	var totalDeviceIDs,totalAlnairIDs []string
 	totalDeviceCnt := 0
 	for _, creq := range req.ContainerRequests {
 		devIDs := getRealDeviceIDs(creq.DevicesIDs)
@@ -216,9 +216,10 @@ func (s *GPUMemoryDPServer) Allocate(ctx context.Context, req *pluginapi.Allocat
 		resp.ContainerResponses = append(resp.ContainerResponses, &cresp)
 		totalDeviceCnt += len(creq.DevicesIDs)
 		totalDeviceIDs = append(totalDeviceIDs, creq.DevicesIDs...)
+		totalAlnairIDs = append(totalAlnairIDs, alnairID)
 
 	}
-	PatchPod(strings.Join(totalDeviceIDs[:], ","), totalDeviceCnt)
+	PatchPod(strings.Join(totalDeviceIDs[:], ","), strings.Join(totalAlnairIDs[:], ","), totalDeviceCnt, vs.AlnairContainerWorkspaceRoot)
 	return &resp, nil
 }
 
@@ -450,7 +451,12 @@ func alnairWorkspaceRecycle() {
 			containerID := string(in)
 
 			if !containerExists(containerID) {
-				os.RemoveAll(path.Join(vs.AlnairContainerWorkspaceRoot, de.Name()))
+				log.Printf("recycle fold alnair ID: %s\n", de.Name())
+                err := os.RemoveAll(path.Join(vs.AlnairContainerWorkspaceRoot, de.Name()))
+                if err != nil{
+                    log.Printf("Error: folder removal failled, alnair ID: %s, %v\n", de.Name(), err)
+                }
+
 			}
 		}
 	sleep:
@@ -473,7 +479,6 @@ func containerExists(containerID string) bool {
 		if container.ID == containerID {
 			return true
 		}
-		fmt.Printf("%s %s\n", container.ID[:10], container.Image)
 	}
 
 	return false

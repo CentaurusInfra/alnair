@@ -37,7 +37,7 @@ func NewCollector(nodeName string) prometheus.Collector {
 	return &cpuCollector{
 		TimeUserHertzTotal: prometheus.NewDesc(
 			// Name of the metric.
-			"cpustat_time_user_hertz_total",
+			"alnair_cpustat_time_user_hertz_total",
 			// The metric's help text.
 			"Time in USER_HZ a given CPU spent in a given mode.",
 			// The metric's variable label dimensions.

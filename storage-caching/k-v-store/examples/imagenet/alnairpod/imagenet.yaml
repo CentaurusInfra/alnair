@@ -10,7 +10,7 @@ spec:
     alnair: Client
   jobs:
   - name: job
-    image: zhuangweikang/imagenet:latest
+    image: centaurusinfra/imagenet:latest
     # command: ["python3", "main.py"]
     command: ["bash"]
     datasource:
