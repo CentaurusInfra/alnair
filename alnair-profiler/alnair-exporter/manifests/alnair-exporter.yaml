@@ -28,3 +28,12 @@ spec:
                   fieldPath: spec.nodeName
           ports:
             - containerPort: 9876
+          volumeMounts:
+            - name: alnair-workspace
+              mountPath: /var/lib/alnair/workspace
+              readOnly: true
+      volumes:
+      - name: alnair-workspace
+        hostPath:
+          path: /var/lib/alnair/workspace
+

@@ -238,6 +238,14 @@ spec:
         name: alnair-exporter
         ports:
         - containerPort: 9876
+        volumeMounts:
+        - mountPath: /var/lib/alnair/workspace
+          name: alnair-workspace
+          readOnly: true
+      volumes:
+      - hostPath:
+          path: /var/lib/alnair/workspace
+        name: alnair-workspace
 ---
 apiVersion: apps/v1
 kind: DaemonSet
