@@ -1,11 +1,13 @@
 package exporter
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 
-	"alnair-profiler/pkg/nvmlcollect"
 	"alnair-profiler/pkg/cpucollect"
+	"alnair-profiler/pkg/cudacollect"
+	"alnair-profiler/pkg/nvmlcollect"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -25,8 +27,13 @@ func Start(nodeName string, port string) {
 	cpu := cpucollect.NewCollector(nodeName)
 	prometheus.MustRegister(cpu)
 
+	//register cuda stats collector, metrics from /var/lib/alnair/workspace
+	cuda := cudacollect.NewCollector(nodeName)
+	prometheus.MustRegister(cuda)
+
 	//Start the HTTP server and expose metrics at /metrics
 	mux := http.NewServeMux()
+	mux.Handle("/", http.HandlerFunc(mainPage))
 	mux.Handle("/metrics", promhttp.Handler())
 	log.Printf("Alnair exporter beginning to serve on port %s", port)
 	err := http.ListenAndServe(port, mux)
@@ -34,4 +41,8 @@ func Start(nodeName string, port string) {
 		log.Fatalf("cannot start exporter: %s", err)
 	}
 
+}
+
+func mainPage(w http.ResponseWriter, req *http.Request) {
+	fmt.Fprintf(w, "hello, this is alnair exporter, please scrape /metrics endpoints, default port 9876\n")
 }

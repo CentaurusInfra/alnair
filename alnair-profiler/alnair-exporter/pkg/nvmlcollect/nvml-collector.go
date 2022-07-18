@@ -55,8 +55,8 @@ func (collector *nvmlCollector) Collect(ch chan<- prometheus.Metric) {
 	//ch <- prometheus.MustNewConstMetric(collector.alnairGmemUsed, prometheus.CounterValue, float64(v2))
 	//it is OK to have an empty metrics when no processes, nothing reported under this metrics
 	for _, g := range metrics {
-		ch <- prometheus.MustNewConstMetric(collector.alnairGpuUtil, prometheus.CounterValue, float64(g.SmUtil), fmt.Sprint(g.Pid), g.Uuid)
-		ch <- prometheus.MustNewConstMetric(collector.alnairGmemUtil, prometheus.CounterValue, float64(g.MemUtil), fmt.Sprint(g.Pid), g.Uuid)
+		ch <- prometheus.MustNewConstMetric(collector.alnairGpuUtil, prometheus.GaugeValue, float64(g.SmUtil), fmt.Sprint(g.Pid), g.Uuid)
+		ch <- prometheus.MustNewConstMetric(collector.alnairGmemUtil, prometheus.GaugeValue, float64(g.MemUtil), fmt.Sprint(g.Pid), g.Uuid)
 	}
 	//possibility add timestamp
 	//https://gist.github.com/fl64/a86b3d375deb947fa11099dd374660da
