@@ -94,8 +94,6 @@ func (c *cpuCollector) Collect(ch chan<- prometheus.Metric) {
 	}
 }
 
-//sample /proc/stat file format
-
 func GetCpuStat() ([]CPUStat, error) {
 	r, err := os.Open("/proc/stat")
 	if err != nil {
