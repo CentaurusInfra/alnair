@@ -51,22 +51,23 @@ Lasso Regression
 
 Code File: Feature_Selection.py
 
-##Synthetic Data Generation 
+## Synthetic Data Generation 
+
 Generation Strategy: Synthetic data is generated for selected attributes wrt Batch Size. Different interpolation techniques like Linear, Pchip, Barycentric, Krogh, Cubicspline, and Spline of order=2 is explored. For quality assessment of synthetic samples, we consider synthetic samples as pseudo-ground truth and re-generated collected data. Root Mean Square Error (RMSE), Mean Square Error (MSE), and Mean Absolute Error (MAE) metrics are used for quality assessment. 
 
 Code File: Synthetic_Data_Generation.py
 
 Relevant Files: Synthetic_Data_Gen_Design.png, Evaluation_of_Generated_Samples.png 
 
-##Clustering 
+## Clustering 
 K-means clustering (with elbow method and distortion score) with relevant features and synthetic data. 
 
 Code File: Clustering.py
 
-##Evaluating Task Interference
+## Evaluating Task Interference
 Evaluation Metrics: Individual Slow Down, Packing Saving. Evaluated on Futurewei Cluster. 
 
 Relevant Files: Individual_Run.png, Inter-Cluster_Task_Interference.png, Intra-Cluster_Task_Interference.png
 
-##Inferences
+## Inferences
 Relevant Files: Packing_Saving.png, Individual Slow Down.png
