@@ -67,7 +67,7 @@ Code File: Synthetic Data Generation Code.7z
 
 ## Clustering 
 K-means clustering (with elbow method and distortion score) with relevant features and synthetic data. 
-![Clustering Results](./images/clustering.png)
+![Clustering Results](./images/Clustering.png)
 
 Code File: Clustering.7z
 
