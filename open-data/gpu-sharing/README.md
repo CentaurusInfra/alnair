@@ -1,7 +1,12 @@
 # AI Workloads resource utilization characterization 
 
 ## Goal
-Predicting task Interference for GPU Sharing 
+Predicting task Interference for GPU Sharing
+
+Reduce Individual Job Slow Down while Maximizing Packing Saving when two job runs on a single GPU, concurrently. 
+
+Target Variables: Maximum GPU Utilization Percent, and Maximum GPU Memory Allocated Percent 
+
 ## AI workloads description 
 ### Case 1: 
 Image Classification on German Traffic Sign Recognition Benchmark (GTSRB) using standard ML architectures: MobileNet, NasnetMobile, EfficientNetV2, ResNet50, and InceptionV3. 
