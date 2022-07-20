@@ -55,7 +55,7 @@ Code File: Feature_Selection.zip-(Record_Colab.xlsx, Feature_Selection.ipynb)
 
 Generation Strategy: Synthetic data is generated for selected attributes wrt Batch Size. Different interpolation techniques like Linear, Pchip, Barycentric, Krogh, Cubicspline, and Spline of order=2 is explored. For quality assessment of synthetic samples, we consider synthetic samples as pseudo-ground truth and re-generated collected data. Root Mean Square Error (RMSE), Mean Square Error (MSE), and Mean Absolute Error (MAE) metrics are used for quality assessment. 
 
-Code File: Synthetic_Data_Generation.py
+Code File: Synthetic Data Generation Code.7z
 
 Relevant Files: Synthetic_Data_Gen_Design.png, Evaluation_of_Generated_Samples.png 
 
