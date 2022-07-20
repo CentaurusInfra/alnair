@@ -82,9 +82,5 @@ Intra Cluster Task Interference
 ![Intra Cluster Task Interference](./images/Intra-Cluster_Task_Interference.png)
 
 ## Inferences
-Packing Saving
 ![Packing Saving](./images/Packing_Saving.png)
-
-
-Individual Slow Down
 ![Individual Slow Down](./images/Individual_Slow_Down.png)
