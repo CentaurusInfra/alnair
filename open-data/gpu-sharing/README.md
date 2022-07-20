@@ -57,7 +57,7 @@ Generation Strategy: Synthetic data is generated for selected attributes wrt Bat
 
 Code File: Synthetic Data Generation Code.7z
 
-Relevant Files: Synthetic_Data_Gen_Design.png, Evaluation_of_Generated_Samples.png 
+Relevant Files: Synthetic_Data_Gen_Design.png, Evaluation_of_Synthetic_Samples.png 
 
 ## Clustering 
 K-means clustering (with elbow method and distortion score) with relevant features and synthetic data. 
