@@ -41,7 +41,7 @@ Executed in Google Colaboratory Pro platform, Tesla P100 GPU. All implementation
 ## Collected metrics and format
 Pls refer to attached files
 
-Dataset Description: Dataset_Desc.png 
+Dataset Description: ![Dataset Desc](./images/Dataset_Desc.png)
 
 Collected Dataset: Dataset.xlsx
 
