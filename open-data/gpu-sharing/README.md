@@ -67,7 +67,7 @@ Relevant Files: Synthetic_Data_Gen_Design.png, Evaluation_of_Synthetic_Samples.p
 ## Clustering 
 K-means clustering (with elbow method and distortion score) with relevant features and synthetic data. 
 
-Code File: Clustering.py
+Code File: Clustering.7z
 
 ## Evaluating Task Interference
 Evaluation Metrics: Individual Slow Down, Packing Saving. Evaluated on Futurewei Cluster. 
