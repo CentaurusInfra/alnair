@@ -74,11 +74,8 @@ Code File: Clustering.7z
 ## Evaluating Task Interference
 Evaluation Metrics: Individual Slow Down, Packing Saving. Evaluated on Futurewei Cluster. 
 
-Individual Runtime of Task
 ![Individual Runtime of Task](./images/Individual_Run.png)
-Inter Cluster Task Interference
 ![Inter Cluster Task Interference](./images/Inter-Cluster_Task_Interference.png)
-Intra Cluster Task Interference
 ![Intra Cluster Task Interference](./images/Intra-Cluster_Task_Interference.png)
 
 ## Inferences
