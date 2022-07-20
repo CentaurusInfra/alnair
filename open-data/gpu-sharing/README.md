@@ -41,7 +41,7 @@ Executed in Google Colaboratory Pro platform, Tesla P100 GPU. All implementation
 ## Collected metrics and format
 Pls refer to attached files
 
-Dataset Description: ![Dataset Desc](./images/Dataset_Desc.png)
+![Dataset Description](./images/Dataset_Desc.png)
 
 Collected Dataset: Dataset.xlsx
 
@@ -62,17 +62,22 @@ Generation Strategy: Synthetic data is generated for selected attributes wrt Bat
 
 Code File: Synthetic Data Generation Code.7z
 
-Relevant Files: Synthetic_Data_Gen_Design.png, Evaluation_of_Synthetic_Samples.png 
+![Synthetic Data Generation Design Methodology](./images/Synthetic_Data_Gen_Design.png)
+![Evaluation of Synthetic Samples](./images/Evaluation_of_Synthetic_Samples.png)
 
 ## Clustering 
 K-means clustering (with elbow method and distortion score) with relevant features and synthetic data. 
+![Clustering Results](./images/clustering.png)
 
 Code File: Clustering.7z
 
 ## Evaluating Task Interference
 Evaluation Metrics: Individual Slow Down, Packing Saving. Evaluated on Futurewei Cluster. 
 
-Relevant Files: Individual_Run.png, Inter-Cluster_Task_Interference.png, Intra-Cluster_Task_Interference.png
+![Individual Runtime of Task](./images/Individual_Run.png)
+![Inter Cluster Task Interference](./images/Inter-Cluster_Task_Interference.png)
+![Intra Cluster Task Interference](./images/Intra-Cluster_Task_Interference.png)
 
 ## Inferences
-Relevant Files: Packing_Saving.png, Individual Slow Down.png
+![Packing Saving](./images/Packing_Saving.png)
+![Individual Slow Down](./images/Individual Slow Down.png)
