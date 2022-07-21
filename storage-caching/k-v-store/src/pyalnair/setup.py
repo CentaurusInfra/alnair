@@ -3,7 +3,7 @@ from setuptools import setup
 
 setup(
     name='alnairjob',
-    version='0.2',
+    version='0.3',
     license='Apache-2.0 license',
     author="Centaurus Infrastructure",
     author_email='centaurusinfra@gmail.com',

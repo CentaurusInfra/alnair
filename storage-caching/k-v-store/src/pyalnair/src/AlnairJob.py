@@ -164,7 +164,7 @@ class AlnairJobDataset(Dataset):
                 tmp.extend(obj)
         snapshot = tmp
 
-        if maxmem == 0:
+        if maxmem == 0 or self.qos['LazyLoading']:
             self.chunks.append(snapshot)
         else:
             total_size = 0

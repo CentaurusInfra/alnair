@@ -195,3 +195,8 @@ $ kubectl logs -f imagenet-mini0 --container client
 2022-07-15 23:57:08,082 - __main__ - INFO - send heartbeat
 ```
 Note that the GM checks and copies data only if they are unavailable in the Cache Cluster or modified since last use. Therefore, the time in the first execution includes the time of downloading data.
+
+Experiment results:
+![](./docs/images/exp1.png)
+
+Experiment results indicate Alnair significantly outperforms S3.

@@ -269,8 +269,8 @@ class RegistrationService(pb_grpc.RegistrationServicer):
                     info['prefix'] = prefix
                     if saved_job is not None \
                         and info['Key'] in saved_keys \
-                        and info['LastModified'].replace(tzinfo=timezone('UTC')).timestamp() == saved_keys[info['Key']]['lastModified']:
-                        # and self.manager.redis.exists(saved_keys[info['Key']]['location'].split(':')[1]):
+                        and info['LastModified'].replace(tzinfo=timezone('UTC')).timestamp() == saved_keys[info['Key']]['lastModified'] \
+                        and self.manager.redis.exists(saved_keys[info['Key']]['location'].split(':')[1]):
                         info['Exist'] = True
                     else:
                         info['Exist'] = False

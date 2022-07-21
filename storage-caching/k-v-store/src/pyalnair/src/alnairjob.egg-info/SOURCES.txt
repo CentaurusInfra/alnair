@@ -1,0 +1,10 @@
+LICENSE.txt
+README.rst
+setup.cfg
+setup.py
+src/AlnairJob.py
+src/alnairjob.egg-info/PKG-INFO
+src/alnairjob.egg-info/SOURCES.txt
+src/alnairjob.egg-info/dependency_links.txt
+src/alnairjob.egg-info/requires.txt
+src/alnairjob.egg-info/top_level.txt

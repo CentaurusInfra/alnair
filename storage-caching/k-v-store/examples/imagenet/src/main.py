@@ -2,7 +2,8 @@ import argparse
 import os
 import random
 import shutil
-from statistics import mean, stdev
+from statistics import mean, median, stdev
+import statistics
 import time
 import warnings
 from enum import Enum
@@ -21,8 +22,9 @@ import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 import torchvision.models as models
 from torch.utils.data import Subset
-from ImageNetMiniDataset import ImageNetDataset
+from ImageNetMiniDataset import *
 from AlnairJob import AlnairJobDataLoader
+from torch.utils.data.dataloader import DataLoader
 
 
 model_names = sorted(name for name in models.__dict__
@@ -226,7 +228,7 @@ def main_worker(gpu, ngpus_per_node, args):
     ])
     
     t = time.time()
-    val_dataset = ImageNetDataset(keys=['imagenet-mini/val'], transform=transform)
+    val_dataset = ImageNetDataset(keys=['Imagenet-Mini-Obj/val'], transform=transform)
     print('dataset init time: ', time.time()-t)
     
     if args.distributed:
@@ -235,7 +237,7 @@ def main_worker(gpu, ngpus_per_node, args):
         val_sampler = None
 
     t = time.time()
-    val_loader = AlnairJobDataLoader(
+    val_loader = DataLoader(
         val_dataset, batch_size=args.batch_size, shuffle=False,
         num_workers=args.workers, pin_memory=True, sampler=val_sampler)
     print('dataloader init time: ', time.time()-t)
@@ -244,12 +246,12 @@ def main_worker(gpu, ngpus_per_node, args):
         validate(val_loader, model, criterion, args)
         return
     else:
-        train_dataset = ImageNetDataset(keys=['imagenet-mini/train'], transform=transform)
+        train_dataset = ImageNetDataset(keys=['Imagenet-Mini-Obj/train'], transform=transform)
         if args.distributed:
             train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
         else:
             train_sampler = None
-        train_loader = AlnairJobDataLoader(
+        train_loader = DataLoader(
             train_dataset, batch_size=args.batch_size, shuffle=(train_sampler is None),
             num_workers=args.workers, pin_memory=True, sampler=train_sampler)
 
@@ -338,14 +340,10 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
 def validate(val_loader, model, criterion, args):
     with torch.no_grad():
         t = time.time()
-        while True:
-            try:
-                next(val_loader)
-                e = time.time()
-                print(e-t)
-                t = e
-            except StopIteration:
-                break
+        for i, item in enumerate(val_loader):
+            e = time.time()
+            # print(e-t)
+            t = e
     return 1
 
 
