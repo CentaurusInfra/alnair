@@ -68,6 +68,8 @@ CUresult CUDAAPI cuGetProcAddress(const char *symbol, void **pfn, int cudaVersio
 extern "C" { void* __libc_dlsym (void *map, const char *name); }
 extern "C" { void* __libc_dlopen_mode (const char* name, int mode); }
 
+// extern cuda_metrics_t pf;
+
 
 typedef enum HookSymbolsEnum {
     SYM_CU_INIT,

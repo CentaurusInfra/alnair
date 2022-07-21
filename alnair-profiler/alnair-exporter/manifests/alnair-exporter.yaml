@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: alnair-exporter-daemonset
+  namespace: alnair
+spec:
+  selector:
+    matchLabels:
+      app: alnair-exporter   # when config prometheus scrape select this label
+  template:
+    metadata:
+      labels:
+        app: alnair-exporter
+      annotations: # add annotation for prometheus scraping
+        prometheus.io/scrape: 'true'
+        prometheus.io/port: '9876'
+        prometheus.io/path: '/metrics'
+    spec:
+      containers:
+        - name: alnair-exporter
+          image: centaurusinfra/alnair-exporter:0.4.0 
+          imagePullPolicy: Always 
+          # command: ["bash", "-c", "sleep infinity"] # for debug purpose 
+          env:
+            - name: MY_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          ports:
+            - containerPort: 9876
+          volumeMounts:
+            - name: alnair-workspace
+              mountPath: /var/lib/alnair/workspace
+              readOnly: true
+      volumes:
+      - name: alnair-workspace
+        hostPath:
+          path: /var/lib/alnair/workspace
+
