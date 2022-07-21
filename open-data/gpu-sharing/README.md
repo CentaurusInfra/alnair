@@ -47,12 +47,17 @@ Collected Dataset: Dataset.xlsx
 
 ## Feature Selection
 Coefficient of Determination (Pearson, Spearman, Kendall) 
+![](./images/MGUP_Pearson.png)
+![](./images/MGMAP_Pearson.png)
 
 Random Forests 
 
 Ridge Regression 
 
 Lasso Regression 
+
+![](./images/MGMUP_Avg. Rank.png)
+![](./images/MGMAP_Avg. Rank.png)
 
 Code File: Feature_Selection.zip-(Record_Colab.xlsx, Feature_Selection.ipynb)
 
