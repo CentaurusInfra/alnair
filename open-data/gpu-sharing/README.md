@@ -56,8 +56,8 @@ Ridge Regression
 
 Lasso Regression 
 
-![](./images/MGMUP_Avg. Rank.png)
-![](./images/MGMAP_Avg. Rank.png)
+![](./images/MGMUP_Avg._Rank.png)
+![](./images/MGMAP_Avg._Rank.png)
 
 Code File: Feature_Selection.zip-(Record_Colab.xlsx, Feature_Selection.ipynb)
 
