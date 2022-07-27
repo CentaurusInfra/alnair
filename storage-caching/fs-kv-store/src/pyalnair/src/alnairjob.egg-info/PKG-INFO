@@ -1,0 +1,12 @@
+Metadata-Version: 1.2
+Name: alnairjob
+Version: 0.3
+Summary: Alnair Job Dataset and DataLoader
+Home-page: https://github.com/CentaurusInfra/alnair/tree/main/storage-caching/k-v-store/src/pyalnair
+Author: Centaurus Infrastructure
+Author-email: centaurusinfra@gmail.com
+License: Apache-2.0 license
+Description: UNKNOWN
+Keywords: Alnair
+Platform: UNKNOWN
+Requires-Python: >=3.6

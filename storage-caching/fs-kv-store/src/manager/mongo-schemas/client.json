@@ -1,0 +1,34 @@
+{
+    "title" : "Client",
+    "bsonType": "object",
+    "required": [
+        "username",
+        "password",
+        "s3auth",
+        "status"
+    ],
+    "properties": {
+        "username": {"bsonType": "string"},
+        "password": {"bsonType": "string"},
+        "s3auth": {
+            "bsonType": "object",
+            "required": [
+                "aws_access_key_id",
+                "aws_secret_access_key",
+                "region_name"
+            ],
+            "properties": {
+                "aws_access_key_id": {"bsonType": "string"},
+                "aws_secret_access_key": {"bsonType": "string"},
+                "region_name": {"bsonType": "string"}
+            }
+        },
+        "status": {"bsonType": "bool"},
+        "lastHeartbeat": {"bsonType": "timestamp"},
+        "jobs": {
+            "bsonType": "array",
+            "uniqueItems": true,
+            "items": {"bsonType": "string"}
+        }
+    }
+}

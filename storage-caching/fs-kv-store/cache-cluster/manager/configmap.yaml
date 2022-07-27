@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alnairpod-manager-config
+  namespace: default
+data:
+  manager.conf: |
+    [manager]
+    bind=[::]
+    port=50051
+    flush_frequency=10
+    flush_amount=10
+
+    [mongodb]
+    username=alnair
+    password=alnair
+    host=mongo
+    port=27017
+    db=Cacher

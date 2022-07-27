@@ -1,0 +1,8 @@
+torch
+torchvision
+matplotlib
+numpy
+grpcio
+grpcio-tools
+pymongo
+nvidia_smi
