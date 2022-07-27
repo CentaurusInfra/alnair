@@ -10,7 +10,10 @@ There are some new technologies to support a possible GPU-centered system archit
 
 ### Goal: Offloading CPU by GPU-centered AI system
 
-
+1. NVMe-SSD for training data storage
+2. store and read kernels from NVMe SSD as a share lib storage
+3. sharing NVMe-SSD between GPUs on one node
+4. gpudirect data among GPU in the cloud
 
 ### sub tasks : 
 
