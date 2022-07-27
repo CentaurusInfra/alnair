@@ -67,6 +67,8 @@ class Client(pyinotify.ProcessEvent):
             
             signal.signal(signal.SIGINT, self.exit_gracefully)
             signal.signal(signal.SIGTERM, self.exit_gracefully)
+            self.buffer = {}
+            self.storagemap = {}
 
     def exit_gracefully(self):
         self.hb_pool.shutdown(wait=False)
@@ -137,26 +139,23 @@ class Client(pyinotify.ProcessEvent):
         if event.pathname == '/share/cachemiss':
             return self.handle_cachemiss()
 
-    # todo: monitor used keys and flush data
     def process_IN_CLOSE_NOWRITE(self, event):
-        if event.pathname == "":
-            pass
+        if 'nfs' in event.pathname:
+            del self.buffer[event.pathname]
 
 
 if __name__ == '__main__':
     client = Client()
-    Path("/share/cachemiss").touch()
-    
+    if not os.path.exists("/share/cachemiss"):
+        Path("/share/cachemiss").touch()
     wm = pyinotify.WatchManager()
-    mask = pyinotify.IN_CREATE | pyinotify.IN_MODIFY
+    mask = pyinotify.IN_CREATE | pyinotify.IN_MODIFY | pyinotify.IN_CLOSE_NOWRITE
     wm.add_watch("/share/cachemiss", mask)
-
-    # TODO: add monitor for data directory
+    nfs_dirs = glob.glob('/nfs-*')
+    for d in nfs_dirs:
+        wm.add_watch(d, mask)
     notifier = pyinotify.Notifier(wm, client)
-    notifier.loop()
-
     try:
-        while True:
-            time.sleep(100)
+        notifier.loop()
     except KeyboardInterrupt:
         notifier.stop()

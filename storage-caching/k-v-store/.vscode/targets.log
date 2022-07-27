@@ -8,7 +8,7 @@ make: *** No rule to make target 'all'.  Stop.
 # This is free software: you are free to change and redistribute it.
 # There is NO WARRANTY, to the extent permitted by law.
 
-# Make data base, printed on Wed Jul 20 17:40:03 2022
+# Make data base, printed on Wed Jul 27 11:23:31 2022
 
 # Variables
 
@@ -57,7 +57,7 @@ VSCODE_CWD = /home/zhuangwei
 # environment
 GOPROXY = https://proxy.golang.com.cn,direct
 # environment
-SSH_CONNECTION = 10.145.14.102 57517 10.145.41.32 22
+SSH_CONNECTION = 10.145.6.136 60894 10.145.41.32 22
 # environment
 PATH = /home/zhuangwei/go/bin:/home/zhuangwei/.vscode-server/bin/3b889b090b5ad5793f524b5d1d39fda662b96a2a/bin/remote-cli:/home/zhuangwei/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin::/home/zhuangwei/go:/usr/lib/hazelcast-management-center
 # environment
@@ -67,7 +67,7 @@ GOPATH = /home/zhuangwei/go
 # environment
 ELECTRON_RUN_AS_NODE = 1
 # environment
-VSCODE_IPC_HOOK_CLI = /run/user/1001/vscode-ipc-23f241a7-90b9-43bf-851c-34f84c4c3b78.sock
+VSCODE_IPC_HOOK_CLI = /run/user/1001/vscode-ipc-12a9281f-a30f-4241-bb49-a057e4374f2f.sock
 # default
 .FEATURES := target-specific order-only second-expansion else-if shortest-stem undefine oneshell archives jobserver output-sync check-symlink load
 # environment
@@ -107,7 +107,7 @@ MAKECMDGOALS := all
 # environment
 SHLVL = 0
 # environment
-XDG_SESSION_ID = 76
+XDG_SESSION_ID = 512
 # environment
 USER = zhuangwei
 # makefile
@@ -116,8 +116,6 @@ USER = zhuangwei
 %D = $(patsubst %/,%,$(dir $%))
 # default
 MAKE_COMMAND := make
-# environment
-OLDPWD = /home/zhuangwei/.vscode-server/bin/3b889b090b5ad5793f524b5d1d39fda662b96a2a
 # default
 .VARIABLES := 
 # automatic
@@ -127,7 +125,7 @@ MAKEFLAGS = pqrR
 # environment
 MFLAGS = -pqrR
 # environment
-SSH_CLIENT = 10.145.14.102 57517 22
+SSH_CLIENT = 10.145.6.136 60894 22
 # automatic
 +D = $(patsubst %/,%,$(dir $+))
 # environment
@@ -155,7 +153,7 @@ LANG = C
 # environment
 MOTD_SHOWN = pam
 # variable set hash-table stats:
-# Load=71/1024=7%, Rehash=0, Collisions=10/93=11%
+# Load=70/1024=7%, Rehash=0, Collisions=10/92=11%
 
 # Pattern-specific Variable Values
 
@@ -163,7 +161,7 @@ MOTD_SHOWN = pam
 
 # Directories
 
-# . (device 64768, inode 79562539): 10 files, no impossibilities.
+# . (device 64768, inode 74973952): 10 files, no impossibilities.
 
 # 10 files, no impossibilities in 1 directories.
 
@@ -182,7 +180,6 @@ all:
 
 # Not a target:
 Makefile:
- 
 #  Implicit rule search has been done.
 #  File does not exist.
 #  File has been updated.
@@ -196,6 +193,7 @@ makefile:
 #  Failed to be updated.
 
 # Not a target:
+ 
 .DEFAULT:
 #  Implicit rule search has not been done.
 #  Modification time never checked.
@@ -222,6 +220,6 @@ GNUmakefile:
 # strcache performance: lookups = 21 / hit rate = 14%
 # hash-table stats:
 # Load=18/8192=0%, Rehash=0, Collisions=1/21=5%
-# Finished Make data base on Wed Jul 20 17:40:03 2022
+# Finished Make data base on Wed Jul 27 11:23:31 2022
 
  

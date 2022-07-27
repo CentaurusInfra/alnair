@@ -322,7 +322,7 @@ class RegistrationService(pb_grpc.RegistrationServicer):
                     chunk_keys.extend(future.result())
             
             # create job snapshot in NFS
-            with open("/nfs-master/{}.snap".format(jobId), 'w') as f:
+            with open("/nfs-master/{}-snapshot.json".format(jobId), 'w') as f:
                 json.dump(snapshot, f)
             
             # save jobinfo to database
