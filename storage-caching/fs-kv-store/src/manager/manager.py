@@ -262,9 +262,6 @@ class RegistrationService(pb_grpc.RegistrationServicer):
                     for page in pages:
                         futures.append(executor.submit(list_modified_objects, prefix, page))
                 concurrent.futures.wait(futures)
-            
-            # schedule dataset chunks across NFS servers
-            schedule = self.manager.scheduler(bucket_objs)
 
             # copy data from S3 to NFS
             snapshot = {}
@@ -275,7 +272,7 @@ class RegistrationService(pb_grpc.RegistrationServicer):
                     if info['Size'] <= chunk_size:
                         value = s3_client.get_object(Bucket=bucket_name, Key=info['Key'])['Body'].read()
                         hash_key = hashing(value)
-                        s3_client.download_file(Bucket=bucket_name, Key=info['Key'], Filename='/nfs-{}/{}'.format(location, hash_key))
+                        s3_client.download_file(Bucket=bucket_name, Key=info['Key'], Filename='/{}/{}'.format(location, hash_key))
                         # logger.info("Copy data from s3:{} to alnair:{}".format(info['Key'], hash_key))
                         obj = {'name': info['Key'], 'key': hash_key, 'size': info['Size'], 'lastModified': int(info['LastModified'].timestamp())}
                         chunk_keys.append(obj)
@@ -286,7 +283,7 @@ class RegistrationService(pb_grpc.RegistrationServicer):
                             value = f.read(chunk_size)
                             while value:
                                 hash_key = hashing(value)
-                                with open('/nfs-{}/{}'.format(location, hash_key), 'wb') as f:
+                                with open('/{}/{}'.format(location, hash_key), 'wb') as f:
                                     f.write(value)
                                 obj = {'name': info['Key'], 'key': hash_key, 'size': chunk_size, 'lastModified': int(info['LastModified'].timestamp())}
                                 chunk_keys.append(obj)
@@ -304,14 +301,11 @@ class RegistrationService(pb_grpc.RegistrationServicer):
                         'size': info['Size'], 
                         'lastModified': int(info['LastModified'].timestamp())})
                     # logger.info('Key {} exists in Alnair.'.format(info['Key']))
-                
-                sk = "{%s}%s" % (jobId, info['prefix'])
-                if sk not in snapshot:
-                    snapshot[sk] = {info['Key']: chunk_keys}
-                else:
-                    snapshot[sk][info['Key']] = chunk_keys
+                snapshot[info['Key']] = chunk_keys
                 return chunk_keys
             
+            # schedule dataset chunks across NFS servers
+            schedule = self.manager.scheduler(bucket_objs)
             chunk_keys = []
             with concurrent.futures.ThreadPoolExecutor(max_workers=multiprocessing.cpu_count()) as executor:
                 futures = []
@@ -322,7 +316,7 @@ class RegistrationService(pb_grpc.RegistrationServicer):
                     chunk_keys.extend(future.result())
             
             # create job snapshot in NFS
-            with open("/nfs-master/{}-snapshot.json".format(jobId), 'w') as f:
+            with open("/nfs-master/{}/snapshot.json".format(jobId), 'w') as f:
                 json.dump(snapshot, f)
             
             # save jobinfo to database

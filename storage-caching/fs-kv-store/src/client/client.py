@@ -3,6 +3,7 @@ from concurrent.futures import ThreadPoolExecutor
 import grpc
 import signal
 import json
+import multiprocessing
 import time
 import glob
 from pathlib import Path
@@ -10,9 +11,11 @@ import configparser
 import grpctool.dbus_pb2 as pb
 import grpctool.dbus_pb2_grpc as pb_grpc
 from google.protobuf.json_format import ParseDict
-# from watchdog.observers import Observer
-# from watchdog.events import *
+import concurrent
 import pyinotify
+import shutil
+from collections import OrderedDict
+import numpy as np
 from utils import *
 
 
@@ -67,9 +70,14 @@ class Client(pyinotify.ProcessEvent):
             
             signal.signal(signal.SIGINT, self.exit_gracefully)
             signal.signal(signal.SIGTERM, self.exit_gracefully)
-            self.buffer = {}
-            self.storagemap = {}
-
+            
+            self.buffer = OrderedDict()
+            self.req_time = []
+            self.load_time = []
+            self.wl = 2
+            self.index = 0
+            self.batchsampler = None
+            
     def exit_gracefully(self):
         self.hb_pool.shutdown(wait=False)
         self.channel.close()
@@ -101,6 +109,9 @@ class Client(pyinotify.ProcessEvent):
                 os.kill(os.getpid(), signal.SIGINT)
             self.reg_rj[job['name']] = resp.jinfo
             logger.info('registered job {}, assigned jobId is {}'.format(job['name'], resp.jinfo.jobId))
+            while self.batchsampler is None: pass
+            for _ in range(self.wl): 
+                self.copy_batch(self.index)
             with open('/share/{}.json'.format(job['name']), 'w') as f:
                 json.dump(MessageToDict(resp), f)
                         
@@ -130,18 +141,74 @@ class Client(pyinotify.ProcessEvent):
                 logger.info('request missing key {}'.format(key))
             else:
                 logger.warning('failed to request missing key {}'.format(key))
-        
+    
+    def copy_batch(self, index=None):
+        if index is None:
+            nextbatch = np.load('/share/nextbatch.npy')
+        else:
+            nextbatch = self.batchsampler[index]
+        t = str(time.time())
+        def cpy(key):
+            if str(t) not in self.buffer:
+                self.buffer[t] = 0
+            if key not in self.buffer[t]:
+                shutil.copyfile(key, '/runtime/{}'.format(key.split('/')[1]))
+            self.buffer[t] += 1
+        with concurrent.futures.ThreadPoolExecutor(max_workers=multiprocessing.cpu_count()) as executor:
+            futures = []
+            for key in nextbatch:
+                futures.append(executor.submit(cpy, key))
+        concurrent.futures.wait(futures)
+        self.index += 1
+                          
     def process_IN_CREATE(self, event):
         if event.pathname == '/share/cachemiss':
             return self.handle_cachemiss()
+        elif event.pathname == '/share/runtime_conf.json':
+            with open('/share/runtime_conf.json', 'r') as f:
+                self.runtime_conf = json.load(f)
+        elif event.pathname == '/share/nextbatch.npy':
+            self.req_time.append(time.time())
+            self.copy_batch()
+        elif event.path == '/share/bacthsampler.npy':
+            self.batchsampler = np.load('/share/bacthsampler.npy')
 
     def process_IN_MODIFY(self, event):
-        if event.pathname == '/share/cachemiss':
-            return self.handle_cachemiss()
-
+        self.process_IN_CREATE(event)
+            
     def process_IN_CLOSE_NOWRITE(self, event):
-        if 'nfs' in event.pathname:
-            del self.buffer[event.pathname]
+        if '/runtime' in event.pathname:
+            h = self.buffer.keys[0]
+            self.buffer[h] -= 1
+            if self.buffer[h] == 0:
+                self.buffer.popitem(0)
+            try:
+                shutil.rmtree(event.pathname, ignore_errors=False)
+            except Exception as ex:
+                logger.error("failed to delete file {}: {}".format(event.pathname, str(ex)))
+            
+            # adjust buffer size
+            if len(self.req_time) > 1:
+                # decide alpha and beta based on the latest 3 measurements
+                alpha = np.diff(self.req_time[-4:])[1:]
+                beta = np.array(self.load_time[-3:])
+                N = len(self.batchsampler)
+                k = len(self.req_time)
+                """
+                To ensure the data is always available for DataLoader, the length of buffer should be:
+                s >= 2*B, if alpha >= beta; otherwise,
+                s >= (N-k)*(1-alpha/beta) 
+                """
+                s = max(2, np.mean((1-alpha/beta)*(N-k), dtype=int))
+                if self.wl == s: 
+                    return
+                else:
+                    self.wl = s
+                    while len(self.buffer) > s:
+                        self.buffer.popitem(last=False)
+                        self.index -= 1
+                    while len(self.buffer) < s:
+                        self.copy_batch(self.index)
 
 
 if __name__ == '__main__':
@@ -150,10 +217,8 @@ if __name__ == '__main__':
         Path("/share/cachemiss").touch()
     wm = pyinotify.WatchManager()
     mask = pyinotify.IN_CREATE | pyinotify.IN_MODIFY | pyinotify.IN_CLOSE_NOWRITE
-    wm.add_watch("/share/cachemiss", mask)
-    nfs_dirs = glob.glob('/nfs-*')
-    for d in nfs_dirs:
-        wm.add_watch(d, mask)
+    wm.add_watch("/share", mask)
+    wm.add_watch('/runtime', mask)
     notifier = pyinotify.Notifier(wm, client)
     try:
         notifier.loop()

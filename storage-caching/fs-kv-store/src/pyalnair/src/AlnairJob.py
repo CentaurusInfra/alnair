@@ -1,6 +1,5 @@
 import os
 import json
-import redis
 import concurrent.futures
 import multiprocessing
 from math import inf
@@ -15,8 +14,8 @@ class dotdict(dict):
     __getattr__ = dict.get
     __setattr__ = dict.__setitem__
     __delattr__ = dict.__delitem__
-    
 
+        
 class AlnairJobDataset(Dataset):
     def __init__(self, keys: List[str] = None):
         """An abstract class subclassing the torch.utils.data.Dataset class
@@ -30,7 +29,7 @@ class AlnairJobDataset(Dataset):
         of :class:`~AlnairJobDataLoader`.
         
         .. note::
-        Subclassing ~AlnairJobDataset will load data under provided keys from Redis to var:`self.__data` as Map<Key, Value>.
+        Subclassing ~AlnairJobDataset will load data under provided keys from Alnair to var:`self.__data` as Map<Key, Value>.
         Overwriting meth:`__preprocess__` allows you to replace var:`self.__data` and var:`self.__targets` with
         iteratable variables that can be iterated in meth:`__get_item__`.
         
@@ -44,11 +43,8 @@ class AlnairJobDataset(Dataset):
         self.jobinfo = self.load_jobinfo()
         self.chunks = []
         self.__targets = None
-        if self.qos['UseCache']: # use datasource from Redis
-            r = dotdict(self.jobinfo.jinfo).ccauth
-            r = dotdict(r)
-            self.client = redis.RedisCluster(host=r.host, port=r.port, username=r.username, password=r.password)
-            self.load_all_redis_keys()
+        if self.qos['UseCache']: # use datasource from Alnair
+            self.load_all_alnair_keys()
         else:
             import configparser, boto3
             
@@ -77,49 +73,43 @@ class AlnairJobDataset(Dataset):
     
     def load(self, key):
         if self.qos['UseCache']:
-            val = self.client.get(key)
+            with open(key, 'rb') as f:
+                val = f.read()
             if val is None: # cache missing
                 with open('/share/cachemiss', 'w') as f:
                     f.writelines(key)
-                while True:
-                    val = self.client.get(key)
-                    if val is not None:
-                        break
+                while not os.path.exists(key): pass
+                with open(key, 'rb') as f:
+                    val = f.read()
         else:
             val = self.client.get_object(Bucket=self.bucket_name, Key=key)['Body'].read()
         return val
 
     def mload(self, chunks):
         if self.qos['UseCache']:
-            keys = [x['key'] for x in chunks]
-            # with self.client.pipeline() as pl:
-            #     for k in keys:
-            #         pl.get(k)
-            #     vals = pl.execute()
-            vals = self.client.mget(keys)
-            for i in range(len(vals)):
-                if vals[i] is None:
+            def helper(chunk):
+                name = chunk['name']
+                key = chunk['key']
+                with open(key, 'rb') as f:
+                    val = f.read()
+                if val:
                     with open('/share/cachemiss', 'w') as f:
-                        f.writelines(keys[i])
-                    while True:
-                        val = self.client.get(keys[i])
-                        if val is not None:
-                            vals[i] = val
-                            break
-                self.__keys.append(chunks[i]['name'])
-                self.__data[chunks[i]['name']] = vals[i]
+                        f.writelines(key)
+                    while not os.path.exists(key): pass
+                    with open(key, 'rb') as f:
+                        val = f.read()
+                self.__keys.append(name)
+                self.__data[name] = val
         else:
-            vals = []
             def helper(chunk):
                 val = self.client.get_object(Bucket=self.bucket_name, Key=chunk['key'])['Body'].read()
                 self.__keys.append(chunk['key'])
-                self.__data[chunk['name']] = val
-            with concurrent.futures.ThreadPoolExecutor(max_workers=multiprocessing.cpu_count()) as executor:
-                futures = []
-                for chunk in chunks:
-                    futures.append(executor.submit(helper, chunk))
-            concurrent.futures.wait(futures)
-        return vals
+                self.__data[chunk['name']] = val   
+        with concurrent.futures.ThreadPoolExecutor(max_workers=multiprocessing.cpu_count()) as executor:
+            futures = []
+            for chunk in chunks:
+                futures.append(executor.submit(helper, chunk))
+        concurrent.futures.wait(futures)
                     
     def get_data(self, index):
         if self.qos['LazyLoading']:
@@ -148,22 +138,10 @@ class AlnairJobDataset(Dataset):
             jobinfo = self.load_metainfo()
         return dotdict(jobinfo)
 
-    def load_all_redis_keys(self):
-        snapshot = dotdict(self.jobinfo.policy).snapshot
+    def load_all_alnair_keys(self):
         maxmem = self.qos['MaxMemory']*1024*1024
-        keys = snapshot if self.__keys is None else self.__keys
-        keys = []
-        if self.__keys is not None:
-            for k in self.__keys:
-                keys.append("{%s}%s" % (dotdict(self.jobinfo.jinfo).jobId, k))
-        else:
-            keys = snapshot
-        tmp = []
-        for s in self.client.mget(keys):
-            for obj in pickle.loads(s).values():
-                tmp.extend(obj)
-        snapshot = tmp
-
+        with open('/nfs-master/{}/snapshot.json'.format(self.jobname), 'r') as f:
+            snapshot = json.load(f)
         if maxmem == 0 or self.qos['LazyLoading']:
             self.chunks.append(snapshot)
         else:
@@ -214,15 +192,6 @@ class AlnairJobDataset(Dataset):
                 self.__keys.append(chunk['name'])
                 self.__data[chunk['name']] = chunk['key']
         else:
-            # def helper(chk):
-            #     val = self.load(chk['key'])
-            #     self.__keys.append(chk['name'])
-            #     self.__data[chk['name']] = val
-            # with concurrent.futures.ThreadPoolExecutor(max_workers=multiprocessing.cpu_count()) as executor:
-            #     futures = []
-            #     for chunk in self.chunks[index]:
-            #         futures.append(executor.submit(helper, chunk))
-            # concurrent.futures.wait(futures)
             self.mload(self.chunks[index])
         self.__data, self.__targets = self.__convert__()
     
@@ -364,6 +333,7 @@ class AlnairJobDataLoader(object):
         loader = DataLoader(self.dataset, self.batch_size, self.shuffle, self.sampler, self.batch_sampler, self.num_workers, self.collate_fn, 
                             self.pin_memory, self.drop_last, self.timeout, self.worker_init_fn, self.multiprocessing_context, self.generator, 
                             prefetch_factor=self.prefetch_factor, persistent_workers=self.persistent_workers)
+        # TODO: save batch index into /runtime/batchsampler.npy
         self.loader = loader._get_iterator()
         
     def __iter__(self):
