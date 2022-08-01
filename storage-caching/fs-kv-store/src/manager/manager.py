@@ -1,5 +1,6 @@
 import concurrent.futures
 import os
+import shutil
 import grpc
 import boto3
 import threading
@@ -12,6 +13,7 @@ import grpctool.dbus_pb2_grpc as pb_grpc
 from datetime import datetime
 from pymongo.mongo_client import MongoClient
 from pytz import timezone
+import glob
 from utils import *
 
 
@@ -92,9 +94,17 @@ class Manager(object):
         DEFAULT_CHUNK_SIZE = 512*1024*1024
         return DEFAULT_CHUNK_SIZE
 
-    def scheduler(self, dataset_info: dict):
-        pass
-    
+    # TODO: 此处应有负载均衡算法
+    def scheduler(self, bucket_objs: dict):
+        free_space = []
+        servers = glob.glob('/nfs-*')
+        for s in servers:
+            _, _, free = shutil.disk_usage(s)
+            free_space.append([s, free])
+        free_space = sorted(free_space, key=lambda x: x[1])
+        schedule = []
+        
+        
     def evict_data(self):
         def allkeys_lru():
             """Backup the least N recent used keys
@@ -271,7 +281,7 @@ class RegistrationService(pb_grpc.RegistrationServicer):
                 if not info['Exist']:
                     if info['Size'] <= chunk_size:
                         value = s3_client.get_object(Bucket=bucket_name, Key=info['Key'])['Body'].read()
-                        hash_key = hashing(value)
+                        hash_key = "{}/{}".format(location, hashing(value))
                         s3_client.download_file(Bucket=bucket_name, Key=info['Key'], Filename='/{}/{}'.format(location, hash_key))
                         # logger.info("Copy data from s3:{} to alnair:{}".format(info['Key'], hash_key))
                         obj = {'name': info['Key'], 'key': hash_key, 'size': info['Size'], 'lastModified': int(info['LastModified'].timestamp())}
@@ -282,7 +292,7 @@ class RegistrationService(pb_grpc.RegistrationServicer):
                         with open('/tmp/{}'.format(info['Key']), 'rb') as f:
                             value = f.read(chunk_size)
                             while value:
-                                hash_key = hashing(value)
+                                hash_key = "{}/{}".format(location, hashing(value))
                                 with open('/{}/{}'.format(location, hash_key), 'wb') as f:
                                     f.write(value)
                                 obj = {'name': info['Key'], 'key': hash_key, 'size': chunk_size, 'lastModified': int(info['LastModified'].timestamp())}
@@ -305,7 +315,7 @@ class RegistrationService(pb_grpc.RegistrationServicer):
                 return chunk_keys
             
             # schedule dataset chunks across NFS servers
-            schedule = self.manager.scheduler(bucket_objs)
+            schedule = self.manager.scheduler(request.nodeIP, bucket_objs)
             chunk_keys = []
             with concurrent.futures.ThreadPoolExecutor(max_workers=multiprocessing.cpu_count()) as executor:
                 futures = []
@@ -335,6 +345,7 @@ class RegistrationService(pb_grpc.RegistrationServicer):
                 "meta": {
                     "username": cred.username,
                     "jobId": jobId,
+                    "nodeIP": request.nodeIP,
                     "datasource": MessageToDict(request.datasource),
                     "resourceInfo": MessageToDict(request.resource),
                     "createTime": bson.timestamp.Timestamp(int(now), inc=1)

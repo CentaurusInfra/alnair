@@ -1,5 +1,6 @@
 from __future__ import print_function
 from concurrent.futures import ThreadPoolExecutor
+from os import environ
 import grpc
 import signal
 import json
@@ -71,12 +72,12 @@ class Client(pyinotify.ProcessEvent):
             signal.signal(signal.SIGINT, self.exit_gracefully)
             signal.signal(signal.SIGTERM, self.exit_gracefully)
             
-            self.buffer = OrderedDict()
+            self.runtime_buffer = OrderedDict()
             self.req_time = []
             self.load_time = []
             self.wl = 2
-            self.index = 0
-            self.batchsampler = None
+            self.batch_index = 0
+            self.batch_indices = None
             
     def exit_gracefully(self):
         self.hb_pool.shutdown(wait=False)
@@ -94,6 +95,7 @@ class Client(pyinotify.ProcessEvent):
             if 'keys' not in ds: ds['keys'] = []
             request = pb.RegisterRequest(
                 cred=self.cred,
+                nodeIP=environ.get('NODE_IP'),
                 datasource=pb.DataSource(name=ds['name'], bucket=ds['bucket'], keys=ds['keys']),
                 qos=ParseDict(qos, pb.QoS(), ignore_unknown_fields=True),
                 resource=pb.ResourceInfo(CPUMemoryFree=get_cpu_free_mem(), GPUMemoryFree=get_gpu_free_mem())
@@ -109,9 +111,9 @@ class Client(pyinotify.ProcessEvent):
                 os.kill(os.getpid(), signal.SIGINT)
             self.reg_rj[job['name']] = resp.jinfo
             logger.info('registered job {}, assigned jobId is {}'.format(job['name'], resp.jinfo.jobId))
-            while self.batchsampler is None: pass
+            while self.batch_indices is None: pass
             for _ in range(self.wl): 
-                self.copy_batch(self.index)
+                self.push_data()
             with open('/share/{}.json'.format(job['name']), 'w') as f:
                 json.dump(MessageToDict(resp), f)
                         
@@ -132,6 +134,8 @@ class Client(pyinotify.ProcessEvent):
                     json.dump(MessageToDict(resp), f)
             time.sleep(hb)
     
+    # TODO: 1. handle cache miss in tmpfs
+    # 2. handle cache miss in NFS
     def handle_cachemiss(self):
         with open('/share/cachemiss', 'r') as f:
             misskeys = f.readlines()
@@ -142,46 +146,47 @@ class Client(pyinotify.ProcessEvent):
             else:
                 logger.warning('failed to request missing key {}'.format(key))
     
-    def copy_batch(self, index=None):
-        if index is None:
-            nextbatch = np.load('/share/nextbatch.npy')
-        else:
-            nextbatch = self.batchsampler[index]
-        t = str(time.time())
-        def cpy(key):
-            if str(t) not in self.buffer:
-                self.buffer[t] = 0
-            if key not in self.buffer[t]:
+    # TODO: check how to push missed key into tmpfs
+    def push_data(self, keys=None):
+        def cpy(key, batch_index):
+            if batch_index not in self.runtime_buffer:
+                self.runtime_buffer[batch_index] = []
+            if key not in self.runtime_buffer[batch_index]:
                 shutil.copyfile(key, '/runtime/{}'.format(key.split('/')[1]))
-            self.buffer[t] += 1
+                self.runtime_buffer[batch_index].append(key)
         with concurrent.futures.ThreadPoolExecutor(max_workers=multiprocessing.cpu_count()) as executor:
             futures = []
-            for key in nextbatch:
-                futures.append(executor.submit(cpy, key))
+            if keys is None:
+                for _ in self.runtime_conf['num_workers']:
+                    for key in self.batch_indices[self.batch_index]:
+                        futures.append(executor.submit(cpy, key, self.batch_index))
+                    self.batch_index += 1
+            else:
+                for key in keys:
+                    futures.append(executor.submit(cpy, key, 'missing'))
         concurrent.futures.wait(futures)
-        self.index += 1
-                          
+
     def process_IN_CREATE(self, event):
         if event.pathname == '/share/cachemiss':
             return self.handle_cachemiss()
         elif event.pathname == '/share/runtime_conf.json':
             with open('/share/runtime_conf.json', 'r') as f:
                 self.runtime_conf = json.load(f)
-        elif event.pathname == '/share/nextbatch.npy':
+        elif event.pathname == '/share/nextbatch':
             self.req_time.append(time.time())
-            self.copy_batch()
-        elif event.path == '/share/bacthsampler.npy':
-            self.batchsampler = np.load('/share/bacthsampler.npy')
+            self.push_data()
+        elif event.path == '/share/batch_indices.npy':
+            self.batch_indices = np.load('/share/batch_indices.npy')
 
     def process_IN_MODIFY(self, event):
         self.process_IN_CREATE(event)
             
     def process_IN_CLOSE_NOWRITE(self, event):
         if '/runtime' in event.pathname:
-            h = self.buffer.keys[0]
-            self.buffer[h] -= 1
-            if self.buffer[h] == 0:
-                self.buffer.popitem(0)
+            h = self.runtime_buffer.keys[0]
+            self.runtime_buffer[h].pop(0)
+            if len(self.runtime_buffer[h]) == 0:
+                self.runtime_buffer.popitem(last=False)
             try:
                 shutil.rmtree(event.pathname, ignore_errors=False)
             except Exception as ex:
@@ -192,7 +197,7 @@ class Client(pyinotify.ProcessEvent):
                 # decide alpha and beta based on the latest 3 measurements
                 alpha = np.diff(self.req_time[-4:])[1:]
                 beta = np.array(self.load_time[-3:])
-                N = len(self.batchsampler)
+                N = len(self.batch_indices)
                 k = len(self.req_time)
                 """
                 To ensure the data is always available for DataLoader, the length of buffer should be:
@@ -204,11 +209,11 @@ class Client(pyinotify.ProcessEvent):
                     return
                 else:
                     self.wl = s
-                    while len(self.buffer) > s:
-                        self.buffer.popitem(last=False)
-                        self.index -= 1
-                    while len(self.buffer) < s:
-                        self.copy_batch(self.index)
+                    while len(self.runtime_buffer) > s:
+                        self.runtime_buffer.popitem(last=False)
+                        self.batch_index -= 1
+                    while len(self.runtime_buffer) < s:
+                        self.push_data()
 
 
 if __name__ == '__main__':

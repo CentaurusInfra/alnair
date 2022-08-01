@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"sort"
 	"strings"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -167,6 +168,25 @@ func calculateRuntimeFSSize(spec v1alpha1.AlnairPodSpec) int64 {
 	return int64(default_val)
 }
 
+func (r *AlnairPodReconciler) scheduler(ctx context.Context, spec v1alpha1.AlnairPodSpec) (string, error) {
+	clusterStorage := map[string]int64{}
+	nodes := &corev1.NodeList{}
+	if err := r.List(ctx, nodes, &client.ListOptions{}); err != nil {
+		return "", err
+	}
+	for _, node := range nodes.Items {
+		clusterStorage[node.Name] = node.Status.Allocatable.StorageEphemeral().Value()
+	}
+	keys := make([]string, 0, len(clusterStorage))
+	for key := range clusterStorage {
+		keys = append(keys, key)
+	}
+	sort.SliceStable(keys, func(i, j int) bool {
+		return clusterStorage[keys[i]] > clusterStorage[keys[j]]
+	})
+	return keys[0], nil
+}
+
 func (r *AlnairPodReconciler) createPod(ctx context.Context, alnairpod v1alpha1.AlnairPod) (corev1.Pod, error) {
 	pod := corev1.Pod{}
 	spec := alnairpod.Spec
@@ -255,11 +275,23 @@ func (r *AlnairPodReconciler) createPod(ctx context.Context, alnairpod v1alpha1.
 		ImagePullPolicy: corev1.PullAlways,
 		WorkingDir:      "/app",
 		// Command:         []string{"python3", "client.py"},
+		Env: []corev1.EnvVar{{
+			Name:      "NODE_IP",
+			ValueFrom: &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.hostIP"}}}},
 		VolumeMounts: vol_mounts,
 		TTY:          true,
 		Stdin:        true,
 	}
 	containers = append(containers, container)
+
+	// Decide the NodeSelector, sort nodes by allocatable storage space
+
+	var selectNode string
+	if len(spec.NodeSelector) == 0 {
+		selectNode, _ = r.scheduler(ctx, alnairpod.Spec)
+	} else {
+		selectNode = ""
+	}
 
 	// create the pod
 	pod = corev1.Pod{
@@ -277,6 +309,7 @@ func (r *AlnairPodReconciler) createPod(ctx context.Context, alnairpod v1alpha1.
 			Containers:    containers,
 			RestartPolicy: corev1.RestartPolicyNever,
 			NodeSelector:  spec.NodeSelector,
+			NodeName:      selectNode,
 			HostNetwork:   spec.HostNetwork,
 		},
 	}

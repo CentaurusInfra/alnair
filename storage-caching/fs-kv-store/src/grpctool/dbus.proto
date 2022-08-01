@@ -58,9 +58,10 @@ message QoS {
 }
 message RegisterRequest {
     required Credential cred = 1;
-    required DataSource datasource = 2;
-    optional QoS qos = 3;
-    optional ResourceInfo resource = 4;
+    required string nodeIP = 2;
+    required DataSource datasource = 3;
+    optional QoS qos = 4;
+    optional ResourceInfo resource = 5;
 }
 
 message RegisterResponse {

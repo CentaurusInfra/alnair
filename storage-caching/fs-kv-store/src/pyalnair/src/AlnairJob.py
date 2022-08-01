@@ -3,7 +3,8 @@ import json
 import concurrent.futures
 import multiprocessing
 from math import inf
-import pickle
+import numpy as np
+import time
 from typing import Optional, Union, Sequence, Iterable, Any, List, Tuple
 from torch.utils.data import Dataset, DataLoader, Sampler
 from torch.utils.data.dataloader import _worker_init_fn_t, _collate_fn_t
@@ -17,7 +18,7 @@ class dotdict(dict):
 
         
 class AlnairJobDataset(Dataset):
-    def __init__(self, keys: List[str] = None):
+    def __init__(self, keys: List[str] = None, shuffle=False):
         """An abstract class subclassing the torch.utils.data.Dataset class
         
         All datasets that represent a map from keys to data samples should subclass
@@ -36,15 +37,16 @@ class AlnairJobDataset(Dataset):
         Args:
             keys (List, optional): a list of bucket keys. Defaults to None, meaning loading all keys in the bucket.
         """
-        
+        self.shuffle = shuffle
         self.jobname = os.environ.get('JOBNAME')
         self.__keys = keys
         self.qos = self.load_metainfo()['qos']
         self.jobinfo = self.load_jobinfo()
         self.chunks = []
+        self.paths = None
         self.__targets = None
         if self.qos['UseCache']: # use datasource from Alnair
-            self.load_all_alnair_keys()
+            self.load_alnair_keys()
         else:
             import configparser, boto3
             
@@ -58,7 +60,7 @@ class AlnairJobDataset(Dataset):
             )
             self.client = s3_session.client('s3')
             self.bucket_name = self.jobinfo['datasource']['bucket']
-            self.load_all_s3_keys()
+            self.load_s3_keys()
         self.load_data(0)
 
     @property
@@ -73,9 +75,10 @@ class AlnairJobDataset(Dataset):
     
     def load(self, key):
         if self.qos['UseCache']:
-            with open(key, 'rb') as f:
-                val = f.read()
-            if val is None: # cache missing
+            try:
+                with open(key, 'rb') as f:
+                    val = f.read()
+            except FileNotFoundError:
                 with open('/share/cachemiss', 'w') as f:
                     f.writelines(key)
                 while not os.path.exists(key): pass
@@ -90,9 +93,10 @@ class AlnairJobDataset(Dataset):
             def helper(chunk):
                 name = chunk['name']
                 key = chunk['key']
-                with open(key, 'rb') as f:
-                    val = f.read()
-                if val:
+                try:
+                    with open(key, 'rb') as f:
+                        val = f.read()
+                except FileNotFoundError:
                     with open('/share/cachemiss', 'w') as f:
                         f.writelines(key)
                     while not os.path.exists(key): pass
@@ -138,10 +142,13 @@ class AlnairJobDataset(Dataset):
             jobinfo = self.load_metainfo()
         return dotdict(jobinfo)
 
-    def load_all_alnair_keys(self):
+    def load_alnair_keys(self):
         maxmem = self.qos['MaxMemory']*1024*1024
         with open('/nfs-master/{}/snapshot.json'.format(self.jobname), 'r') as f:
             snapshot = json.load(f)
+        if self.shuffle:
+            np.random.shuffle(snapshot)
+        self.paths = np.array([x['key'] for x in snapshot])
         if maxmem == 0 or self.qos['LazyLoading']:
             self.chunks.append(snapshot)
         else:
@@ -158,7 +165,7 @@ class AlnairJobDataset(Dataset):
                 else:
                     self.chunks[-1].append(chunk)
         
-    def load_all_s3_keys(self):
+    def load_s3_keys(self):
         paginator = self.client.get_paginator('list_objects_v2')
         if self.__keys is not None:
             pages = []
@@ -171,6 +178,8 @@ class AlnairJobDataset(Dataset):
         maxmem = inf if maxmem==0 else maxmem
         total_size = 0
         self.chunks.append([])
+        if self.shuffle:
+            np.random.shuffle(pages)
         for page in pages:
             for item in page['Contents']:
                 chk = {'name': item['Key'], 'key': item['Key'], 'size': item['Size']}
@@ -222,8 +231,7 @@ class AlnairJobDataset(Dataset):
     
 class AlnairJobDataLoader(object):
     def __init__(self, dataset: AlnairJobDataset, 
-                 batch_size: Optional[int] = 1,
-                 shuffle: bool = False, sampler: Union[Sampler, Iterable, None] = None,
+                 batch_size: Optional[int] = 1, sampler: Union[Sampler, Iterable, None] = None,
                  batch_sampler: Union[Sampler[Sequence], Iterable[Sequence], None] = None,
                  num_workers: int = 0, collate_fn: Optional[_collate_fn_t] = None,
                  pin_memory: bool = False, drop_last: bool = False,
@@ -244,8 +252,6 @@ class AlnairJobDataLoader(object):
             dataset (AlnairJobDataset): dataset from which to load the data.
             batch_size (int, optional): how many samples per batch to load
                 (default: ``1``).
-            shuffle (bool, optional): set to ``True`` to have the data reshuffled
-                at every epoch (default: ``False``).
             sampler (Sampler or Iterable, optional): defines the strategy to draw
                 samples from the dataset. Can be any ``Iterable`` with ``__len__``
                 implemented. If specified, :attr:`shuffle` must not be specified.
@@ -312,7 +318,6 @@ class AlnairJobDataLoader(object):
     
         self.dataset = dataset
         self.batch_size = batch_size
-        self.shuffle = shuffle
         self.sampler = sampler
         self.batch_sampler = batch_sampler
         self.num_workers = num_workers
@@ -330,18 +335,25 @@ class AlnairJobDataLoader(object):
         self.index = 1
         
     def init_loader(self):
-        loader = DataLoader(self.dataset, self.batch_size, self.shuffle, self.sampler, self.batch_sampler, self.num_workers, self.collate_fn, 
+        loader = DataLoader(self.dataset, self.batch_size, False, self.sampler, self.batch_sampler, self.num_workers, self.collate_fn, 
                             self.pin_memory, self.drop_last, self.timeout, self.worker_init_fn, self.multiprocessing_context, self.generator, 
                             prefetch_factor=self.prefetch_factor, persistent_workers=self.persistent_workers)
-        # TODO: save batch index into /runtime/batchsampler.npy
         self.loader = loader._get_iterator()
-        
+        with open('/share/runtime_conf.json', 'w') as f:
+            json.dump(f, {'num_workers': self.num_workers})
+        batch_paths = []
+        for indices in loader._index_sampler:
+            batch_paths.append(self.dataset.paths[indices])
+        np.save('/share/batch_indices.npy', batch_paths)
+
     def __iter__(self):
         return self
     
     def __next__(self):
         try:
             data = self.loader.next()
+            with open('/share/nextbatch', 'w') as f:
+                f.write(str(time.time()))
         except StopIteration:
             if self.index == len(self.dataset.chunks):  # epoch is down
                 self.index = 1
