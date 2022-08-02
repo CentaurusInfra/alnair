@@ -97,6 +97,7 @@ class Client(pyinotify.ProcessEvent):
                 cred=self.cred,
                 nodeIP=environ.get('NODE_IP'),
                 datasource=pb.DataSource(name=ds['name'], bucket=ds['bucket'], keys=ds['keys']),
+                nodePriority=job['nodePriority'],
                 qos=ParseDict(qos, pb.QoS(), ignore_unknown_fields=True),
                 resource=pb.ResourceInfo(CPUMemoryFree=get_cpu_free_mem(), GPUMemoryFree=get_gpu_free_mem())
             )

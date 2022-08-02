@@ -104,7 +104,6 @@ class Manager(object):
         free_space = sorted(free_space, key=lambda x: x[1])
         schedule = []
         
-        
     def evict_data(self):
         def allkeys_lru():
             """Backup the least N recent used keys

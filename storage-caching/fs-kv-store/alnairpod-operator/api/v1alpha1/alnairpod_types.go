@@ -192,6 +192,10 @@ type AlnairPodSpec struct {
 	// If this option is set, the ports that will be used must be specified. Default to false.
 	// +optional
 	HostNetwork bool `json:"hostnetwork,omitempty"`
+
+	// Node sequence of downloading dataset
+	// +optional
+	NodePriority []string `json:"nodePriority,omitempty"`
 }
 
 // AlnairPodStatus defines the observed state of AlnairPod

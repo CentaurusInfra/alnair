@@ -86,26 +86,23 @@ func (r *AlnairPodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, err
 	}
 
-	// create associated resources
-
-	// create configmap
-	configmap := &corev1.ConfigMap{}
-	if err := r.Get(ctx, req.NamespacedName, configmap); err != nil && k8serrors.IsNotFound(err) {
-		configmap, err := r.createConfigMap(ctx, alnairpod)
-		if err != nil {
-			log.Error(err, fmt.Sprintf("error in creating configmap %s: %s.", configmap.Name, err.Error()))
-			return ctrl.Result{}, err
-		} else {
-			if err := r.Create(ctx, &configmap, &client.CreateOptions{}); err != nil {
-				return ctrl.Result{}, err
-			}
-		}
-	}
-
-	// create pod
 	pod := &corev1.Pod{}
 	if err := r.Get(ctx, req.NamespacedName, pod); err != nil && k8serrors.IsNotFound(err) {
+		nodePriority, err := r.scheduler(ctx, alnairpod.Spec)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		var selectNode string
+		if len(alnairpod.Spec.NodeSelector) == 0 {
+			selectNode = nodePriority[0]
+		} else {
+			selectNode = ""
+		}
+
+		// create pod
 		pod, err := r.createPod(ctx, alnairpod)
+		pod.Spec.NodeName = selectNode
+		alnairpod.Spec.NodePriority = nodePriority
 		if err != nil {
 			log.Error(err, fmt.Sprintf("error in creating pod %s: %s.", pod.Name, err.Error()))
 			return ctrl.Result{}, err
@@ -123,6 +120,20 @@ func (r *AlnairPodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			if err := r.Update(ctx, &alnairpod, &client.UpdateOptions{}); err != nil {
 				return ctrl.Result{}, nil
 			}
+
+			// create configmap
+			configmap := &corev1.ConfigMap{}
+			if err := r.Get(ctx, req.NamespacedName, configmap); err != nil && k8serrors.IsNotFound(err) {
+				configmap, err := r.createConfigMap(ctx, alnairpod)
+				if err != nil {
+					log.Error(err, fmt.Sprintf("error in creating configmap %s: %s.", configmap.Name, err.Error()))
+					return ctrl.Result{}, err
+				} else {
+					if err := r.Create(ctx, &configmap, &client.CreateOptions{}); err != nil {
+						return ctrl.Result{}, err
+					}
+				}
+			}
 			return ctrl.Result{}, nil
 		}
 	}
@@ -134,17 +145,24 @@ func (r *AlnairPodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 	if !reflect.DeepEqual(alnairpod.Spec, oldspec) {
 		// update configmap
-		newconfigmap, _ := r.createConfigMap(ctx, alnairpod)
-		if err := r.Update(ctx, &newconfigmap, &client.UpdateOptions{}); err != nil {
-			log.Error(err, fmt.Sprintf("error in updating configmap %s", req.Name))
-			return ctrl.Result{}, nil
+		nodePriority, err := r.scheduler(ctx, alnairpod.Spec)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		var selectNode string
+		if len(alnairpod.Spec.NodeSelector) == 0 {
+			selectNode = nodePriority[0]
+		} else {
+			selectNode = ""
 		}
 
+		alnairpod.Spec.NodePriority = nodePriority
 		oldpod := corev1.Pod{}
 		if err := r.Get(ctx, req.NamespacedName, &oldpod); err != nil {
 			log.Error(err, fmt.Sprintf("error in getting pod %s", req.Name))
 			return ctrl.Result{}, err
 		}
+
 		// delete the old pod
 		if err := r.Delete(ctx, &oldpod, &client.DeleteOptions{}); err != nil {
 			log.Error(err, fmt.Sprintf("failed to delete old pod %s", alnairpod.Name))
@@ -153,9 +171,17 @@ func (r *AlnairPodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 		// create a new pod
 		newpod, _ := r.createPod(ctx, alnairpod)
+		newpod.Spec.NodeName = selectNode
 		if err := r.Create(ctx, &newpod, &client.CreateOptions{}); err != nil {
 			log.Error(err, fmt.Sprintf("error in creating pod %s: %s.", pod.Name, err.Error()))
 			return ctrl.Result{}, err
+		}
+
+		// create configmap
+		newconfigmap, _ := r.createConfigMap(ctx, alnairpod)
+		if err := r.Update(ctx, &newconfigmap, &client.UpdateOptions{}); err != nil {
+			log.Error(err, fmt.Sprintf("error in updating configmap %s", req.Name))
+			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, nil
 	}
@@ -168,23 +194,50 @@ func calculateRuntimeFSSize(spec v1alpha1.AlnairPodSpec) int64 {
 	return int64(default_val)
 }
 
-func (r *AlnairPodReconciler) scheduler(ctx context.Context, spec v1alpha1.AlnairPodSpec) (string, error) {
-	clusterStorage := map[string]int64{}
+/*
+	Assign the job to a node, and return the node sequence (IP) of saving data
+*/
+func (r *AlnairPodReconciler) scheduler(ctx context.Context, spec v1alpha1.AlnairPodSpec) ([]string, error) {
+	// step 1. collect node resource information
+	clusterResource := map[string]map[string][]int64{}
 	nodes := &corev1.NodeList{}
 	if err := r.List(ctx, nodes, &client.ListOptions{}); err != nil {
-		return "", err
+		return nil, err
 	}
 	for _, node := range nodes.Items {
-		clusterStorage[node.Name] = node.Status.Allocatable.StorageEphemeral().Value()
+		allocRes := node.Status.Allocatable
+		allRes := node.Status.Capacity
+		gpus := allocRes["nvidia.com/gpu"]
+		allocGpuQuantity, ok := gpus.AsInt64()
+		if !ok {
+			allocGpuQuantity = 0
+		}
+		gpus = allRes["nvidia.com/gpu"]
+		allGpuQuantity, ok := gpus.AsInt64()
+		if !ok {
+			allGpuQuantity = 0
+		}
+		clusterResource[node.Status.Addresses[0].Address] = map[string][]int64{
+			"disk":   {allocRes.Storage().Value(), allRes.Storage().Value()},
+			"memory": {allocRes.Memory().Value(), allRes.Memory().Value()},
+			"cpu":    {allocRes.Cpu().Value(), allRes.Cpu().Value()},
+			"gpu":    {allocGpuQuantity, allGpuQuantity},
+		}
 	}
-	keys := make([]string, 0, len(clusterStorage))
-	for key := range clusterStorage {
+
+	// step 2. calculate node score indicating the degree of a job fitting the node
+	nodeScore := map[string]float64{}
+	for _, node := range nodes.Items {
+		nodeScore[node.Status.Addresses[0].Address] = float64(clusterResource[node.Name]["disk"][0])
+	}
+	keys := make([]string, 0, len(nodeScore))
+	for key := range nodeScore {
 		keys = append(keys, key)
 	}
 	sort.SliceStable(keys, func(i, j int) bool {
-		return clusterStorage[keys[i]] > clusterStorage[keys[j]]
+		return nodeScore[keys[i]] > nodeScore[keys[j]]
 	})
-	return keys[0], nil
+	return keys, nil
 }
 
 func (r *AlnairPodReconciler) createPod(ctx context.Context, alnairpod v1alpha1.AlnairPod) (corev1.Pod, error) {
@@ -284,15 +337,6 @@ func (r *AlnairPodReconciler) createPod(ctx context.Context, alnairpod v1alpha1.
 	}
 	containers = append(containers, container)
 
-	// Decide the NodeSelector, sort nodes by allocatable storage space
-
-	var selectNode string
-	if len(spec.NodeSelector) == 0 {
-		selectNode, _ = r.scheduler(ctx, alnairpod.Spec)
-	} else {
-		selectNode = ""
-	}
-
 	// create the pod
 	pod = corev1.Pod{
 		TypeMeta: metav1.TypeMeta{
@@ -309,7 +353,6 @@ func (r *AlnairPodReconciler) createPod(ctx context.Context, alnairpod v1alpha1.
 			Containers:    containers,
 			RestartPolicy: corev1.RestartPolicyNever,
 			NodeSelector:  spec.NodeSelector,
-			NodeName:      selectNode,
 			HostNetwork:   spec.HostNetwork,
 		},
 	}
@@ -329,8 +372,9 @@ func (r *AlnairPodReconciler) createConfigMap(ctx context.Context, alnairpod v1a
 	spec := alnairpod.Spec
 	for _, job := range spec.Jobs {
 		jobinfo := map[string]interface{}{
-			"name":       job.Name,
-			"datasource": job.DataSource,
+			"name":         job.Name,
+			"datasource":   job.DataSource,
+			"nodePriority": alnairpod.Spec.NodePriority,
 		}
 		if job.ConfigurationsFromConfigMap.Name != "" {
 			var qos_config corev1.ConfigMap
