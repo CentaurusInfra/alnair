@@ -188,6 +188,8 @@ type AlnairPodSpec struct {
 	// +optional
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 
+	NodeName string `json:"nodeName,omitempty"`
+
 	// Host networking requested for this pod. Use the host's network namespace.
 	// If this option is set, the ports that will be used must be specified. Default to false.
 	// +optional

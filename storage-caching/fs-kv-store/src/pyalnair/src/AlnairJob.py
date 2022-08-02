@@ -1,3 +1,4 @@
+from asyncio import as_completed
 import os
 import json
 import concurrent.futures
@@ -43,7 +44,6 @@ class AlnairJobDataset(Dataset):
         self.qos = self.load_metainfo()['qos']
         self.jobinfo = self.load_jobinfo()
         self.chunks = []
-        self.paths = None
         self.__targets = None
         if self.qos['UseCache']: # use datasource from Alnair
             self.load_alnair_keys()
@@ -73,46 +73,34 @@ class AlnairJobDataset(Dataset):
     def targets(self):
         return self.__targets
     
-    def load(self, key):
+    def load(self, chunk):
+        key = chunk['Key']
         if self.qos['UseCache']:
+            hashkey = chunk['HashKey']
+            loc = chunk['Location']
+            tmpfs_path = '/runtime/{}/{}'.format(loc, hashkey)
             try:
-                with open(key, 'rb') as f:
+                path = tmpfs_path if os.path.exists(tmpfs_path) else hashkey
+                with open(path, 'rb') as f:
                     val = f.read()
             except FileNotFoundError:
-                with open('/share/cachemiss', 'w') as f:
+                with open('/share/datamiss', 'w') as f:
                     f.writelines(key)
-                while not os.path.exists(key): pass
-                with open(key, 'rb') as f:
+                while not os.path.exists(hashkey): pass
+                with open("/{}/{}".format(loc, hashkey), 'rb') as f:
                     val = f.read()
         else:
             val = self.client.get_object(Bucket=self.bucket_name, Key=key)['Body'].read()
         return val
 
     def mload(self, chunks):
-        if self.qos['UseCache']:
-            def helper(chunk):
-                name = chunk['name']
-                key = chunk['key']
-                try:
-                    with open(key, 'rb') as f:
-                        val = f.read()
-                except FileNotFoundError:
-                    with open('/share/cachemiss', 'w') as f:
-                        f.writelines(key)
-                    while not os.path.exists(key): pass
-                    with open(key, 'rb') as f:
-                        val = f.read()
-                self.__keys.append(name)
-                self.__data[name] = val
-        else:
-            def helper(chunk):
-                val = self.client.get_object(Bucket=self.bucket_name, Key=chunk['key'])['Body'].read()
-                self.__keys.append(chunk['key'])
-                self.__data[chunk['name']] = val   
         with concurrent.futures.ThreadPoolExecutor(max_workers=multiprocessing.cpu_count()) as executor:
             futures = []
             for chunk in chunks:
-                futures.append(executor.submit(helper, chunk))
+                futures.append(executor.submit(self.load, chunk))
+            for i, future in enumerate(concurrent.futures.as_completed(futures)):
+                self.__keys.append(chunks[i]['Key'])
+                self.__data[chunks[i]['Key']] = future.result()
         concurrent.futures.wait(futures)
                     
     def get_data(self, index):
@@ -125,7 +113,7 @@ class AlnairJobDataset(Dataset):
         return self.targets[index]
         
     def load_metainfo(self):
-        with open('/jobs/{}.json'.format(self.jobname), 'r') as f:
+        with open('/jobsmeta/{}.json'.format(self.jobname), 'r') as f:
             jobinfo = json.load(f)
         return jobinfo
     
@@ -142,26 +130,28 @@ class AlnairJobDataset(Dataset):
             jobinfo = self.load_metainfo()
         return dotdict(jobinfo)
 
+    # TODO: MaxMemory怎么处理
     def load_alnair_keys(self):
         maxmem = self.qos['MaxMemory']*1024*1024
-        with open('/nfs-master/{}/snapshot.json'.format(self.jobname), 'r') as f:
-            snapshot = json.load(f)
+        with open('/nfs-master/{}/key_lookup.json'.format(self.jobname), 'r') as f:
+            key_lookup = json.load(f)
         if self.shuffle:
-            np.random.shuffle(snapshot)
-        self.paths = np.array([x['key'] for x in snapshot])
+            np.random.shuffle(key_lookup)
+                    
         if maxmem == 0 or self.qos['LazyLoading']:
-            self.chunks.append(snapshot)
+            self.chunks.append(list(key_lookup.values()))
         else:
             total_size = 0
             self.chunks.append([])
-            for chunk in snapshot:
-                s = int(chunk['size'])
+            for key in key_lookup:
+                chunk = key_lookup[key]
+                s = int(chunk['Size'])
                 total_size += s
-                if total_size > maxmem:
+                if total_size >= maxmem:
                     self.chunks.append([])
                     total_size = 0
                 elif s > maxmem:
-                    raise Exception('File {} size is greater than assigned MaxMemory.'.format(chunk['name']))
+                    raise Exception('Object {} size is greater than assigned MaxMemory.'.format(key))
                 else:
                     self.chunks[-1].append(chunk)
         
@@ -182,24 +172,23 @@ class AlnairJobDataset(Dataset):
             np.random.shuffle(pages)
         for page in pages:
             for item in page['Contents']:
-                chk = {'name': item['Key'], 'key': item['Key'], 'size': item['Size']}
-                s = int(chk['size'])
+                s = int(item['Size'])
                 total_size += s
                 if total_size > maxmem:
                     self.chunks.append([])
                     total_size = 0
                 elif s > maxmem:
-                    raise Exception('File {} size is greater than assigned MaxMemory.'.format(chk['name']))
+                    raise Exception('File {} size is greater than assigned MaxMemory.'.format(item['Key']))
                 else:
-                    self.chunks[-1].append(chk)
+                    self.chunks[-1].append(item)
     
     def load_data(self, index):
         self.__data = {}
         self.__keys = []        
         if self.qos['LazyLoading']:
             for chunk in self.chunks[index]:
-                self.__keys.append(chunk['name'])
-                self.__data[chunk['name']] = chunk['key']
+                self.__keys.append(chunk['Key'])
+                self.__data[chunk['Key']] = chunk
         else:
             self.mload(self.chunks[index])
         self.__data, self.__targets = self.__convert__()
@@ -238,83 +227,83 @@ class AlnairJobDataLoader(object):
                  timeout: float = 0, worker_init_fn: Optional[_worker_init_fn_t] = None,
                  multiprocessing_context=None, generator=None, *, prefetch_factor: int = 2,
                  persistent_workers: bool = False):
-        r"""
-        Data loader. Combines a dataset and a sampler, and provides an iterable over
-        the given dataset.
+        # r"""
+        # Data loader. Combines a dataset and a sampler, and provides an iterable over
+        # the given dataset.
 
-        The :class:`~torch.utils.data.DataLoader` supports both map-style and
-        iterable-style datasets with single- or multi-process loading, customizing
-        loading order and optional automatic batching (collation) and memory pinning.
+        # The :class:`~torch.utils.data.DataLoader` supports both map-style and
+        # iterable-style datasets with single- or multi-process loading, customizing
+        # loading order and optional automatic batching (collation) and memory pinning.
 
-        See :py:mod:`torch.utils.data` documentation page for more details.
+        # See :py:mod:`torch.utils.data` documentation page for more details.
 
-        Args:
-            dataset (AlnairJobDataset): dataset from which to load the data.
-            batch_size (int, optional): how many samples per batch to load
-                (default: ``1``).
-            sampler (Sampler or Iterable, optional): defines the strategy to draw
-                samples from the dataset. Can be any ``Iterable`` with ``__len__``
-                implemented. If specified, :attr:`shuffle` must not be specified.
-            batch_sampler (Sampler or Iterable, optional): like :attr:`sampler`, but
-                returns a batch of indices at a time. Mutually exclusive with
-                :attr:`batch_size`, :attr:`shuffle`, :attr:`sampler`,
-                and :attr:`drop_last`.
-            num_workers (int, optional): how many subprocesses to use for data
-                loading. ``0`` means that the data will be loaded in the main process.
-                (default: ``0``)
-            collate_fn (callable, optional): merges a list of samples to form a
-                mini-batch of Tensor(s).  Used when using batched loading from a
-                map-style dataset.
-            pin_memory (bool, optional): If ``True``, the data loader will copy Tensors
-                into CUDA pinned memory before returning them.  If your data elements
-                are a custom type, or your :attr:`collate_fn` returns a batch that is a custom type,
-                see the example below.
-            drop_last (bool, optional): set to ``True`` to drop the last incomplete batch,
-                if the dataset size is not divisible by the batch size. If ``False`` and
-                the size of dataset is not divisible by the batch size, then the last batch
-                will be smaller. (default: ``False``)
-            timeout (numeric, optional): if positive, the timeout value for collecting a batch
-                from workers. Should always be non-negative. (default: ``0``)
-            worker_init_fn (callable, optional): If not ``None``, this will be called on each
-                worker subprocess with the worker id (an int in ``[0, num_workers - 1]``) as
-                input, after seeding and before data loading. (default: ``None``)
-            generator (torch.Generator, optional): If not ``None``, this RNG will be used
-                by RandomSampler to generate random self.indexes and multiprocessing to generate
-                `base_seed` for workers. (default: ``None``)
-            prefetch_factor (int, optional, keyword-only arg): Number of samples loaded
-                in advance by each worker. ``2`` means there will be a total of
-                2 * num_workers samples prefetched across all workers. (default: ``2``)
-            persistent_workers (bool, optional): If ``True``, the data loader will not shutdown
-                the worker processes after a dataset has been consumed once. This allows to
-                maintain the workers `Dataset` instances alive. (default: ``False``)
+        # Args:
+        #     dataset (AlnairJobDataset): dataset from which to load the data.
+        #     batch_size (int, optional): how many samples per batch to load
+        #         (default: ``1``).
+        #     sampler (Sampler or Iterable, optional): defines the strategy to draw
+        #         samples from the dataset. Can be any ``Iterable`` with ``__len__``
+        #         implemented. If specified, :attr:`shuffle` must not be specified.
+        #     batch_sampler (Sampler or Iterable, optional): like :attr:`sampler`, but
+        #         returns a batch of indices at a time. Mutually exclusive with
+        #         :attr:`batch_size`, :attr:`shuffle`, :attr:`sampler`,
+        #         and :attr:`drop_last`.
+        #     num_workers (int, optional): how many subprocesses to use for data
+        #         loading. ``0`` means that the data will be loaded in the main process.
+        #         (default: ``0``)
+        #     collate_fn (callable, optional): merges a list of samples to form a
+        #         mini-batch of Tensor(s).  Used when using batched loading from a
+        #         map-style dataset.
+        #     pin_memory (bool, optional): If ``True``, the data loader will copy Tensors
+        #         into CUDA pinned memory before returning them.  If your data elements
+        #         are a custom type, or your :attr:`collate_fn` returns a batch that is a custom type,
+        #         see the example below.
+        #     drop_last (bool, optional): set to ``True`` to drop the last incomplete batch,
+        #         if the dataset size is not divisible by the batch size. If ``False`` and
+        #         the size of dataset is not divisible by the batch size, then the last batch
+        #         will be smaller. (default: ``False``)
+        #     timeout (numeric, optional): if positive, the timeout value for collecting a batch
+        #         from workers. Should always be non-negative. (default: ``0``)
+        #     worker_init_fn (callable, optional): If not ``None``, this will be called on each
+        #         worker subprocess with the worker id (an int in ``[0, num_workers - 1]``) as
+        #         input, after seeding and before data loading. (default: ``None``)
+        #     generator (torch.Generator, optional): If not ``None``, this RNG will be used
+        #         by RandomSampler to generate random self.indexes and multiprocessing to generate
+        #         `base_seed` for workers. (default: ``None``)
+        #     prefetch_factor (int, optional, keyword-only arg): Number of samples loaded
+        #         in advance by each worker. ``2`` means there will be a total of
+        #         2 * num_workers samples prefetched across all workers. (default: ``2``)
+        #     persistent_workers (bool, optional): If ``True``, the data loader will not shutdown
+        #         the worker processes after a dataset has been consumed once. This allows to
+        #         maintain the workers `Dataset` instances alive. (default: ``False``)
 
 
-        .. warning:: If the ``spawn`` start method is used, :attr:`worker_init_fn`
-                    cannot be an unpicklable object, e.g., a lambda function. See
-                    :ref:`multiprocessing-best-practices` on more details related
-                    to multiprocessing in PyTorch.
+        # .. warning:: If the ``spawn`` start method is used, :attr:`worker_init_fn`
+        #             cannot be an unpicklable object, e.g., a lambda function. See
+        #             :ref:`multiprocessing-best-practices` on more details related
+        #             to multiprocessing in PyTorch.
 
-        .. warning:: ``len(dataloader)`` heuristic is based on the length of the sampler used.
-                    When :attr:`dataset` is an :class:`~torch.utils.data.IterableDataset`,
-                    it instead returns an estimate based on ``len(dataset) / batch_size``, with proper
-                    rounding depending on :attr:`drop_last`, regardless of multi-process loading
-                    configurations. This represents the best guess PyTorch can make because PyTorch
-                    trusts user :attr:`dataset` code in correctly handling multi-process
-                    loading to avoid duplicate data.
+        # .. warning:: ``len(dataloader)`` heuristic is based on the length of the sampler used.
+        #             When :attr:`dataset` is an :class:`~torch.utils.data.IterableDataset`,
+        #             it instead returns an estimate based on ``len(dataset) / batch_size``, with proper
+        #             rounding depending on :attr:`drop_last`, regardless of multi-process loading
+        #             configurations. This represents the best guess PyTorch can make because PyTorch
+        #             trusts user :attr:`dataset` code in correctly handling multi-process
+        #             loading to avoid duplicate data.
 
-                    However, if sharding results in multiple workers having incomplete last batches,
-                    this estimate can still be inaccurate, because (1) an otherwise complete batch can
-                    be broken into multiple ones and (2) more than one batch worth of samples can be
-                    dropped when :attr:`drop_last` is set. Unfortunately, PyTorch can not detect such
-                    cases in general.
+        #             However, if sharding results in multiple workers having incomplete last batches,
+        #             this estimate can still be inaccurate, because (1) an otherwise complete batch can
+        #             be broken into multiple ones and (2) more than one batch worth of samples can be
+        #             dropped when :attr:`drop_last` is set. Unfortunately, PyTorch can not detect such
+        #             cases in general.
 
-                    See `Dataset Types`_ for more details on these two types of datasets and how
-                    :class:`~torch.utils.data.IterableDataset` interacts with
-                    `Multi-process data loading`_.
+        #             See `Dataset Types`_ for more details on these two types of datasets and how
+        #             :class:`~torch.utils.data.IterableDataset` interacts with
+        #             `Multi-process data loading`_.
 
-        .. warning:: See :ref:`reproducibility`, and :ref:`dataloader-workers-random-seed`, and
-                    :ref:`data-loading-randomness` notes for random seed related questions.
-        """
+        # .. warning:: See :ref:`reproducibility`, and :ref:`dataloader-workers-random-seed`, and
+        #             :ref:`data-loading-randomness` notes for random seed related questions.
+        # """
     
         self.dataset = dataset
         self.batch_size = batch_size
@@ -339,12 +328,11 @@ class AlnairJobDataLoader(object):
                             self.pin_memory, self.drop_last, self.timeout, self.worker_init_fn, self.multiprocessing_context, self.generator, 
                             prefetch_factor=self.prefetch_factor, persistent_workers=self.persistent_workers)
         self.loader = loader._get_iterator()
-        with open('/share/runtime_conf.json', 'w') as f:
-            json.dump(f, {'num_workers': self.num_workers})
         batch_paths = []
         for indices in loader._index_sampler:
-            batch_paths.append(self.dataset.paths[indices])
-        np.save('/share/batch_indices.npy', batch_paths)
+            batch_paths.append(self.dataset.paths[indices].tolist())
+        with open('/share/prefetch_policy.json', 'w') as f:
+            json.dump(f, {"meta": {'num_workers': self.num_workers, 'batch_size': self.batch_size}, "indices": batch_paths})
 
     def __iter__(self):
         return self

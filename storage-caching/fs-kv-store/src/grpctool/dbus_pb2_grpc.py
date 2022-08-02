@@ -170,7 +170,7 @@ class Registration(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
 
-class CacheMissStub(object):
+class DataMissStub(object):
     """When key is not available, CC request GM to update policy
     """
 
@@ -181,13 +181,13 @@ class CacheMissStub(object):
             channel: A grpc.Channel.
         """
         self.call = channel.unary_unary(
-                '/dbus.CacheMiss/call',
-                request_serializer=dbus__pb2.CacheMissRequest.SerializeToString,
-                response_deserializer=dbus__pb2.CacheMissResponse.FromString,
+                '/dbus.DataMiss/call',
+                request_serializer=dbus__pb2.DataMissRequest.SerializeToString,
+                response_deserializer=dbus__pb2.DataMissResponse.FromString,
                 )
 
 
-class CacheMissServicer(object):
+class DataMissServicer(object):
     """When key is not available, CC request GM to update policy
     """
 
@@ -198,21 +198,21 @@ class CacheMissServicer(object):
         raise NotImplementedError('Method not implemented!')
 
 
-def add_CacheMissServicer_to_server(servicer, server):
+def add_DataMissServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'call': grpc.unary_unary_rpc_method_handler(
                     servicer.call,
-                    request_deserializer=dbus__pb2.CacheMissRequest.FromString,
-                    response_serializer=dbus__pb2.CacheMissResponse.SerializeToString,
+                    request_deserializer=dbus__pb2.DataMissRequest.FromString,
+                    response_serializer=dbus__pb2.DataMissResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
-            'dbus.CacheMiss', rpc_method_handlers)
+            'dbus.DataMiss', rpc_method_handlers)
     server.add_generic_rpc_handlers((generic_handler,))
 
 
  # This class is part of an EXPERIMENTAL API.
-class CacheMiss(object):
+class DataMiss(object):
     """When key is not available, CC request GM to update policy
     """
 
@@ -227,70 +227,9 @@ class CacheMiss(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/dbus.CacheMiss/call',
-            dbus__pb2.CacheMissRequest.SerializeToString,
-            dbus__pb2.CacheMissResponse.FromString,
-            options, channel_credentials,
-            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
-
-
-class HeartbeatStub(object):
-    """Missing associated documentation comment in .proto file."""
-
-    def __init__(self, channel):
-        """Constructor.
-
-        Args:
-            channel: A grpc.Channel.
-        """
-        self.call = channel.unary_unary(
-                '/dbus.Heartbeat/call',
-                request_serializer=dbus__pb2.HearbeatMessage.SerializeToString,
-                response_deserializer=dbus__pb2.HearbeatMessage.FromString,
-                )
-
-
-class HeartbeatServicer(object):
-    """Missing associated documentation comment in .proto file."""
-
-    def call(self, request, context):
-        """Missing associated documentation comment in .proto file."""
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-
-def add_HeartbeatServicer_to_server(servicer, server):
-    rpc_method_handlers = {
-            'call': grpc.unary_unary_rpc_method_handler(
-                    servicer.call,
-                    request_deserializer=dbus__pb2.HearbeatMessage.FromString,
-                    response_serializer=dbus__pb2.HearbeatMessage.SerializeToString,
-            ),
-    }
-    generic_handler = grpc.method_handlers_generic_handler(
-            'dbus.Heartbeat', rpc_method_handlers)
-    server.add_generic_rpc_handlers((generic_handler,))
-
-
- # This class is part of an EXPERIMENTAL API.
-class Heartbeat(object):
-    """Missing associated documentation comment in .proto file."""
-
-    @staticmethod
-    def call(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/dbus.Heartbeat/call',
-            dbus__pb2.HearbeatMessage.SerializeToString,
-            dbus__pb2.HearbeatMessage.FromString,
+        return grpc.experimental.unary_unary(request, target, '/dbus.DataMiss/call',
+            dbus__pb2.DataMissRequest.SerializeToString,
+            dbus__pb2.DataMissResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

@@ -1,5 +1,5 @@
 import concurrent.futures
-import os
+import sys
 import shutil
 import grpc
 import boto3
@@ -75,95 +75,78 @@ class Manager(object):
             if result.modified_count != 1:
                 logger.error("user {} is connected, but failed to update S3 authorization information.".format(cred.username))
                 rc = pb.RC.FAILED
-        return rc           
+        return rc
     
-    def auth_job(self, jobId):
-        result = self.job_col.find_one(filter={"meta.jobId": jobId})
-        return result if result is not None else None
-    
-    def calculate_chunk_size(self, dataset_info: dict, qos=None):
-        """Calculate the proper chunk size based on available memory and dataset size
-        # TODO: what is the strategy of deciding the chunk size
-        Args:
-            dataset_info (dict): meta information of the dataset
-            qos (_type_, optional): QoS setting of the dataset. Defaults to None.
-
+    def calculate_max_chunk_size(self):
+        """
         Returns:
             _type_: chunk size in MB. Defaults to 512MB
         """
         DEFAULT_CHUNK_SIZE = 512*1024*1024
         return DEFAULT_CHUNK_SIZE
 
-    # TODO: 此处应有负载均衡算法
-    def scheduler(self, bucket_objs: dict):
-        free_space = []
-        servers = glob.glob('/nfs-*')
-        for s in servers:
-            _, _, free = shutil.disk_usage(s)
-            free_space.append([s, free])
-        free_space = sorted(free_space, key=lambda x: x[1])
-        schedule = []
+    def assign_location(self, bucket_objs, servers, waterline=0.1):
+        k = 0
+        while k < len(bucket_objs):
+            obj = bucket_objs[k]
+            flag = False
+            for svr in servers:
+                total, _, free = shutil.disk_usage(svr)
+                if free/total > waterline and free > obj['Size']:
+                    bucket_objs[k]['Location'] = svr
+                    flag = True
+                    break
+            if not flag: # NFS out-of-space
+                self.evict_data()
+            k += 1
         
     def evict_data(self):
-        def allkeys_lru():
+        def lru(n=1):
             """Backup the least N recent used keys
 
             Args:
-                backup (int, optional): the number of keys. Defaults to 10.
+                n (int, optional): the number of keys. Defaults to 1.
             """
             return [
                 {"$unwind": "$policy.chunks"},
                 {"$project": {
                     "_id": 0, 
-                    "key": "$policy.chunks.key",
-                    "lastAccessTime": "$policy.chunks.lastAccessTime", 
-                    "location": "$policy.chunks.location"}
+                    "key": "$policy.chunks.Key",
+                    "lastAccessTime": "$policy.chunks.LastAccessTime", 
+                    "location": "$policy.chunks.Location"}
                  },
-                {"$sort": {"lastAccessTime": 1}},
-                {"$limit": self.managerconf.getint('flush_amount')},
-                {"$project": {"key": 1}},
-                {"$group": {"_id": "$_id", "keys": {"$push": "$key"}}}
+                {"$sort": {"LastAccessTime": 1}},
+                {"$project": {"Key": 1, "Location": 1}},
+                {"$limit": n}
             ]
             
-        def allkeys_lfu():
+        def lfu(n=1):
             """Backup the least N frequent used keys
 
             Args:
-                n (int, optional): the number of keys. Defaults to 10.
+                n (int, optional): the number of keys. Defaults to 1.
             """
             return [
                 {"$unwind": "$policy.chunks"},
                 {"$project": {
                     "_id": 0, 
-                    "key": "$policy.chunks.key",
-                    "totalAccessTime": "$policy.chunks.totalAccessTime", 
-                    "location": "$policy.chunks.location"}
+                    "key": "$policy.chunks.Key",
+                    "totalAccessTime": "$policy.chunks.TotalAccessTime", 
+                    "location": "$policy.chunks.Location"}
                 },
-                {"$sort": {"totalAccessTime": 1}},
-                {"$limit": self.managerconf.getint('flush_amount')},
-                {"$project": {"key": 1}},
-                {"$group": {"_id": "$_id", "keys": {"$push": "$key"}}},
+                {"$sort": {"TotalAccessTime": 1}},
+                {"$project": {"Key": 1, "Location": 1}},
+                {"$limit": n}
             ]
         
-        pipeline = {
-                "allkeys-lru": allkeys_lru,
-                "allkeys-lfu": allkeys_lfu
-            }[self.managerconf['eviction-policy']]()
-        
-        # TODO: other eviction policy (when/how)
-        # periodically data eviction
-        while True:
-            del_keys = self.job_col.aggregate(pipeline)
-            if del_keys._has_next():
-                keys = del_keys.next()['keys']
-                for key in keys:
-                    path = '/data/{}'.format(key)
-                    if os.path.exists(path):
-                        os.remove(path)
-                self.job_col.job_col.delete_many(
-                    {"policy.chunks": {"$elemMatch": {"key": {"$in": keys}}}}
-                )
-            time.sleep(self.managerconf.getint('flush_frequency') * 600)
+        pipeline = {"lru": lru, "lfu": lfu}[self.managerconf['eviction-policy']](n=self.managerconf.getint('eviction-size'))
+        rmobjs = self.job_col.aggregate(pipeline)
+        for obj in rmobjs:
+            shutil.rmtree(obj['Location'], ignore_errors=True)
+        rmkeys = [obj['Key'] for obj in rmobjs]
+        self.job_col.delete_many(
+            {"policy.chunks": {"$elemMatch": {"Key": {"$in": rmkeys}}}}
+        )
 
 
 class ConnectionService(pb_grpc.ConnectionServicer):
@@ -246,21 +229,21 @@ class RegistrationService(pb_grpc.RegistrationServicer):
                 saved_job = None
             if saved_job is not None:
                 for chunk in saved_job['policy']['chunks']:
-                    saved_keys[chunk['name']] = chunk
+                    saved_keys[chunk['Key']] = chunk
             
-            bucket_objs = {}
+            # get bucket objects
+            bucket_objs = []
             def list_modified_objects(prefix, page):
                 nonlocal bucket_objs
                 for info in page['Contents']:
                     info['prefix'] = prefix
                     if saved_job is not None \
                         and info['Key'] in saved_keys \
-                        and info['LastModified'].replace(tzinfo=timezone('UTC')).timestamp() == saved_keys[info['Key']]['lastModified']:
+                        and info['LastModified'].replace(tzinfo=timezone('UTC')).timestamp() == saved_keys[info['Key']]['LastModified']:
                         info['Exist'] = True
                     else:
                         info['Exist'] = False
-                    bucket_objs[info['Key']] = info
-            
+                    bucket_objs.append(info)
             if len(request.datasource.keys) == 0:
                 request.datasource.keys = [bucket_name]
             for prefix in request.datasource.keys:
@@ -271,75 +254,72 @@ class RegistrationService(pb_grpc.RegistrationServicer):
                     for page in pages:
                         futures.append(executor.submit(list_modified_objects, prefix, page))
                 concurrent.futures.wait(futures)
-
-            # copy data from S3 to NFS
-            snapshot = {}
-            def copy_data(info: dict, location: str, chunk_size: int):
-                nonlocal snapshot
-                chunk_keys = []
-                if not info['Exist']:
-                    if info['Size'] <= chunk_size:
-                        value = s3_client.get_object(Bucket=bucket_name, Key=info['Key'])['Body'].read()
-                        hash_key = "{}/{}".format(location, hashing(value))
-                        s3_client.download_file(Bucket=bucket_name, Key=info['Key'], Filename='/{}/{}'.format(location, hash_key))
-                        # logger.info("Copy data from s3:{} to alnair:{}".format(info['Key'], hash_key))
-                        obj = {'name': info['Key'], 'key': hash_key, 'size': info['Size'], 'lastModified': int(info['LastModified'].timestamp())}
-                        chunk_keys.append(obj)
-                    else:
-                        s3_client.download_file(Bucket=bucket_name, Key=info['Key'], Filename='/tmp/{}'.format(info['Key']))
-                        # logger.info("Download large file s3:{}, size: {}B".format(info['Key'], info['Size']))
-                        with open('/tmp/{}'.format(info['Key']), 'rb') as f:
-                            value = f.read(chunk_size)
-                            while value:
-                                hash_key = "{}/{}".format(location, hashing(value))
-                                with open('/{}/{}'.format(location, hash_key), 'wb') as f:
-                                    f.write(value)
-                                obj = {'name': info['Key'], 'key': hash_key, 'size': chunk_size, 'lastModified': int(info['LastModified'].timestamp())}
-                                chunk_keys.append(obj)
-                                # logger.info("Copy data from /tmp/{} to alnair:{}".format(info['Key'], hash_key))
-                                value = f.read(chunk_size)
-                else:
-                    # find hash keys given the bucket key
-                    def search_key(bk):
-                        if bk in saved_keys:
-                            return saved_keys[bk]['location']
-                        return None
-                    chunk_keys.append({
-                        'name': info['Key'], 
-                        'key': search_key(info['Key']), 
-                        'size': info['Size'], 
-                        'lastModified': int(info['LastModified'].timestamp())})
-                    # logger.info('Key {} exists in Alnair.'.format(info['Key']))
-                snapshot[info['Key']] = chunk_keys
-                return chunk_keys
+                
+            # designate node sequence of storing data
+            self.manager.assign_location(bucket_objs, request.nodePriority)
             
-            # schedule dataset chunks across NFS servers
-            schedule = self.manager.scheduler(request.nodeIP, bucket_objs)
-            chunk_keys = []
+            # copy data from S3 to NFS
+            key_lookup = {}
+            def copy_data(s3obj: dict, max_chunk_size: int):
+                nonlocal key_lookup
+                obj_chunks = []
+                
+                key = s3obj['Key']
+                loc = s3obj['Location']
+                size = s3obj['Size']
+                lm = s3obj['LastModified']
+                
+                s3obj['LastModified'] = int(lm.timestamp())
+                if not s3obj['Exist']:
+                    if size <= max_chunk_size:
+                        value = s3_client.get_object(Bucket=bucket_name, Key=key)['Body'].read()
+                        hash_key = "/{}/{}".format(loc, hashing(value))
+                        s3_client.download_file(Bucket=bucket_name, Key=key, Filename='/{}/{}'.format(loc, hash_key))
+                        # logger.info("Copy data from s3:{} to alnair:{}".format(info['Key'], hash_key))
+                        s3obj['HashKey'] = hash_key
+                        obj_chunks.append(s3obj)
+                    else:
+                        s3_client.download_file(Bucket=bucket_name, Key=key, Filename='/tmp/{}'.format(key))
+                        # logger.info("Download large file s3:{}, size: {}B".format(info['Key'], info['Size']))
+                        with open('/tmp/{}'.format(key), 'rb') as f:
+                            value = f.read(max_chunk_size)
+                            while value:
+                                hash_key = "/{}/{}".format(loc, hashing(value))
+                                with open('/{}/{}'.format(loc, hash_key), 'wb') as f:
+                                    f.write(value)
+                                s3obj['HashKey'] = hash_key
+                                s3obj['Size'] = sys.getsizeof(value)
+                                obj_chunks.append(s3obj)
+                                # logger.info("Copy data from /tmp/{} to alnair:{}".format(info['Key'], hash_key))
+                                value = f.read(max_chunk_size)
+                else:                    
+                    s3obj['HashKey'] = saved_keys[key]['HashKey']
+                    obj_chunks.append(s3obj)
+                    
+                    # logger.info('Key {} exists in Alnair.'.format(info['Key']))
+                key_lookup[key] = obj_chunks
+                return obj_chunks
+            
+            obj_chunks = []
+            max_chunk_size = self.manager.calculate_max_chunk_size()
             with concurrent.futures.ThreadPoolExecutor(max_workers=multiprocessing.cpu_count()) as executor:
                 futures = []
-                for bk in bucket_objs:
-                    info = bucket_objs[bk]
-                    futures.append(executor.submit(copy_data, info, schedule[bk]['location'], schedule[bk]['size']))
+                for obj in bucket_objs:
+                    futures.append(executor.submit(copy_data, obj, max_chunk_size))
                 for future in concurrent.futures.as_completed(futures):
-                    chunk_keys.extend(future.result())
+                    obj_chunks.extend(future.result())
             
-            # create job snapshot in NFS
-            with open("/nfs-master/{}/snapshot.json".format(jobId), 'w') as f:
-                json.dump(snapshot, f)
+            # create job key_lookup in NFS
+            with open("/nfs-master/{}/key_lookup.json".format(jobId), 'w') as f:
+                json.dump(key_lookup, f)
             
             # save jobinfo to database
             chunks = []
             now = datetime.utcnow().timestamp()
-            for ck in chunk_keys:
-                chunks.append({
-                    "name": ck['name'],
-                    "size": ck['size'],
-                    "lastModified": ck['lastModified'],
-                    "totalAccessTime": 0,
-                    "lastAccessTime": bson.timestamp.Timestamp(int(now), inc=1),
-                    "location": ck['key']
-                })
+            for ck in obj_chunks:
+                ck['TotalAccessTime'] = 0
+                ck['LastAccessTime'] = bson.timestamp.Timestamp(int(now), inc=1)
+                chunks.append(ck)
             jobInfo = {
                 "meta": {
                     "username": cred.username,
@@ -362,22 +342,19 @@ class RegistrationService(pb_grpc.RegistrationServicer):
             return pb.RegisterResponse(rc=pb.RC.REGISTERED, regsucc=pb.RegisterSuccess(
                     jinfo=pb.JobInfo(
                         jobId=jobId,
-                        createTime=grpc_ts(now),
-                        tokenTimeout=grpc_ts(now+3600)),
-                    policy=pb.Policy(snapshot=list(snapshot.keys()))))
+                        createTime=grpc_ts(now)),
+                    policy=pb.Policy(key_lookup=list(key_lookup.keys()))))
         elif rc == pb.RC.DISCONNECTED:
             return pb.RegisterResponse(rc=pb.RC.FAILED, regerr=pb.RegisterError(error="failed to register the jod, user is not connected."))
         else:
             return pb.RegisterResponse(rc=pb.RC.FAILED, regerr=pb.RegisterError(error="failed to register the jod"))
 
     def deresgister(self, request, context):
-        # TODO: job snapshot needs to be deleted
         cred = request.cred
         jobId = request.jinfo.jobId
         rc = self.manager.auth_client(cred)
         if rc in [pb.RC.CONNECTED, pb.RC.DISCONNECTED]:
-            result = self.manager.job_col.delete_one(filter={"jobId": jobId})
-            # we don't delete dataset from NFS as it might be shared by multiple jobs
+            result = self.manager.job_col.delete_one(filter={"jobId": jobId}) 
             if result.acknowledged and result.deleted_count == 1:
                 resp = pb.DeregisterResponse("successfully deregister job {}".format(jobId))
                 logger.info('user {} deregister job {}'.format(cred.username, jobId))
@@ -386,43 +363,9 @@ class RegistrationService(pb_grpc.RegistrationServicer):
         else:
             resp = pb.DeregisterResponse(response="failed to deregister job {}".format(jobId))
         return resp
+      
 
-
-class HeartbeatService(pb_grpc.HeartbeatServicer):
-    def __init__(self, manager: Manager) -> None:
-        super().__init__()
-        self.manager = manager
-
-    def call(self, request, context):
-        cred = request.cred
-        jinfo = request.jinfo
-        rc = self.manager.auth_client(cred, conn_check=True)   
-        if rc != pb.RC.CONNECTED:
-            return
-        job = self.manager.auth_job(jinfo.jobId)
-        bston_ts = lambda ts: datetime.fromtimestamp(ts)
-        if job is not None:
-            now = datetime.utcnow().timestamp()
-            tokenTimeout = bston_ts(jinfo.tokenTimeout.seconds + jinfo.tokenTimeout.nanos/1e9)
-            if tokenTimeout > now:
-                token = MessageToDict(jinfo)
-                token['time'] = now
-                token = hashing(token)
-                request.jinfo.token = token
-                self.manager.job_col.aggregate([
-                    {"$match": {"meta.jobId": jinfo.jobId}},
-                    {"$set": {"meta.token": token, "meta.tokenTimeout": bston_ts(now+3600)}}
-                ])
-            result = self.manager.client_col.aggregate([
-                {"$match": {"username": job['username']}},
-                {"$set": {"lastHeartbeat":bston_ts(now)}}
-            ])
-            request.jinfo.tokenTimeout = grpc_ts(now+3600)
-            if result.acknowledged and result.modified_count == 1:
-                logger.info('heatbeat from user {} for job {}'.format(job['username'], job['jobId']))
-                return request           
-
-# TODO: CacheMiss is not handled for now
+# TODO: CacheMiss occurs if a key is not available on NFS
 class CacheMissService(pb_grpc.CacheMissServicer):
     def __init__(self, manager: Manager) -> None:
         super().__init__()
@@ -440,7 +383,7 @@ class CacheMissService(pb_grpc.CacheMissServicer):
                     "$filter": {
                         "input": "$policy.chunks", 
                         "as": "chunks", 
-                        "cond": {"$eq": ["$$chunks.key", request.key]}}
+                        "cond": {"$eq": ["$$chunks.Key", request.key]}}
                     }
                 }
             },
@@ -455,7 +398,6 @@ if __name__ == '__main__':
     server = grpc.server(concurrent.futures.ThreadPoolExecutor(max_workers=multiprocessing.cpu_count()))
     pb_grpc.add_ConnectionServicer_to_server(ConnectionService(manager), server)
     pb_grpc.add_RegistrationServicer_to_server(RegistrationService(manager), server)
-    pb_grpc.add_HeartbeatServicer_to_server(HeartbeatService(manager), server)
     pb_grpc.add_CacheMissServicer_to_server(CacheMissService(manager), server)
     server.add_insecure_port(address="{}:{}".format(manager.managerconf['bind'], manager.managerconf['port']))
     server.start()

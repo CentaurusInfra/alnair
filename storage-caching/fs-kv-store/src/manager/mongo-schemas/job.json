@@ -15,9 +15,7 @@
                 "nodeIP",
                 "datasource",
                 "resourceInfo",
-                "createTime",
-                "token",
-                "tokenTimeout"
+                "createTime"
             ],
             "properties": {
                 "username": {"bsonType": "string"},
@@ -55,14 +53,10 @@
             "title": "qos",
             "required": [
                 "UseCache",
-                "MaxMemory",
-                "DurabilityInDisk",
                 "LazyLoading"
             ],
             "properties": {
                 "UseCache": {"bsonType": "bool"},
-                "MaxMemory": {"bsonType": ["long", "int"]},
-                "DurabilityInDisk": {"bsonType": "int"},
                 "LazyLoading": {"bsonType": "bool"}
             },
             "description": "QoS configuration"

@@ -25,7 +25,6 @@ import (
 	"strings"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -92,15 +91,16 @@ func (r *AlnairPodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		if err != nil {
 			return ctrl.Result{}, err
 		}
+
+		// create pod
+		pod, err := r.createPod(ctx, alnairpod)
+
 		var selectNode string
 		if len(alnairpod.Spec.NodeSelector) == 0 {
 			selectNode = nodePriority[0]
 		} else {
-			selectNode = ""
+			selectNode = pod.Spec.NodeName
 		}
-
-		// create pod
-		pod, err := r.createPod(ctx, alnairpod)
 		pod.Spec.NodeName = selectNode
 		alnairpod.Spec.NodePriority = nodePriority
 		if err != nil {
@@ -149,12 +149,6 @@ func (r *AlnairPodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-		var selectNode string
-		if len(alnairpod.Spec.NodeSelector) == 0 {
-			selectNode = nodePriority[0]
-		} else {
-			selectNode = ""
-		}
 
 		alnairpod.Spec.NodePriority = nodePriority
 		oldpod := corev1.Pod{}
@@ -171,6 +165,12 @@ func (r *AlnairPodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 		// create a new pod
 		newpod, _ := r.createPod(ctx, alnairpod)
+		var selectNode string
+		if len(alnairpod.Spec.NodeSelector) == 0 {
+			selectNode = nodePriority[0]
+		} else {
+			selectNode = newpod.Spec.NodeName
+		}
 		newpod.Spec.NodeName = selectNode
 		if err := r.Create(ctx, &newpod, &client.CreateOptions{}); err != nil {
 			log.Error(err, fmt.Sprintf("error in creating pod %s: %s.", pod.Name, err.Error()))
@@ -186,12 +186,6 @@ func (r *AlnairPodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, nil
 	}
 	return ctrl.Result{}, nil
-}
-
-// TODO: update
-func calculateRuntimeFSSize(spec v1alpha1.AlnairPodSpec) int64 {
-	default_val := 1024
-	return int64(default_val)
 }
 
 /*
@@ -249,7 +243,7 @@ func (r *AlnairPodReconciler) createPod(ctx context.Context, alnairpod v1alpha1.
 			VolumeSource: corev1.VolumeSource{Secret: &corev1.SecretVolumeSource{SecretName: spec.Secret.Name}},
 		},
 		{
-			Name:         "jobs",
+			Name:         "jobsmeta",
 			VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{LocalObjectReference: corev1.LocalObjectReference{Name: alnairpod.Name}}},
 		},
 		{
@@ -261,18 +255,15 @@ func (r *AlnairPodReconciler) createPod(ctx context.Context, alnairpod v1alpha1.
 			VolumeSource: corev1.VolumeSource{HostPath: &corev1.HostPathVolumeSource{Path: "/dev/shm"}},
 		},
 		{
-			Name: "runtime",
-			VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{
-				Medium:    corev1.StorageMediumMemory,
-				SizeLimit: resource.NewQuantity(calculateRuntimeFSSize(spec), resource.DecimalSI)}, // MB
-			},
+			Name:         "runtime",
+			VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{Medium: corev1.StorageMediumMemory}},
 		},
 	}
 
 	volumes = append(volumes, spec.Volumes...)
 	vol_mounts := []corev1.VolumeMount{
 		{Name: "secret", MountPath: "/secret"},
-		{Name: "jobs", MountPath: "/jobs"},
+		{Name: "jobsmeta", MountPath: "/jobsmeta"},
 		{Name: "share", MountPath: "/share"},
 		{Name: "runtime", MountPath: "/runtime"},
 		{Name: "shmem", MountPath: "/dev/shm"},
@@ -300,7 +291,6 @@ func (r *AlnairPodReconciler) createPod(ctx context.Context, alnairpod v1alpha1.
 
 	var containers []corev1.Container
 	for _, job := range spec.Jobs {
-		// initialize job container
 		env := job.Env
 		env = append(env, corev1.EnvVar{Name: "JOBNAME", Value: job.Name})
 		container := corev1.Container{
@@ -321,7 +311,6 @@ func (r *AlnairPodReconciler) createPod(ctx context.Context, alnairpod v1alpha1.
 		containers = append(containers, container)
 	}
 
-	// init the client container
 	container := corev1.Container{
 		Name:            "client",
 		Image:           ClientImage,
@@ -337,7 +326,6 @@ func (r *AlnairPodReconciler) createPod(ctx context.Context, alnairpod v1alpha1.
 	}
 	containers = append(containers, container)
 
-	// create the pod
 	pod = corev1.Pod{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       PodKind,
@@ -353,6 +341,7 @@ func (r *AlnairPodReconciler) createPod(ctx context.Context, alnairpod v1alpha1.
 			Containers:    containers,
 			RestartPolicy: corev1.RestartPolicyNever,
 			NodeSelector:  spec.NodeSelector,
+			NodeName:      spec.NodeName,
 			HostNetwork:   spec.HostNetwork,
 		},
 	}

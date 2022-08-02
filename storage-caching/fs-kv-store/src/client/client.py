@@ -30,17 +30,14 @@ class Client(pyinotify.ProcessEvent):
         secret.read("/secret/client.conf")
         aws_s3_sec = dict(secret["aws_s3"].items())
         
-        self.rj = [] # jobs using cache cluster
-        self.sj = [] # jobs using s3
-        for f in glob.glob('/jobs/*.json'):
+        self.jobsmeta = []
+        for f in glob.glob('/jobsmeta/*.json'):
             with open(f, 'rb') as f:
                 job = json.load(f)
             if job['qos']['UseCache']:
-                self.rj.append(job)
-            else:
-                self.sj.append(job)
+                self.jobsmeta.append(job)
         
-        if len(self.rj) > 0:
+        if len(self.jobsmeta) > 0:
             manager_sec = secret['alnair_manager']
             self.cred = pb.Credential(username=manager_sec["username"], password=manager_sec["password"])
             self.channel = grpc.insecure_channel('{}:{}'.format(manager_sec["server_address"], manager_sec["server_port"]))
@@ -58,38 +55,30 @@ class Client(pyinotify.ProcessEvent):
             else:
                 logger.info("connect to server")
             
-            self.reg_rj = {}
-            self.reg_stub = pb_grpc.RegistrationStub(self.channel)
-            self.register_rj()
-            
-            self.hb_stub = pb_grpc.HeartbeatStub(self.channel)
-            self.hb_pool = ThreadPoolExecutor(max_workers=len(self.reg_rj))
-            for _, job in self.reg_rj.items():
-                self.hb_pool.submit(self.send_hearbeat, job)
-                
-            self.cm_stub = pb_grpc.CacheMissStub(self.channel)
+            self.register_stub = pb_grpc.RegistrationStub(self.channel)
+            self.register_job()
+            self.datamiss_stub = pb_grpc.CacheMissStub(self.channel)
+                        
+            self.runtime_buffer = OrderedDict()
+            self.req_time = []
+            self.load_time = []
+            self.waterline = 2  # runtime tmpfs waterline: n*num_workers*batch_size
+            self.pidx = 0
+            self.pf_indices = None
             
             signal.signal(signal.SIGINT, self.exit_gracefully)
             signal.signal(signal.SIGTERM, self.exit_gracefully)
             
-            self.runtime_buffer = OrderedDict()
-            self.req_time = []
-            self.load_time = []
-            self.wl = 2
-            self.batch_index = 0
-            self.batch_indices = None
-            
     def exit_gracefully(self):
-        self.hb_pool.shutdown(wait=False)
         self.channel.close()
             
-    def register_rj(self):
+    def register_job(self):
         """Register a list of jobs to the GM
 
         Args:
             spec (array): a list of job specifications
         """
-        for job in self.rj:
+        for job in self.jobsmeta:
             qos = job['qos']
             ds = job['datasource']
             if 'keys' not in ds: ds['keys'] = []
@@ -102,7 +91,7 @@ class Client(pyinotify.ProcessEvent):
                 resource=pb.ResourceInfo(CPUMemoryFree=get_cpu_free_mem(), GPUMemoryFree=get_gpu_free_mem())
             )
             logger.info('waiting for data preparation')
-            resp = self.reg_stub.register(request)
+            resp = self.register_stub.register(request)
             logger.info('receiving registration response stream')
             if resp.rc == pb.RC.REGISTERED:
                 resp = resp.regsucc
@@ -110,95 +99,63 @@ class Client(pyinotify.ProcessEvent):
                 resp = resp.regerr
                 logger.error("failed to register job {}: {}".format(job['name'], resp.error))
                 os.kill(os.getpid(), signal.SIGINT)
-            self.reg_rj[job['name']] = resp.jinfo
             logger.info('registered job {}, assigned jobId is {}'.format(job['name'], resp.jinfo.jobId))
-            while self.batch_indices is None: pass
-            for _ in range(self.wl): 
-                self.push_data()
+            while not self.pf_indices: pass
+            for _ in range(self.waterline): 
+                self.prefetch()
             with open('/share/{}.json'.format(job['name']), 'w') as f:
                 json.dump(MessageToDict(resp), f)
-                        
-    def send_hearbeat(self, job: pb.JobInfo):
-        """client sends hearbeat to GM to gather latest token
 
-        Args:
-            job (_type_): JobInfo object
-        """
-        while True:
-            logger.info("send heartbeat")
-            hb = pb.HearbeatMessage(cred=self.cred, jinfo=job)
-            resp = self.hb_stub.call(hb)
-            if resp.jinfo.token != job.token:
-                logger.info("update token for job {}".format(job.name))
-                self.reg_rj[job.name] = resp
-                with open('/share/{}.json'.format(job.name), 'w') as f:
-                    json.dump(MessageToDict(resp), f)
-            time.sleep(hb)
-    
-    # TODO: 1. handle cache miss in tmpfs
-    # 2. handle cache miss in NFS
-    def handle_cachemiss(self):
-        with open('/share/cachemiss', 'r') as f:
+    def handle_datamiss(self):
+        with open('/share/datamiss', 'r') as f:
             misskeys = f.readlines()
         for key in misskeys:
-            resp = self.cm_stub.call(pb.CacheMissRequest(cred=self.cred, key=key))
+            resp = self.datamiss_stub.call(pb.DataMissRequest(cred=self.cred, key=key))
             if resp.response:
                 logger.info('request missing key {}'.format(key))
             else:
                 logger.warning('failed to request missing key {}'.format(key))
-    
-    # TODO: check how to push missed key into tmpfs
-    def push_data(self, keys=None):
-        def cpy(key, batch_index):
-            if batch_index not in self.runtime_buffer:
-                self.runtime_buffer[batch_index] = []
-            if key not in self.runtime_buffer[batch_index]:
-                shutil.copyfile(key, '/runtime/{}'.format(key.split('/')[1]))
-                self.runtime_buffer[batch_index].append(key)
-        with concurrent.futures.ThreadPoolExecutor(max_workers=multiprocessing.cpu_count()) as executor:
-            futures = []
-            if keys is None:
-                for _ in self.runtime_conf['num_workers']:
-                    for key in self.batch_indices[self.batch_index]:
-                        futures.append(executor.submit(cpy, key, self.batch_index))
-                    self.batch_index += 1
-            else:
-                for key in keys:
-                    futures.append(executor.submit(cpy, key, 'missing'))
-        concurrent.futures.wait(futures)
+
+    def prefetch(self):                
+        for _ in range(self.runtime_conf['num_workers']):
+            for key in self.pf_indices[self.pidx]:
+                if self.pidx not in self.runtime_buffer:
+                    self.runtime_buffer[self.pidx] = []
+                if key not in self.runtime_buffer[self.pidx]:
+                    shutil.copyfile(key, '/runtime/{}'.format(key.split('/')[1]))  # NFS --> tmpfs
+                    self.runtime_buffer[self.pidx].append(key)
+            self.pidx += 1
 
     def process_IN_CREATE(self, event):
-        if event.pathname == '/share/cachemiss':
-            return self.handle_cachemiss()
-        elif event.pathname == '/share/runtime_conf.json':
-            with open('/share/runtime_conf.json', 'r') as f:
-                self.runtime_conf = json.load(f)
+        if event.pathname == '/share/datamiss':
+            return self.handle_datamiss()
         elif event.pathname == '/share/nextbatch':
             self.req_time.append(time.time())
-            self.push_data()
-        elif event.path == '/share/batch_indices.npy':
-            self.batch_indices = np.load('/share/batch_indices.npy')
+            self.prefetch()
+        elif event.path == '/share/prefetch_policy.json':
+            with open('/share/prefetch_policy.json', 'r') as f:
+                tmp = json.load(f)
+                self.runtime_conf = tmp['meta']
+                self.pf_indices = tmp['indices']
 
     def process_IN_MODIFY(self, event):
         self.process_IN_CREATE(event)
             
     def process_IN_CLOSE_NOWRITE(self, event):
         if '/runtime' in event.pathname:
-            h = self.runtime_buffer.keys[0]
-            self.runtime_buffer[h].pop(0)
-            if len(self.runtime_buffer[h]) == 0:
+            # pop head
+            batch_index = self.runtime_buffer.keys[0]
+            self.runtime_buffer[batch_index].pop(0)
+            if len(self.runtime_buffer[batch_index]) == 0:
                 self.runtime_buffer.popitem(last=False)
-            try:
-                shutil.rmtree(event.pathname, ignore_errors=False)
-            except Exception as ex:
-                logger.error("failed to delete file {}: {}".format(event.pathname, str(ex)))
+            shutil.rmtree(event.pathname, ignore_errors=True)
             
-            # adjust buffer size
+            # tune buffer size
             if len(self.req_time) > 1:
                 # decide alpha and beta based on the latest 3 measurements
                 alpha = np.diff(self.req_time[-4:])[1:]
                 beta = np.array(self.load_time[-3:])
-                N = len(self.batch_indices)
+                N = len(self.pf_indices)
                 k = len(self.req_time)
                 """
                 To ensure the data is always available for DataLoader, the length of buffer should be:
@@ -206,21 +163,23 @@ class Client(pyinotify.ProcessEvent):
                 s >= (N-k)*(1-alpha/beta) 
                 """
                 s = max(2, np.mean((1-alpha/beta)*(N-k), dtype=int))
-                if self.wl == s: 
+                
+                # update waterline according to load/consume speed
+                if self.waterline == s:
                     return
                 else:
-                    self.wl = s
+                    self.waterline = s
                     while len(self.runtime_buffer) > s:
                         self.runtime_buffer.popitem(last=False)
-                        self.batch_index -= 1
+                        self.pidx -= 1
                     while len(self.runtime_buffer) < s:
-                        self.push_data()
+                        self.prefetch()
 
 
 if __name__ == '__main__':
     client = Client()
-    if not os.path.exists("/share/cachemiss"):
-        Path("/share/cachemiss").touch()
+    if not os.path.exists("/share/datamiss"):
+        Path("/share/datamiss").touch()
     wm = pyinotify.WatchManager()
     mask = pyinotify.IN_CREATE | pyinotify.IN_MODIFY | pyinotify.IN_CLOSE_NOWRITE
     wm.add_watch("/share", mask)
