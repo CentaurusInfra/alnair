@@ -23,7 +23,7 @@ class AlnairJobDataset(Dataset):
         """An abstract class subclassing the torch.utils.data.Dataset class
         
         All datasets that represent a map from keys to data samples should subclass
-        it. All subclasses should overwrite :meth:`__preprocess__`, supporting pre-processing loaded data. 
+        it. All subclasses should overwrite :meth:`__convert__`, supporting pre-processing loaded data. 
         Subclasses should also overwrite meth:`__getitem__`, supporting fetching a
         data sample for a given key. Subclasses could also optionally overwrite
         :meth:`__len__`, which is expected to return the size of the dataset by many
@@ -32,21 +32,23 @@ class AlnairJobDataset(Dataset):
         
         .. note::
         Subclassing ~AlnairJobDataset will load data under provided keys from Alnair to var:`self.__data` as Map<Key, Value>.
-        Overwriting meth:`__preprocess__` allows you to replace var:`self.__data` and var:`self.__targets` with
+        Overwriting meth:`__convert__` allows you to replace var:`self.__data` and var:`self.__targets` with
         iteratable variables that can be iterated in meth:`__get_item__`.
         
         Args:
             keys (List, optional): a list of bucket keys. Defaults to None, meaning loading all keys in the bucket.
+            shuffle (Bool, optional): default False
         """
         self.shuffle = shuffle
         self.jobname = os.environ.get('JOBNAME')
         self.__keys = keys
         self.qos = self.load_metainfo()['qos']
         self.jobinfo = self.load_jobinfo()
-        self.chunks = []
+        self.chunks = []  # [[{s3key: chunk}]]
+        self.file_paths_nfs = []
         self.__targets = None
         if self.qos['UseCache']: # use datasource from Alnair
-            self.load_alnair_keys()
+            self.load_cache_keys()
         else:
             import configparser, boto3
             
@@ -72,36 +74,6 @@ class AlnairJobDataset(Dataset):
     @property
     def targets(self):
         return self.__targets
-    
-    def load(self, chunk):
-        key = chunk['Key']
-        if self.qos['UseCache']:
-            hashkey = chunk['HashKey']
-            loc = chunk['Location']
-            tmpfs_path = '/runtime/{}/{}'.format(loc, hashkey)
-            try:
-                path = tmpfs_path if os.path.exists(tmpfs_path) else hashkey
-                with open(path, 'rb') as f:
-                    val = f.read()
-            except FileNotFoundError:
-                with open('/share/datamiss', 'w') as f:
-                    f.writelines(key)
-                while not os.path.exists(hashkey): pass
-                with open("/{}/{}".format(loc, hashkey), 'rb') as f:
-                    val = f.read()
-        else:
-            val = self.client.get_object(Bucket=self.bucket_name, Key=key)['Body'].read()
-        return val
-
-    def mload(self, chunks):
-        with concurrent.futures.ThreadPoolExecutor(max_workers=multiprocessing.cpu_count()) as executor:
-            futures = []
-            for chunk in chunks:
-                futures.append(executor.submit(self.load, chunk))
-            for i, future in enumerate(concurrent.futures.as_completed(futures)):
-                self.__keys.append(chunks[i]['Key'])
-                self.__data[chunks[i]['Key']] = future.result()
-        concurrent.futures.wait(futures)
                     
     def get_data(self, index):
         if self.qos['LazyLoading']:
@@ -130,8 +102,7 @@ class AlnairJobDataset(Dataset):
             jobinfo = self.load_metainfo()
         return dotdict(jobinfo)
 
-    # TODO: MaxMemory怎么处理
-    def load_alnair_keys(self):
+    def load_cache_keys(self):
         maxmem = self.qos['MaxMemory']*1024*1024
         with open('/nfs-master/{}/key_lookup.json'.format(self.jobname), 'r') as f:
             key_lookup = json.load(f)
@@ -182,15 +153,50 @@ class AlnairJobDataset(Dataset):
                 else:
                     self.chunks[-1].append(item)
     
+    def read(self, chunk):
+        key = chunk['Key']
+        if self.qos['UseCache']:
+            hashkey = chunk['HashKey']
+            loc = chunk['Location']
+            tmpfs_path = '/runtime/{}/{}'.format(loc, hashkey)
+            try:
+                path = tmpfs_path if os.path.exists(tmpfs_path) else hashkey
+                with open(path, 'rb') as f:
+                    val = f.read()
+            except FileNotFoundError:
+                with open('/share/datamiss', 'w') as f:
+                    f.writelines(key)
+                while not os.path.exists(hashkey): pass
+                with open("/{}/{}".format(loc, hashkey), 'rb') as f:
+                    val = f.read()
+        else:
+            val = self.client.get_object(Bucket=self.bucket_name, Key=key)['Body'].read()
+        return val
+
     def load_data(self, index):
         self.__data = {}
         self.__keys = []        
         if self.qos['LazyLoading']:
+            # LazyLoading mode fits dataset which data items 
+            # are individual files, such as image dataset
             for chunk in self.chunks[index]:
                 self.__keys.append(chunk['Key'])
+                self.file_paths_nfs.append('/{}/{}'.format(chunk['Location'], chunk['HashKey']))
                 self.__data[chunk['Key']] = chunk
         else:
-            self.mload(self.chunks[index])
+            # Normal mode fits tabular or block datasets, 
+            # so we load a subset of the original dataset here
+            with concurrent.futures.ThreadPoolExecutor(max_workers=multiprocessing.cpu_count()) as executor:
+                futures = []
+                for chunk in self.chunks[index]:
+                    futures.append(executor.submit(self.read, chunk))
+                for i, future in enumerate(concurrent.futures.as_completed(futures)):
+                    chunk = self.chunks[index][i]
+                    key = chunk['Key']
+                    self.__keys.append(key)
+                    self.file_paths_nfs.append('/{}/{}'.format(chunk['Location'], chunk['HashKey']))
+                    self.__data[key] = future.result()
+                
         self.__data, self.__targets = self.__convert__()
     
     def __convert__(self) -> Tuple[List, List]:
@@ -323,25 +329,39 @@ class AlnairJobDataLoader(object):
         self.init_loader()
         self.index = 1
         
+        # prefetch size depends on the chunk size when LazyLoading is disabled
+        if not self.dataset.qos['LazyLoading']:
+            with open('/share/prefetch_policy.json', 'w') as f:
+                json.dump(f, {
+                    "meta": {'num_workers': self.num_workers, 'batch_size': self.batch_size, 'LazyLoading': self.dataset.qos['LazyLoading']}, 
+                    "policy": self.dataset.file_paths})
+        
     def init_loader(self):
-        loader = DataLoader(self.dataset, self.batch_size, False, self.sampler, self.batch_sampler, self.num_workers, self.collate_fn, 
+        # shuffle if disabled under the LazyLoading mode
+        loader = DataLoader(self.dataset, self.batch_size, not self.dataset.qos['LazyLoading'], self.sampler, self.batch_sampler, self.num_workers, self.collate_fn, 
                             self.pin_memory, self.drop_last, self.timeout, self.worker_init_fn, self.multiprocessing_context, self.generator, 
                             prefetch_factor=self.prefetch_factor, persistent_workers=self.persistent_workers)
         self.loader = loader._get_iterator()
-        batch_paths = []
-        for indices in loader._index_sampler:
-            batch_paths.append(self.dataset.paths[indices].tolist())
-        with open('/share/prefetch_policy.json', 'w') as f:
-            json.dump(f, {"meta": {'num_workers': self.num_workers, 'batch_size': self.batch_size}, "indices": batch_paths})
-
+        file_paths = np.array(self.dataset.file_paths)
+        if self.dataset.qos['LazyLoading']:
+            pf_paths = [file_paths[indices].tolist() for indices in loader._index_sampler]
+            with open('/share/prefetch_policy.json', 'w') as f:
+                json.dump(f, {
+                    "meta": {'num_workers': self.num_workers, 'batch_size': self.batch_size, 'LazyLoading': self.dataset.qos['LazyLoading']}, 
+                    "policy": pf_paths})
+        else:
+            with open('/share/next', 'w') as f:
+                f.write(str(time.time()))
+        
     def __iter__(self):
         return self
     
     def __next__(self):
         try:
             data = self.loader.next()
-            with open('/share/nextbatch', 'w') as f:
-                f.write(str(time.time()))
+            if self.dataset.qos['LazyLoading']:
+                with open('/share/next', 'w') as f:
+                    f.write(str(time.time()))
         except StopIteration:
             if self.index == len(self.dataset.chunks):  # epoch is down
                 self.index = 1

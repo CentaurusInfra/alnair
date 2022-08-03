@@ -274,24 +274,29 @@ class RegistrationService(pb_grpc.RegistrationServicer):
                     if size <= max_chunk_size:
                         value = s3_client.get_object(Bucket=bucket_name, Key=key)['Body'].read()
                         hash_key = "/{}/{}".format(loc, hashing(value))
-                        s3_client.download_file(Bucket=bucket_name, Key=key, Filename='/{}/{}'.format(loc, hash_key))
+                        with open('/{}/{}'.format(loc, hash_key), 'wb') as f:
+                            f.write(value)
                         # logger.info("Copy data from s3:{} to alnair:{}".format(info['Key'], hash_key))
                         s3obj['HashKey'] = hash_key
                         obj_chunks.append(s3obj)
                     else:
                         s3_client.download_file(Bucket=bucket_name, Key=key, Filename='/tmp/{}'.format(key))
                         # logger.info("Download large file s3:{}, size: {}B".format(info['Key'], info['Size']))
+                        # TODO: how to ensure the data partition operation does not break data items
                         with open('/tmp/{}'.format(key), 'rb') as f:
                             value = f.read(max_chunk_size)
+                            part = 0
                             while value:
                                 hash_key = "/{}/{}".format(loc, hashing(value))
                                 with open('/{}/{}'.format(loc, hash_key), 'wb') as f:
                                     f.write(value)
+                                s3obj['Key'] = '{}.part.{}'.format(s3obj['Key'], part)
                                 s3obj['HashKey'] = hash_key
                                 s3obj['Size'] = sys.getsizeof(value)
                                 obj_chunks.append(s3obj)
                                 # logger.info("Copy data from /tmp/{} to alnair:{}".format(info['Key'], hash_key))
                                 value = f.read(max_chunk_size)
+                                part += 1
                 else:                    
                     s3obj['HashKey'] = saved_keys[key]['HashKey']
                     obj_chunks.append(s3obj)
