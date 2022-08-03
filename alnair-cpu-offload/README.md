@@ -6,7 +6,7 @@ AI jobs (training and inferencing) in the cloud are normally handled by the coll
 
 If we can reduce the workload of data transferring on CPU, it not only removes the potential bottleneck of the whole AI process, but also increases the parallelism and resourc sharing possibility.
 
-There are some new technologies in hardware and software to support a possible GPU-centered system architecture, which includes NVMe SSD, gpudirect. THis project will explore a novel solution to provide a GPU-centered AI-training System (GAS) to offload CPU in the process. The GAS tries to achieve the following goals:
+There are some new technologies in hardware and software to support a possible GPU-centered system architecture, which includes NVMe SSD, gpudirect. THis project will explore a novel solution to provide a GPU-centered AI-training System (GAS) to offload CPU in the process. GAS tries to achieve the following goals:
 1.  Efficiency improvements by resource sharing in the cloud
 2.  Performance improvements in generic AI training and inference applications by high parallelism
 
