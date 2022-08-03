@@ -17,8 +17,14 @@ There are some new technologies to support a possible GPU-centered system archit
 
 ### sub tasks : 
 
-1. Read the papers about the current work in NVMe-SSD in HPC
-2. Setup the development/experiment environment on v100   
+1. Read the papers about the current work in NVMe-SSD in HPC  
+  <a id="1">[1]</a> 
+  Zaid Qureshi (2022) BaM: A Case for Enabling Fine-grain High Throughput GPU-Orchestrated Access to Storage  
+  <a id="2">[2]</a> 
+  Shweta Pandey (2022) GPM: Leveraging Persistent Memory from a GPU  
+  <a id="3">[3]</a> 
+  Samyam Rajbhandari (2021) ZeRO-Infinity: Breaking the GPU Memory Wall for Extreme Scale Deep Learning    
+3. Setup the development/experiment environment on v100   
   a. SATA NVMe drive  
   b. M2 NVMe drive  
   c. customized M2. NVMe drive to get 26Gbps performance  
