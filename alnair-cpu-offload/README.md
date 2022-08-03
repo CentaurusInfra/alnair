@@ -18,14 +18,14 @@ There are some new technologies to support a possible GPU-centered system archit
 ### sub tasks : 
 
 1. Read the papers about the current work in NVMe-SSD in HPC
-2. Setup the development/experiment environment on v100
-  a. sata NVMe drive
-  b. M2 NVMe drive
-  c. customized M2. NVMe drive to get 26Gbps performance
-3. Explore gpu-SSD direct API
-  a. gpudirect API from the paper ()
-  b. gpm AP from the paper ()
-4. CPU-Offload package 
-  a. a working example to support gpudirect in cuda
-  b. a working example to do AI training in Cuda completely with SSD
-  c. a working example to benchmark the performance
+2. Setup the development/experiment environment on v100   
+  a. SATA NVMe drive  
+  b. M2 NVMe drive  
+  c. customized M2. NVMe drive to get 26Gbps performance  
+3. Explore gpu-SSD direct API  
+  a. gpudirect API from the paper ()  
+  b. gpm AP from the paper ()  
+4. CPU-Offload package  
+  a. a working example to support gpudirect in cuda  
+  b. a working example to do AI training in Cuda completely with SSD  
+  c. a working example to benchmark the performance  
