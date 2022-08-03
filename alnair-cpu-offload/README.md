@@ -42,6 +42,7 @@ There are some new technologies in hardware and software to support a possible G
   a. gpudirect API from the paper (1)  
   b. gpm AP from the paper (2)  
 4. CPU-Offload package  
-  a. a working example to support gpudirect in cuda  
-  b. a working example to do AI training in Cuda completely with SSD  
-  c. a working example to benchmark the performance  
+  a. a lib to contain supporting functions.   
+  b. working example to support gpudirect in cuda  
+  c. a working example to do AI training in Cuda completely with SSD  
+  d. a working example to benchmark the performance  
