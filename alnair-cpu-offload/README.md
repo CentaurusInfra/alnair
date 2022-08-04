@@ -40,7 +40,7 @@ There are some new technologies in hardware and software to support a possible G
   c. customized M2. NVMe drive to get 26Gbps performance  
 3. Explore gpu-SSD direct API  
   a. gpudirect API from the paper (1)  
-  b. gpm AP from the paper (2)  
+  b. GPM API from the paper (2)  
 4. CPU-Offload package  
   a. a lib to contain supporting functions.   
   b. working example to support gpudirect in cuda  
