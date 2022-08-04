@@ -29,6 +29,7 @@ model_names = sorted(name for name in models.__dict__
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
 parser.add_argument('data', metavar='DIR', default='imagenet',
                     help='path to dataset (default: imagenet)')
+parser.add_argument('--disableCache', action='store_true', default=False)
 parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet18',
                     choices=model_names,
                     help='model architecture: ' +
@@ -83,7 +84,7 @@ best_acc1 = 0
 
 def main():
     args = parser.parse_args()
-
+        
     if args.seed is not None:
         random.seed(args.seed)
         torch.manual_seed(args.seed)
@@ -115,11 +116,13 @@ def main():
         # Simply call main_worker function
         summary = []
         for i in range(5):
+            if args.disableCache:
+                os.system('vmtouch -e {}'.format(args.data))
             s = time.time()
             main_worker(args.gpu, ngpus_per_node, args)
             now = time.time()
             summary.append(now-s)
-            print('elapsed time: %.2f' % (now-s))
+            print('Run %d: %.2fs' % (i, now-s))
         print('Summary: \n \t mean: %.2f \t std: %.2f' % (mean(summary), stdev(summary)))
 
 def main_worker(gpu, ngpus_per_node, args):
@@ -226,7 +229,6 @@ def main_worker(gpu, ngpus_per_node, args):
             transforms.ToTensor(),
             normalize,
         ]))
-    print(len(val_dataset.samples))
     if args.distributed:
         val_sampler = torch.utils.data.distributed.DistributedSampler(val_dataset, shuffle=False, drop_last=True)
     else:

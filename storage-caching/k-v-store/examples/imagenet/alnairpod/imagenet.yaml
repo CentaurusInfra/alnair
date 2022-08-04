@@ -1,7 +1,7 @@
 apiVersion: alnair.com/v1alpha1
 kind: AlnairPod
 metadata:
-  name: imagenet-mini0
+  name: imagenet-mini
   namespace: default
 spec:
   secret:
@@ -14,11 +14,11 @@ spec:
     # command: ["python3", "main.py"]
     command: ["bash"]
     datasource:
-      name: Imagenet-Mini-Obj
+      name: Imagenet-Mini
       bucket: zhuangwei-bucket
       keys:
-      - Imagenet-Mini-Obj/train
-      - Imagenet-Mini-Obj/val
+#      - imagenet-mini/train
+      - imagenet-mini/val
     configurations:
       usecache: true
       maxmemory: 0

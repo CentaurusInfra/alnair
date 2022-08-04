@@ -151,7 +151,6 @@ class AlnairJobDataset(Dataset):
     def load_all_redis_keys(self):
         snapshot = dotdict(self.jobinfo.policy).snapshot
         maxmem = self.qos['MaxMemory']*1024*1024
-        keys = snapshot if self.__keys is None else self.__keys
         keys = []
         if self.__keys is not None:
             for k in self.__keys:

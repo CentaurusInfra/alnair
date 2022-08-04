@@ -296,7 +296,17 @@ class RegistrationService(pb_grpc.RegistrationServicer):
                 chunk_keys = []
                 if not info['Exist']:
                     if info['Size'] <= chunk_size:
-                        value = client.get_object(Bucket=bucket_name, Key=info['Key'])['Body'].read()
+                        value = None
+                        # get_object might be failed sometimes
+                        try:
+                            for _ in range(5):
+                                value = client.get_object(Bucket=bucket_name, Key=info['Key'])['Body'].read()
+                                break
+                        except Exception as ex:
+                            logger.debug(str(ex))
+                        if value is None:
+                            logger.error('Failed to download {}'.format(info['Key']))
+                            exit
                         hash_key = "{%s}%s" % (request.datasource.name, hashing(value))
                         redis.set(hash_key, value)
                         # logger.info("Copy data from s3:{} to redis:{}".format(info['Key'], hash_key))

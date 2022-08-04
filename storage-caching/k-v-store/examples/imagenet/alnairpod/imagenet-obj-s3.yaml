@@ -1,7 +1,7 @@
 apiVersion: alnair.com/v1alpha1
 kind: AlnairPod
 metadata:
-  name: imagenet-mini1
+  name: imagenet-mini-obj-s3
   namespace: default
 spec:
   secret:
@@ -10,19 +10,19 @@ spec:
     alnair: Client
   jobs:
   - name: job
-    image: centaurusinfra/imagenet:latest
+    image: centaurusinfra/imagenet-obj:latest
     # command: ["python3", "main.py"]
     command: ["bash"]
     datasource:
-      name: Imagenet-Mini
+      name: Imagenet-Mini-Obj
       bucket: zhuangwei-bucket
       keys:
-      - imagenet-mini/train
-      - imagenet-mini/val
+#      - Imagenet-Mini-Obj/train
+      - Imagenet-Mini-Obj/val
     configurations:
-      usecache: true
+      usecache: false
       maxmemory: 0
       durabilityindisk: 1440
-      lazyloading: true
+      lazyloading: false
     tty: true
     stdin: true

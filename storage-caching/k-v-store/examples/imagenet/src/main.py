@@ -117,13 +117,12 @@ def main():
     else:
         # Simply call main_worker function
         exp_summary = []
-        for _ in range(5):
-            exp_start = time.time()
+        for i in range(5):
+            t = time.time()
             main_worker(args.gpu, ngpus_per_node, args)
-            elapsed_time = time.time()-exp_start
-            exp_summary.append(elapsed_time)
-            print('elapsed time: %.2fs' % (exp_summary[-1]))
-        print('experiment summary: \n \t mean: %.2f \n \t std: %.2f' % (mean(exp_summary), stdev(exp_summary)))
+            exp_summary.append(time.time()-t)
+            print('Run%d total: %.2fs' % (i, exp_summary[-1]))
+        print('Summary: \n \t mean: %.2f \n \t std: %.2f' % (mean(exp_summary), stdev(exp_summary)))
 
 
 def main_worker(gpu, ngpus_per_node, args):
@@ -228,8 +227,9 @@ def main_worker(gpu, ngpus_per_node, args):
     ])
     
     t = time.time()
-    val_dataset = ImageNetDataset(keys=['Imagenet-Mini-Obj/val'], transform=transform)
-    print('dataset init time: ', time.time()-t)
+    val_dataset = ImageNetDataset(keys=['Imagenet-Mini-Obj/val'], transform=None)
+    # val_dataset = ImageNetDataset(keys=['imagenet-mini/val'], transform=transform)
+    print('AlnairDataset init: %fs' % (time.time()-t))
     
     if args.distributed:
         val_sampler = torch.utils.data.distributed.DistributedSampler(val_dataset, shuffle=False, drop_last=True)
@@ -237,21 +237,24 @@ def main_worker(gpu, ngpus_per_node, args):
         val_sampler = None
 
     t = time.time()
-    val_loader = DataLoader(
+    val_loader = AlnairJobDataLoader(
         val_dataset, batch_size=args.batch_size, shuffle=False,
         num_workers=args.workers, pin_memory=True, sampler=val_sampler)
-    print('dataloader init time: ', time.time()-t)
+    print('AlnairDataLoader init: %fs'% (time.time()-t))
     
     if args.evaluate:
+        t = time.time()
         validate(val_loader, model, criterion, args)
+        print('Evaluation: %fs' % (time.time()-t))
         return
     else:
-        train_dataset = ImageNetDataset(keys=['Imagenet-Mini-Obj/train'], transform=transform)
+        train_dataset = ImageNetDataset(keys=['Imagenet-Mini-Obj/train'], transform=None)
+        # train_dataset = ImageNetDataset(keys=['imagenet-mini/train'], transform=transform)
         if args.distributed:
             train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
         else:
             train_sampler = None
-        train_loader = DataLoader(
+        train_loader = AlnairJobDataLoader(
             train_dataset, batch_size=args.batch_size, shuffle=(train_sampler is None),
             num_workers=args.workers, pin_memory=True, sampler=train_sampler)
 
@@ -339,11 +342,8 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
 
 def validate(val_loader, model, criterion, args):
     with torch.no_grad():
-        t = time.time()
         for i, item in enumerate(val_loader):
-            e = time.time()
-            # print(e-t)
-            t = e
+            pass
     return 1
 
 

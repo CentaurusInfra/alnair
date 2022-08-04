@@ -1,11 +1,10 @@
 import pickle
-import time
-import sys
 from typing import Callable, Optional
 from AlnairJob import AlnairJobDataset
+import io
+from PIL import Image
 
 
-summary = []
 class ImageNetDataset(AlnairJobDataset):
     def __init__(self, keys, 
                  transform: Optional[Callable] = None,
@@ -13,8 +12,6 @@ class ImageNetDataset(AlnairJobDataset):
         super().__init__(keys)
         self.transform = transform
         self.target_transform = target_transform
-        self.count = 0
-        self.dur = []
     
     def find_classes(self, keys):
         cls_keys = {}
@@ -43,16 +40,15 @@ class ImageNetDataset(AlnairJobDataset):
         return samples, targets
     
     def __getitem__(self, index: int):
-        global summary
-        t = time.time()
         img, target = self.get_data(index), self.get_target(index)
-        img_size = sys.getsizeof(img)
+        # with io.BytesIO(img) as stream:
+        #     img = Image.open(stream)
+        # img = img.convert("RGB")
+        # if self.transform is not None:
+        #     img = self.transform(img)
+        # if self.target_transform is not None:
+        #     target = self.target_transform(target)
         img = pickle.loads(img)
-        e = time.time()
-        with open('summary.csv', 'a+') as f:
-            f.write(str(e-t)+'\n')
-        with open('throughput.csv', 'a+') as f:
-            f.write(str(img_size/(e-t))+'\n')
         return img, target
 
     def __len__(self) -> int:
