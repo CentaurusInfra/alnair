@@ -1,6 +1,4 @@
 make all --print-data-base --no-builtin-variables --no-builtin-rules --question
-make: *** No rule to make target 'all'.  Stop.
-
 # GNU Make 4.2.1
 # Built for x86_64-pc-linux-gnu
 # Copyright (C) 1988-2016 Free Software Foundation, Inc.
@@ -8,7 +6,7 @@ make: *** No rule to make target 'all'.  Stop.
 # This is free software: you are free to change and redistribute it.
 # There is NO WARRANTY, to the extent permitted by law.
 
-# Make data base, printed on Wed Aug  3 22:45:05 2022
+# Make data base, printed on Fri Aug  5 12:28:44 2022
 
 # Variables
 
@@ -57,7 +55,7 @@ VSCODE_CWD = /home/zhuangwei
 # environment
 GOPROXY = https://proxy.golang.com.cn,direct
 # environment
-SSH_CONNECTION = 10.145.6.136 51125 10.145.41.32 22
+SSH_CONNECTION = 10.145.14.102 61338 10.145.41.32 22
 # environment
 PATH = /home/zhuangwei/go/bin:/home/zhuangwei/.vscode-server/bin/3b889b090b5ad5793f524b5d1d39fda662b96a2a/bin/remote-cli:/home/zhuangwei/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin::/home/zhuangwei/go:/usr/lib/hazelcast-management-center
 # environment
@@ -67,7 +65,7 @@ GOPATH = /home/zhuangwei/go
 # environment
 ELECTRON_RUN_AS_NODE = 1
 # environment
-VSCODE_IPC_HOOK_CLI = /run/user/1001/vscode-ipc-c9997d0a-5aa3-4d40-af00-a67c61741842.sock
+VSCODE_IPC_HOOK_CLI = /run/user/1001/vscode-ipc-0dd7f3fc-7c6e-41f9-8080-99b48fe6f751.sock
 # default
 .FEATURES := target-specific order-only second-expansion else-if shortest-stem undefine oneshell archives jobserver output-sync check-symlink load
 # environment
@@ -107,7 +105,7 @@ MAKECMDGOALS := all
 # environment
 SHLVL = 0
 # environment
-XDG_SESSION_ID = 889
+XDG_SESSION_ID = 1056
 # environment
 USER = zhuangwei
 # makefile
@@ -125,7 +123,7 @@ MAKEFLAGS = pqrR
 # environment
 MFLAGS = -pqrR
 # environment
-SSH_CLIENT = 10.145.6.136 51125 22
+SSH_CLIENT = 10.145.14.102 61338 22
 # automatic
 +D = $(patsubst %/,%,$(dir $+))
 # environment
@@ -153,7 +151,6 @@ LANG = C
 # environment
 MOTD_SHOWN = pam
 # variable set hash-table stats:
- 
 # Load=70/1024=7%, Rehash=0, Collisions=10/92=11%
 
 # Pattern-specific Variable Values
@@ -181,6 +178,9 @@ all:
 
 # Not a target:
 Makefile:
+ 
+make: *** No rule to make target 'all'.  Stop.
+
 #  Implicit rule search has been done.
 #  File does not exist.
 #  File has been updated.
@@ -220,6 +220,6 @@ GNUmakefile:
 # strcache performance: lookups = 21 / hit rate = 14%
 # hash-table stats:
 # Load=18/8192=0%, Rehash=0, Collisions=1/21=5%
-# Finished Make data base on Wed Aug  3 22:45:05 2022
+# Finished Make data base on Fri Aug  5 12:28:44 2022
 
  

@@ -23,6 +23,6 @@ spec:
       usecache: false
       maxmemory: 0
       durabilityindisk: 1440
-      lazyloading: false
+      lazyloading: true
     tty: true
     stdin: true
