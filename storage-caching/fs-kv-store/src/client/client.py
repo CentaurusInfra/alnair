@@ -1,10 +1,8 @@
 from __future__ import print_function
-from concurrent.futures import ThreadPoolExecutor
 from os import environ
 import grpc
 import signal
 import json
-import multiprocessing
 import time
 import glob
 from pathlib import Path
@@ -12,7 +10,6 @@ import configparser
 import grpctool.dbus_pb2 as pb
 import grpctool.dbus_pb2_grpc as pb_grpc
 from google.protobuf.json_format import ParseDict
-import concurrent
 import pyinotify
 import shutil
 from collections import OrderedDict
@@ -57,12 +54,14 @@ class Client(pyinotify.ProcessEvent):
             
             self.register_stub = pb_grpc.RegistrationStub(self.channel)
             self.register_job()
-            self.datamiss_stub = pb_grpc.CacheMissStub(self.channel)
+            self.datamiss_stub = pb_grpc.DataMissStub(self.channel)
                         
             self.runtime_buffer = OrderedDict()
             self.req_time = []
             self.load_time = []
-            self.waterline = 2  # runtime tmpfs waterline: n*num_workers*batch_size
+            
+            # runtime tmpfs waterline: n*num_workers*batch_size, n=2 initially
+            self.waterline = 2
             self.pidx = 0
             self.pf_paths = None
             

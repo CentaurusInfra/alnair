@@ -50,14 +50,6 @@ type QoSConfigurations struct {
 	// +optional
 	UseCache bool `json:"usecache"`
 
-	// Max memory in MB can be used by DLT job
-	// +optional
-	MaxMemory int64 `json:"maxmemory"`
-
-	// Duration data should be stored on disk
-	// +optional
-	DurabilityInDisk int `json:"durabilityindisk"`
-
 	// Load data in a lazy way
 	// +optional
 	LazyLoading bool `json:"lazyloading"`
