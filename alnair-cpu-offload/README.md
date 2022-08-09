@@ -25,6 +25,20 @@ There are some new technologies in hardware and software to support a possible G
 3. sharing NVMe-SSD between GPUs on one node
 4. gpudirect data among GPU in the cloud
 
+### Project Planning
+1. Stage I (architecture research)  
+  . Explore the research papers for side-band SSD accessible.  
+  . Setup GPU + SSD environment  
+  . Develop a test program to analyze the architecture behaviors  
+2. Stage II (performance research)  
+  . Implement a set of API to support benchmark  
+  . Implement an application to demo the capability  
+  . Benchmark the performance of the new architecture with applications of native operations  
+3. Stage III (Production implementation)  
+  . Explore the API for complex applications like TF or Ptorch  
+  . Define the CPU-Offload application field  
+  . Implement API and infrastructure  
+
 ### sub tasks : 
 
 1. Read the papers about the current work in NVMe-SSD in HPC  
