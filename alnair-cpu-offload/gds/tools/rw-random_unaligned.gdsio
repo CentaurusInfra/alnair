@@ -1,0 +1,95 @@
+#
+# This is a sample config file for gdsio to enable random IO with unaligned offsets and IO buffers with random data
+# config file rules :
+#   -provide a global section defined with [global]
+#   -provide a job(s) must follow this signature [job-name-xxx]
+#   -use newline to mark end of each section except last
+#   -for comments, add # to the start of a line
+# 
+[global]
+name=gds-test
+#0,1,2,3,4,5
+xfer_type=$GDSIO_XFER_TYPE
+#IO type, rw=read, rw=write, rw=randread, rw=randwrite
+rw=write
+#block size, for variable block size can specify range e.g. bs=1M:4M:1M, (1M : start block size, 4M : end block size, 1M :steps in which size is varied)
+bs=1M
+#file-size
+size=2G
+#secs
+runtime=60
+#use 1 for enabling verification
+do_verify=0
+#skip cufile buffer registration, ignored in cpu mode
+skip_bufregister=0
+#set up NVlinks, recommended if p2p traffic is cross node
+enable_nvlinks=0
+#use random seed
+random_seed=0
+#fill request buffer with random data
+fill_random=1
+#refill io buffer after every write
+refill_buffer=1
+#use random offsets which are not page-aligned
+unaligned_random=1
+#file offset to start read/write from
+start_offset=0
+
+[job1]
+#numa node
+numa_node=0
+#gpu device index (check nvidia-smi)
+gpu_dev_id=0
+num_threads=$GDSIO_NUM_THREADS
+#enable either directory or filename
+directory=/mnt/test0/job1
+#filename=/mnt/test0/gds-01
+
+[job2]
+numa_node=0
+gpu_dev_id=2
+num_threads=$GDSIO_NUM_THREADS
+directory=/mnt/test1/job2
+#filename=/mnt/test1/gds-02
+
+[job3]
+numa_node=0
+gpu_dev_id=4
+num_threads=$GDSIO_NUM_THREADS
+directory=/mnt/test2/job3
+#filename=/mnt/test2/gds-03
+
+[job4]
+numa_node=0
+gpu_dev_id=6
+num_threads=$GDSIO_NUM_THREADS
+directory=/mnt/test3/job4
+#filename=/mnt/test3/gds-04
+
+[job5]
+numa_node=1
+gpu_dev_id=8
+num_threads=$GDSIO_NUM_THREADS
+directory=/mnt/test4/job5
+#filename=/mnt/test4/gds-05
+
+[job6]
+numa_node=1
+gpu_dev_id=10
+num_threads=$GDSIO_NUM_THREADS
+directory=/mnt/test5/job6
+#filename=/mnt/test5/gds-06
+
+[job7]
+numa_node=1
+gpu_dev_id=12
+num_threads=$GDSIO_NUM_THREADS
+directory=/mnt/test6/job7
+#filename=/mnt/test6/gds-07
+
+[job8]
+numa_node=1
+gpu_dev_id=14
+num_threads=$GDSIO_NUM_THREADS
+directory=/mnt/test7/job8
+#filename=/mnt/test7/gds-08

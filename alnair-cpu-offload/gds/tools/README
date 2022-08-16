@@ -1,0 +1,369 @@
+gds-tools package provides binaries for data verification, GDS config verification and a GPU based synthetic IO benchmarking tool.
+
+gds-tools are installed at /usr/local/cuda-x.y/gds/tools
+
+1. gdsio synthetic IO benchmarking tool:
+
+gdsio - This is a synthetic IO benchmark using cuFile APIs
+
+Here is a sample usage:
+
+Usage
+gdsio version :1.2
+Usage ./gdsio
+Usage [using cmd line options]:
+$ ./gdsio
+         -f <file name>
+         -D <directory name>
+         -d <gpu_index (refer nvidia-smi)>
+         -n <numa node>
+         -w <worker_count>
+         -s <file size(K|M|G)>
+         -o <start offset(K|M|G)>
+         -i <io_size(K|M|G)> <min_size:max_size:step_size>
+         -p <enable nvlinks>
+         -b <skip bufregister>
+         -o <start file offset>
+         -V <verify IO>
+         -x <xfer_type>
+         -I <(read) 0|(write)1| (randread) 2| (randwrite) 3>
+         -T <duration in seconds>
+         -k <random_seed> (number e.g. 3456) to be used with random read/write>
+         -U <use unaligned(4K) random offsets>
+         -R <fill io buffer with random data>
+         -F <refill io buffer with random data during each write>
+	 -B <batch size>
+Usage [using config file]:
+(refer to the rw-sample.gdsio provided as sample)
+
+$ ./gdsio rw-sample.gdsio
+
+xfer_type:
+0 - Storage -> GPU (GDS)
+1 - Storage->CPU
+2 - Storage->CPU->GPU
+3 - Storage->CPU->GPU_ASYNC
+4 - Storage->PAGE_CACHE->CPU->GPU
+5 - Storage->GPU_ASYNC
+6 - Storage -> GPU (GDS) in batch mode.
+
+Note:
+read test (-I 0) with verify option (-V) should be used with files written (-I 1) with -V option
+read test (-I 2) with verify option (-V) should be used with files written (-I 3) with -V option and using same random seed (-k),
+using same number of threads, offset, and data size
+write test (-I 1/3) with verify option (-V) will perform writes followed by read
+In batch mode, io sizes must be aligned with 4K, otherwise, it will return error.
+ 
+gdsio config file options:
+==========================
+gdsio config file (refer rw-sample.gdsio as an expample) can be used to issue multiple parallel jobs.
+The config file has two sections, global section and per job section.
+Note: gdsio config file has two more per job options that are not currently available with the command line.
+1) per job start offset("start_offset") - This specifies the start offset for a particular job. If not defined, the global start_offset will be used
+2) per job size("size") - This defines the size for a job in a config file. If not defined, the global size will be used
+e.g.
+[job1]
+filename=/mnt/test/testfile
+start_offset=1M
+size=2M
+This will start IO of size 2M at offset 1M for job1.
+
+gdsio command line options:
+============================
+
+[ job options ]
+-f  -    The file path to use (/mnt/gdsio.txt)
+-D  -    The directory to use (/mnt/gdsio_dir). this option will require files created in the directory using
+         -I 1 -w <n>. The files will have the pattern (gdsio.0, gdsio.1, .. gdsio.<n-1>).
+         Note: -D and -f cannot be supported at same time
+-V  -    verify the contents of the file based on specific IO pattern.
+         to verify the data, The files IO pattern is generated using -V and -I 1 -w <n> options
+-d  -    device number of the GPU ( 0 - 15) . The files will be matched one to one with the file and device
+-w  -    Number of threads per file
+-n  -    numa node
+
+[ global options ]
+-s  -    Size of the file (Ex: -s 1G , -s 10M, -s 3.5g) (For reads, if -s is not specified, by default uses file size)
+-i  -    IO size to use when reading or writing  ( choose somewhere from 1024K to 8192K)
+-I  -    0 - seq read 1 - seq write 2 - randread 3 - randwrite
+-x  -    Transfer type to test differ ways to transfer data from storage
+         -x 0 when you want to test GPUDirect Storage.
+         -x 2 to test with pread in CPU path and then cudaMemcpy to GPU
+-o  -    Starting file offset in each thread to read from.
+         Eg. for aligned file reads specify -o 4K, -o 1M.
+-p  -    enable p2p for all CUDA_VISIBLE_DEVCIES used for dynamic routing; this may improve performance if IO has to traverse QPI/UPI path
+-T  -    duration of the test in seconds.
+-U  -    unaligned(4K) random offsets
+-k  -    random seed for use with randread/randwrite -I(2/3)
+-T  -    duration in seconds
+-R  -    fill buffer with random data
+-F  -    fill buffer with random at every write
+
+This is a write(-I 1) benchmark does 4K (-i) IO to create a file of size 1 GiB (-s)
+
+# 4KiB GDS WRITE test on GPU 0 with 2 worker threads on a single file for 1GiB dataset
+$ ./gdsio -f /mnt/test -d 0 -n 0 -w 2 -s 1G -i 4K -x 0 -I 1
+IoType: WRITE XferType: GPUD Threads: 2  DataSetSize: 1073442816/1073741824 IOSize: 4(KiB),Throughput: 0.167347 GiB/sec, Avg_Latency: 45.588810 usecs ops: 071 total_latency 5973939.000000
+
+# 4KiB GDS READ test on GPU 0 with 2 worker threads on a single file for 1GiB dataset
+$ ./gdsio -f /mnt/test -d 0 -n 0 -w 2 -s 1G -i 4K -x 0 -I 0
+IoType: READ XferType: GPUD Threads: 2  DataSetSize: 1073475584/1073741824 IOSize: 4(KiB),Throughput: 0.079856 GiB/sec, Avg_Latency: 95.536943 usecs ops: 079 total_latency 12519361.000000
+
+For performance testing, User can also launch multiple IOs on different files(under different mountpoints) as shown below (This is on a 16 GPU DGX-2 system) :
+
+# GPUDirect Storage performance test for READS with 1MiB IO SIZE on 512G dataset using 8 workers
+$ WORKERS=8; IO_TYPE=1 ; XFER_TYPE=0 ; IO_SIZE=1M;DATASET_SIZE=512G
+$ ./gdsio -x $XFER_TYPE -I $IO_TYPE -i $IO_SIZE -s $DATASET_SIZE \
+             -f /mnt/dir1/test -d 0 -n 0 -w $WORKERS \
+             -f /mnt/dir2/test -d 3 -n 0 -w $WORKERS \
+             -f /mnt/dir3/test -d 4 -n 0 -w $WORKERS \
+             -f /mnt/dir4/test -d 7 -n 0 -w $WORKERS \
+             -f /mnt/dir5/test -d 8 -n 1 -w $WORKERS \
+             -f /mnt/dir6/test -d 11 -n 1 -w $WORKERS \
+             -f /mnt/dir7/test -d 12 -n 1 -w $WORKERS \
+             -f /mnt/dir8/test -d 15 -n 1 -w $WORKERS
+
+# Compare with Storage to GPU using traditional method for READS with 1MiB IO SIZE on 512G dataset using 8 workers
+ $ WORKERS=8; IO_TYPE=1 ; XFER_TYPE=2 ; IO_SIZE=1M;DATASET_SIZE=512G
+ $ ./gdsio -x $XFER_TYPE -I $IO_TYPE -i $IO_SIZE -s $DATASET_SIZE \
+             -f /mnt/dir1/test -d 0 -n 0 -w $WORKERS \
+             -f /mnt/dir2/test -d 3 -n 0 -w $WORKERS \
+             -f /mnt/dir3/test -d 4 -n 0 -w $WORKERS \
+             -f /mnt/dir4/test -d 7 -n 0 -w $WORKERS \
+             -f /mnt/dir5/test -d 8 -n 1 -w $WORKERS \
+             -f /mnt/dir6/test -d 11 -n 1 -w $WORKERS \
+             -f /mnt/dir7/test -d 12 -n 1 -w $WORKERS \
+             -f /mnt/dir8/test -d 15 -n 1 -w $WORKERS
+
+# Users can also use the directory option with gdsio. This is a file-per thread mode.
+  Files must be created before reading using transfer type write.
+  Note: the directory(-D) option must not be used simulatenous with file mode(-f)
+ $ WORKERS=8; IO_TYPE=1 ; XFER_TYPE=0 ; IO_SIZE=1M;DATASET_SIZE=512G
+ $ ./gdsio -x $XFER_TYPE -I $IO_TYPE -i $IO_SIZE -s $DATASET_SIZE \
+             -D /mnt/dir1/ -d 0 -n 0 -w $WORKERS \
+             -D /mnt/dir2/ -d 5 -n 0 -w $WORKERS \
+             -D /mnt/dir3/ -d 9 -n 0 -w $WORKERS \
+             -D /mnt/dir4/ -d 13 -n 0 -w $WORKERS
+
+#verification of data
+ $ WORKERS=8; IO_TYPE=1 ; XFER_TYPE=1 ; IO_SIZE=1M;DATASET_SIZE=512G
+ $ ./gdsio -V -x $XFER_TYPE -I $IO_TYPE -i $IO_SIZE -s $DATASET_SIZE \
+             -D /mnt/dir1/ -d 0 -n 0 -w $WORKERS \
+             -D /mnt/dir2/ -d 5 -n 0 -w $WORKERS \
+             -D /mnt/dir3/ -d 9 -n 0 -w $WORKERS \
+             -D /mnt/dir4/ -d 13 -n 0 -w $WORKERS
+
+#Use variable block size, and chose IO pattern
+ Sequential Read
+ $ ./gdsio -D /mnt/dir/ -d 0 -n 0 -w 32 -s 8G -i 32K:1024K:1K -x 0 -I 0
+ Sequential Write
+ $ ./gdsio -D /mnt/dir/ -d 0 -n 0 -w 32 -s 8G -i 32K:1024K:1K -x 0 -I 1
+ Random Read
+ $ ./gdsio -D /mnt/dir/ -d 0 -n 0 -w 32 -s 8G -i 32K:1024K:1K -x 0 -I 2
+ Random Write
+ $ ./gdsio -D /mnt/dir/ -d 0 -n 0 -w 32 -s 8G -i 32K:1024K:1K -x 0 -I 3
+
+#gdsio examples for batch mode
+ Sequiential Read in batch mode with the batch size of 4 for a single file
+ $./gdsio -x 6 -f  /mnt/foo -d 0 -w 4 -s 128K -i 4k -I 0 
+ Sequiential write in batch mode with the batch size of 4 for a single file
+ $./gdsio -x 6 -f  /mnt/foo -d 0 -w 4 -s 128K -i 4k -I 1
+ Sequiential write in batch mode with the batch size of 4 for a single file with
+ verification
+ $./gdsio -x 6 -f  /mnt/foo -d 0 -w 4 -s 128K -i 4k -I 1 -V
+#For User-Space RDMA Tests,
+
+Run Server
+$ ./rdma_dci_server.sh (please update the IP addresses with that configured on the system)
+Run Client
+read : ./gdsio -P sockfs://IPV4:PORT -d 0 -n 0 -w 4 -P sockfs://IPV4:PORT -d 1 -n 0 -w 4 -s 1G -i 1M -x 0 -I 1
+write: ./gdsio -P sockfs://IPV4:PORT -d 0 -n 0 -w 4 -P sockfs://IPV4:PORT -d 1 -n 0 -w 4 -s 1G -i 1M -x 0 -I 0
+
+#Use refill buffer option. This will fill io buffer with random data at every write
+ $ ./gdsio -D /mnt/dir/ -d 0 -n 0 -w 32 -s 8G -i 1024K -x 0 -I 1 -F -k 3456
+
+2: gdsio_verify
+
+This is a data verification tool to check for data integrity using cuFile APIs
+
+$ ./gdsio_verify -h
+--gpu(d) 	        <gpu-index>
+--file(f) 	        <filename>
+--gpu_offset(t) 	<gpu_offset(K|M|G)>
+--gpu_devptr_offset(b) 	<gpu_devptr_offset(K|M|G)>
+--gpubufalignment(g) 	<offset(K|M|G)>
+--fileoffset(o) 	<offsetbytes(K|M|G)>
+--iosize(s) 		<size in (K|M|G)>
+--chunksize(c) 		<chunk size in (K|M|G)>
+--nr(n) 		<number of ios>
+--sync(m) 		<mode sync(1) or async(0)>
+--skipregister(S) 	<skip buffer register>
+--verbose(V) 		<verbose>
+--fsync(p) 		<O_SYNC (1)>
+--batch(B)		<no of batch entries per I/O>
+--version(v) 		<version>
+
+NOTE: for batch mode -b, -g -t -o -c must be 4K aligned, and -S is not supported.
+iosize(-s) represents each batch entry io size, e.g. with 4 number of batches and
+256MB iosize, total amount of I/O would be 1GB.
+
+Example:
+
+Make sure test file is not empty.
+
+# verify reading 1G data using GPUDirect Storage
+$ ./gdsio_verify -d 0 -f /mnt/test -o 0 -s 1G -n 1 -m 1
+gpu index :0,file :/mnt/test, RING buffer size :0, gpu buffer alignment :0, gpu buffer offset :0, file offset :0, io_requested :1073741824, sync :1, nr ios :1,
+address = 7fa27e000000
+
+This test reads 1G from /mnt/test to GPU 0 using cuFileRead and Writes it back to /mnt/ using cuFileWrite
+and verifies the data of source and target
+
+# verify reading 256MB data using GPUDirect Storage batch mode with batch size of 4
+$ ./gdsio_verify -B 4 -f /mnt/foo -s 64K -d 0 -c 4K -o 0
+
+3: gdscheck
+
+This tool performs basic platform, driver and filesystem specific checks to test for GPU Direct Storage support.
+
+$  ./gdscheck.py -h
+usage: gdscheck.py [-h] [-p] [-f FILE] [-v] [-V]
+
+GPUDirectStorage platform checker
+
+optional arguments:
+  -h, --help  show this help message and exit
+  -p          gds platform check
+  -f FILE     gds file check
+  -v          gds version checks
+  -V          gds fs checks
+
+example:
+(for version information)
+$ ./gdscheck.py -v
+ GDS release version (beta): 0.9.0.14
+ nvidia_fs version:  2.3 libcufile version: 2.3
+
+(for only platform check)
+$ ./gdscheck.py -p
+$ /usr/local/gds/tools/gdscheck.py -p 
+ GDS release version (beta): 0.95.0.49
+ nvidia_fs version:  2.6 libcufile version: 2.3
+ cuFile CONFIGURATION:
+ NVMe           : Supported
+ NVMeOF         : Supported
+ SCSI           : Unsupported
+ SCALEFLUX CSD  : Supported
+ NVMesh         : Supported
+ LUSTRE         : Supported
+ GPFS           : Unsupported
+ NFS            : Supported
+ WEKAFS         : Supported
+ USERSPACE RDMA : Supported
+ --MOFED peer direct  : enabled
+ --rdma library       : Loaded (libcufile_rdma.so)
+ --rdma devices       : Configured
+ --rdma_device_status : Up: 1 Down: 0
+ properties.use_compat_mode : 1
+ properties.use_poll_mode : 0
+ properties.poll_mode_max_size_kb : 4
+ properties.max_batch_io_timeout_msecs : 5
+ properties.max_direct_io_size_kb : 16384
+ properties.max_device_cache_size_kb : 131072
+ properties.max_device_pinned_mem_size_kb : 33554432
+ properties.posix_pool_slab_size_kb : 4 1024 16384
+ properties.posix_pool_slab_count : 128 64 32
+ properties.rdma_peer_affinity_policy : RoundRobin
+ properties.rdma_dynamic_routing : 1
+ properties.rdma_dynamic_routing_order : GPU_MEM_NVLINKS GPU_MEM SYS_MEM P2P
+ fs.generic.posix_unaligned_writes : 0
+ fs.lustre.posix_gds_min_kb: 0
+ fs.weka.rdma_write_support: 0
+ profile.nvtx : 0
+ profile.cufile_stats : 0
+ miscellaneous.api_check_aggressive : 0
+ GPU INFO:
+ GPU index 0 Tesla V100-SXM3-32GB bar:1 bar size (MiB):32768 supports GDS
+ GPU index 1 Tesla V100-SXM3-32GB bar:1 bar size (MiB):32768 supports GDS
+ GPU index 2 Tesla V100-SXM3-32GB bar:1 bar size (MiB):32768 supports GDS
+ GPU index 3 Tesla V100-SXM3-32GB bar:1 bar size (MiB):32768 supports GDS
+ GPU index 4 Tesla V100-SXM3-32GB bar:1 bar size (MiB):32768 supports GDS
+ GPU index 5 Tesla V100-SXM3-32GB bar:1 bar size (MiB):32768 supports GDS
+ GPU index 6 Tesla V100-SXM3-32GB bar:1 bar size (MiB):32768 supports GDS
+ GPU index 7 Tesla V100-SXM3-32GB bar:1 bar size (MiB):32768 supports GDS
+ GPU index 8 Tesla V100-SXM3-32GB bar:1 bar size (MiB):32768 supports GDS
+ GPU index 9 Tesla V100-SXM3-32GB bar:1 bar size (MiB):32768 supports GDS
+ GPU index 10 Tesla V100-SXM3-32GB bar:1 bar size (MiB):32768 supports GDS
+ GPU index 11 Tesla V100-SXM3-32GB bar:1 bar size (MiB):32768 supports GDS
+ GPU index 12 Tesla V100-SXM3-32GB bar:1 bar size (MiB):32768 supports GDS
+ GPU index 13 Tesla V100-SXM3-32GB bar:1 bar size (MiB):32768 supports GDS
+ GPU index 14 Tesla V100-SXM3-32GB bar:1 bar size (MiB):32768 supports GDS
+ GPU index 15 Tesla V100-SXM3-32GB bar:1 bar size (MiB):32768 supports GDS
+ IOMMU : disabled
+ Platform verification succeeded
+
+(for only file check)
+$ ./gdscheck.py -f /mnt/test
+ GDS register success
+generating 4k read latency matrix :
+GPU 34:00:00 : 250.56(us) read_verification: pass
+GPU 36:00:00 : 250.00(us) read_verification: pass
+GPU 39:00:00 : 250.05(us) read_verification: pass
+GPU 3b:00:00 : 243.88(us) read_verification: pass
+
+(for checking client file systems version support)
+$ /usr/local/gds/tools/gdscheck.py -v -V
+/usr/local/gds/tools/gdscheck.py -v -V
+ GDS release version (beta): 0.95.0
+ nvidia_fs version:  2.6 libcufile version: 2.3
+FILESYSTEM VERSION CHECK:
+LUSTRE:
+current version: 2.6.99 (Unsupported)
+min version supported: 2.12.3_ddn28
+WEKAFS:
+GDS RDMA read: supported
+GDS RDMA write: supported
+current version: 3.8.0.9-dg
+min version supported: 3.8.0
+
+4: gdscp
+
+This tools copies file from one location to another using cuFile APIs. This mimics "cp" behaviour
+Make sure test file is not empty
+
+$ ./gdscp /mnt/test /mnt/test_copy 0 -v
+gpu md5:90672a90fba312a386b25b8861e8bd9
+cpu md5:90672a90fba312a386b25b8861e8bd9
+md5sum Match!!
+In above example, it copies data from /mnt/test to /mnt/test_copy;
+the data is routed through GPU Memory using cuFileAPI
+
+6: gds_stats
+
+This tool is used to read user-space statistics exported by libcufile per process.
+
+$ ./gds_stats -p <process id> -l <verbosity level>
+
+ -l is the level and can be 1, 2, or 3.
+ Please ensure that the cufile statistics is enabled
+ by setting JSON configuration key profile.cufile_stats to a valid level,
+ before trying to read the statistics.
+
+7: gdsio_static
+Functionally and usage-wise they are same as gdsio, but uses cufile static libraries.
+For more, look at the gdsio examples above.
+
+8: gds_log_collection.py
+
+This tool is used to collect logs from the system that are relevant for debugging. 
+It collects logs such as os and kernel info, nvidia-fs stats, dmesg logs, syslogs, 
+System map files and per process logs like cufile.json, cufile.log, gdsstats, process stack, etc. 
+
+Usage ./gds_log_collection.py [options]
+options:
+     -h help
+     -f file_path1,file_path2,..(Note: there should be no spaces between ',')
+
+e.g.
+    sudo ./gds_log_colection.py - Collects all the relevant logs 
+    sudo ./gds_log_colection.py -f file_path1,file_path2 - Collects all the relevant files as well as user specifed files. These could be crash files or any other relevant files

@@ -1,0 +1,284 @@
+﻿Version: 1.2.0, Jan 2022
+
+I. GDS Library and Usage
+=========================
+
+GDS cuFile related library and header files are located at /usr/local/cuda-<x>.<y>/targets/x86_64-linux/lib. 
+
+For example, /usr/local/cuda-11.5/targets/x86_64-linux/lib. 
+/usr/local/cuda-<x>.<y>/targets/x86_64-linux/lib/libcufile.so : cuFile API library
+/usr/local/cuda-<x>.<y>/targets/x86_64-linux/lib/libcufile_rdma.so : cuFile RDMA support library
+/usr/local/cuda-<x>.<y>/targets/x86_64-linux/include/cufile.h :  cufile header file
+/usr/local/cuda-<x>.<y>/targets/x86_64-linux/lib/libcufile_static.a : cuFile API static library
+/usr/local/cuda-<x>.<y>/targets/x86_64-linux/lib/libcufile_rdma_static.a : cuFile RDMA support static library
+ 
+II. Sample Applications and Testing Tools
+==========================================
+
+Note: Make sure the cuda-runtime library (libcudart) is installed.
+
+/usr/local/cuda-<x>.<y>/gds/tools : GDS basic data verification and io tools.
+/usr/local/cuda-<x>.<y>/gds/samples : sample applications for cuFile API usage.
+ 
+Please follow the steps in the README available under tools and samples for usage.
+ 
+III. Mounting
+========================================================
+
+For distributed file systems (DFS), use the appropriate file-system mount command to mount the file system and verify the mount. For commands to mount specific DFS refer to the vendor-specific guide. 
+
+
+For EXT4 and XFS(alpha support) over NVMe, NVMeOF
+#IMPORTANT: GDS is only supported on Ext4 filesystem mounted with ONLY data=ordered mode
+ 
+EXAMPLE:
+ 
+# lsblk | grep nvme
+nvme0n1                      259:0        0   2.9T  0 disk
+├─nvme0n1p1                  259:1        0         1M  0 part
+├─nvme0n1p2                  259:2        0   2.9T  0 part
+└─nvme0n1p3                  259:3        0  31.9G  0 part
+ 
+mkdir -p /mnt/nvme
+mount /dev/nvme0n1p2 -o data=ordered /mnt/nvme
+ 
+$ mount | grep ext4 | grep nvme
+/dev/nvme0n1p2 on /mnt/nvme type ext4 (rw,relatime,data=ordered)
+ 
+IV. Integrating cuFile APIs with Applications
+========================================================
+
+You need the header file cufile.h, libcufile.so or libcufile_static.a for using cuFile APIs and additionally libcufile_rdma.so for supporting WekaIO filesystem and IBM SpectrumScale filesystems;
+/usr/local/cuda-x.y/gds/samples/*.cc contains samples on the usage of cuFile APIs as per the cuFile API specification.
+ 
+
+V. cuFile Configuration
+========================================================
+
+For cuFile configuration, a default global configuration file cufile.json is installed by the GDSinstaller with read privileges to the user, which contains IO path and Control path parameters.
+Ways to configure:
+1. An admin can update the global cufile.json based on the requirements.
+ 
+2. Applications can also create a custom cuFile json configuration file by overriding the default settings and provide the file-path as an environment variable via 'export CUFILE_ENV_PATH_JSON=<filepath>'.
+ 
+3. The environment variable CUFILE_LOGFILE_PATH is used to specify the file location to log the cuFile generated logs.
+   For example, export CUFILE_LOGFILE_PATH=/home/mycufilelog, will log in /home/mycufilelog.
+   This exported variable takes the highest priority for logging location which means that if this variable is set, then even if the log directory 'dir' is in cufile.json, the logging would take place only in the path specified by CUFILE_LOGFILE_PATH.
+ 
+4. cuFile log file naming is changed if "logging":"dir" is specified in the cufile.json The pathname will be <dir>/cufile.log_<PID>_<time-stamp>.log.
+
+
+VI. Adding udev rules for showing members of a raid volume in Redhat 8.x
+==================================================================
+
+As a sudo user change following line in 
+/lib/udev/rules.d/63-md-raid-arrays.rules
+IMPORT{program}="/usr/sbin/mdadm --detail --export $devnode" 
+Reboot the node or restart the mdadm.
+
+VII. GDS Support Information
+=======================================================
+
+Please follow the GDS Best Practices Guide and review the GDS Installation and Troubleshooting Guide before calling GDS support.
+ 
+VIII. GDS Documentation
+=======================================================
+Visit https://docs.nvidia.com/cuda for the latest documentation on CUDA.
+Visit https://docs.nvidia.com/gpudirect-storage/index.html for latest documentation on cuFile and GPUDirect Storage.
+ 
+IX. License
+========================================================
+
+*** LICENSE AGREEMENT ***
+By downloading and using this software you agree to fully comply with the terms and conditions of the CUDA EULA (End User License Agreement). The EULA is located
+at EULA.txt. The EULA can also be found at http://docs.nvidia.com/cuda/eula/index.html. If you do not agree to the terms and conditions of the EULA, do not use the software.
+
+X. Third Party Licenses
+========================================================
+
+1. Some of the libcufile_rdma.so/libcufile_rdma_static.a routines were written by or derived from copyrighted works of Mellanox Technologies and Licensee's use is subject to
+OpenIB.org BSD License as follows:
+ 
+License Text (https://spdx.org/licenses/Linux-OpenIB.html)
+ 
+Copyright (c) 2012 Mellanox Technologies. -  All rights reserved.
+ 
+This software is available to you under a choice of one of two
+licenses.  You may choose to be licensed under the terms of the GNU
+General Public License (GPL) Version 2, available from the file
+COPYING in the main directory of this source tree, or the
+OpenIB.org BSD license below:
+ 
+     Redistribution and use in source and binary forms, with or
+     without modification, are permitted provided that the following
+     conditions are met:
+ 
+      - Redistributions of source code must retain the above
+        copyright notice, this list of conditions and the following
+        disclaimer.
+ 
+      - Redistributions in binary form must reproduce the above
+        copyright notice, this list of conditions and the following
+        disclaimer in the documentation and/or other materials
+        provided with the distribution.
+ 
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+ 
+The khash functionality used in libcufile_rdma.so/libcufile_rdma_static.a is derived from Attractive Chaos and Licensee's use is subject to The MIT License
+as follows:
+ 
+Copyright Attractive Chaos - MIT License
+ 
+The MIT License
+ 
+Copyright (c) 2008, 2009, 2011 by Attractive Chaos <attractor@live.co.uk>
+ 
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+ 
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+ 
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+ 
+2. libcufile.so.1.0.0 and libcufile_static.a uses jsoncpp library's source code to be compiled into the libcufile.so.1.0.0, libcufile_static.a library. The license for the jsoncpp library is as follows.
+ 
+ 
+ The JsonCpp library's source code, including accompanying documentation,
+tests and demonstration applications, are licensed under the following
+conditions...
+ 
+The author (Baptiste Lepilleur) explicitly disclaims copyright in all
+jurisdictions which recognize such a disclaimer. In such jurisdictions,
+this software is released into the Public Domain.
+ 
+In jurisdictions which do not recognize Public Domain property (e.g. Germany as of 2010), this software is Copyright (c) 2007-2010 by Baptiste Lepilleur, and is released under the terms of the MIT License (see below).
+ 
+In jurisdictions which recognize Public Domain property, the user of this
+software may choose to accept it either as 1) Public Domain, 2) under the
+conditions of the MIT License (see below), or 3) under the terms of dual
+Public Domain/MIT License conditions described here, as they choose.
+ 
+The MIT License is about as close to Public Domain as a license can get, and is described in clear, concise terms at:
+ 
+http://en.wikipedia.org/wiki/MIT_License
+ 
+The full text of the MIT License follows:
+ 
+========================================================================
+Copyright (c) 2007-2010 Baptiste Lepilleur
+ 
+Permission is hereby granted, free of charge, to any person
+obtaining a copy of this software and associated documentation
+files (the "Software"), to deal in the Software without
+restriction, including without limitation the rights to use, copy,
+modify, merge, publish, distribute, sublicense, and/or sell copies
+of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+ 
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+ 
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+========================================================================
+(END LICENSE TEXT)
+The MIT license is compatible with both the GPL and commercial
+software, affording one all of the rights of Public Domain with the
+minor nuisance of being required to keep the above copyright notice
+and license text in the source code. Note also that by accepting the
+Public Domain "license" you can re-license your copy using whatever
+license you like.
+
+Copyright 2009-2015 Samy Al Bahra.
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+1. Redistributions of source code must retain the above copyright
+   notice, this list of conditions and the following disclaimer.
+2. Redistributions in binary form must reproduce the above copyright
+   notice, this list of conditions and the following disclaimer in the
+   documentation and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+SUCH DAMAGE.
+
+3.
+
+Copyright 2009-2015 Samy Al Bahra.
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+1. Redistributions of source code must retain the above copyright
+notice, this list of conditions and the following disclaimer.
+2. Redistributions in binary form must reproduce the above copyright
+notice, this list of conditions and the following disclaimer in the
+documentation and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+SUCH DAMAGE.
+
+4. Some of the functionality in libcufile.so.1.0.0 uses uatomic.h from liburcu. The license text for that is as follows.
+
+Copyright (c) 1991-1994 by Xerox Corporation.  All rights reserved.
+Copyright (c) 1996-1999 by Silicon Graphics.  All rights reserved.
+Copyright (c) 1999-2004 Hewlett-Packard Development Company, L.P.
+Copyright (c) 2009      Mathieu Desnoyers
+THIS MATERIAL IS PROVIDED AS IS, WITH ABSOLUTELY NO WARRANTY EXPRESSED
+OR IMPLIED.  ANY USE IS AT YOUR OWN RISK.
+
+Permission is hereby granted to use or copy this program
+for any purpose,  provided the above notices are retained on all copies.
+Permission to modify the code and to distribute modified code is granted,
+provided the above notices are retained, and a notice that the code was
+modified is included with the above copyright notice.
+
+Code inspired from libuatomic_ops-1.2, inherited in part from the
+Boehm-Demers-Weiser conservative garbage collector.
