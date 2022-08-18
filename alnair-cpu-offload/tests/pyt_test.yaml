@@ -14,11 +14,16 @@ spec:
       - name: test
         mountPath: /tmp/test
       - name: intercept
-        mountPath: /intercept/       
+        mountPath: /intercept     
+      - name: profiling
+        mountPath: /tmp/profiler       
   volumes:
     - name: test
       hostPath:
          path: /home/steven/dev/alnair/alnair-cpu-offload/tests      
+    - name: profiling
+      hostPath:
+         path: /home/steven/dev/alnair/alnair-profiler/test
     - name: intercept
       hostPath:
          path: /home/steven/dev/alnair/intercept-lib/build/lib/
