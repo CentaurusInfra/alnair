@@ -15,10 +15,15 @@ spec:
         mountPath: /tmp/test
       - name: intercept
         mountPath: /intercept/       
+      - name: data
+        mountPath: /cifar10/       
   volumes:
     - name: test
       hostPath:
          path: /home/steven/dev/alnair/alnair-cpu-offload/tests      
+    - name: cifar10
+      hostPath:
+         path: /home/steven/mnt/data/cifar10/cifar100
     - name: intercept
       hostPath:
          path: /home/steven/dev/alnair/intercept-lib/build/lib/
