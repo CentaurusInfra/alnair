@@ -2,6 +2,7 @@ apiVersion: v1
 kind: Pod
 metadata:
   name: pyt-test
+  namespace: pyt-test
 spec:
   terminationGracePeriodSeconds: 0
   containers:
@@ -17,15 +18,20 @@ spec:
         mountPath: /intercept     
       - name: profiling
         mountPath: /tmp/profiler       
+      - name: cifar10
+        mountPath: /data/         
   volumes:
     - name: test
       hostPath:
          path: /home/steven/dev/alnair/alnair-cpu-offload/tests      
+    - name: cifar10
+      hostPath:
+         path: /mnt/data/cifar10/cifar100
     - name: profiling
       hostPath:
          path: /home/steven/dev/alnair/alnair-profiler/test
     - name: intercept
       hostPath:
-         path: /home/steven/dev/alnair/intercept-lib/build/lib/
+         path: /home/steven/dev/alnair/intercept-lib/build/lib/      
   restartPolicy: OnFailure
 
