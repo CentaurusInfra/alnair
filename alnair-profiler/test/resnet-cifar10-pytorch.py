@@ -4,6 +4,8 @@
 
 # Run this python script in terminal like "python3 DDP_training.py -n 1 -g 8 -nr 0"
 
+import matplotlib.pyplot as plt
+import numpy as np
 import os
 from datetime import datetime
 import argparse
@@ -14,6 +16,8 @@ import torch
 import torch.nn as nn
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.utils.tensorboard import SummaryWriter
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -31,10 +35,30 @@ def main():
     os.environ['MASTER_PORT'] = '8889'
     mp.spawn(train, nprocs=args.gpus, args=(args,))
 
+# helper function to show an image
+# (used in the `plot_classes_preds` function below)
+def matplotlib_imshow(img, one_channel=False):
+    if one_channel:
+        img = img.mean(dim=0)
+    img = img / 2 + 0.5     # unnormalize
+    npimg = img.numpy()
+    if one_channel:
+        plt.imshow(npimg, cmap="Greys")
+    else:
+        plt.imshow(np.transpose(npimg, (1, 2, 0)))
 
 def train(gpu, args):
+    use_nvme = False
+
+    if use_nvme:
+        data_dir = '/data'
+    else:
+        data_dir = '/tmp/test'
+    # writer = SummaryWriter('/data/runs/cifar10_experiment')
+
     model = torch.hub.load('pytorch/vision:v0.9.0', 'resnet50', pretrained=False)
     rank = args.nr * args.gpus + gpu
+
     dist.init_process_group(backend='nccl', init_method='env://', world_size=args.world_size, rank=rank)
     torch.manual_seed(0)
     torch.cuda.set_device(gpu)
@@ -51,7 +75,9 @@ def train(gpu, args):
     # Wrap the model
     model = nn.parallel.DistributedDataParallel(model, device_ids=[gpu])
     # Data loading code
-    trainset = torchvision.datasets.CIFAR10(root='./data',
+
+
+    trainset = torchvision.datasets.CIFAR10(root=data_dir,
                                             train=True,
                                             download=True,
                                             transform=transform)
@@ -62,16 +88,18 @@ def train(gpu, args):
                                               batch_size=batch_size,
                                               shuffle=False,
                                               num_workers=4,
-                                              pin_memory=True,
+                                              pin_memory=False,
                                               sampler=trainsampler)
 
     total_step = len(trainloader)
     train_start = datetime.now()
     for epoch in range(args.epochs):
+        start = datetime.now()
         for i, (images, labels) in enumerate(trainloader):
-            start = datetime.now()
             images = images.cuda(non_blocking=True)
             labels = labels.cuda(non_blocking=True)
+            # img_grid = torchvision.utils.make_grid(images).cpu()            
+
             # Forward pass
             outputs = model(images)
             loss = criterion(outputs, labels)
@@ -80,10 +108,14 @@ def train(gpu, args):
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            if (i + 1) % 10 == 0 and gpu == 0:
-                print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}'.format(epoch + 1, args.epochs, i + 1, total_step,
-                                                                         loss.item()))
-                print("Training complete in: " + str(datetime.now() - start))
+
+            # tensorboard calls
+            #
+            # matplotlib_imshow(img_grid, one_channel=True)
+            # writer.add_image('cifar_images', img_grid)
+
+        if gpu == 0:
+            print('Epoch [{}/{}], Loss: {:.4f}, elapse: {}'.format(epoch + 1, args.epochs,  loss.item(), datetime.now() - start))
     print("Training done, total epoch {}, total time {}".format(args.epochs, datetime.now()-train_start))
 
 if __name__ == '__main__':
