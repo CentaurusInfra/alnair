@@ -33,7 +33,7 @@ spec:
       type: Directory
   - name: alnair-test
     hostPath:
-      path: /home/steven/dev/alnair/intercept-lib/profiler-hook-lib/test
+      path: /home/steven/dev/alnair/intercept-lib/test
       type: Directory
   - name: rawdemo
     hostPath:
