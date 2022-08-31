@@ -1,0 +1,42 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: swin-trans-ss
+spec:
+  containers:
+  - name: pytorch
+    image: centaurusinfra/swin-transform-ss-cityscapes
+    # command: ["tools/dist_train.sh", "configs/upernet/upernet_r101_512x1024_40k_cityscapes.py", "2", "--options", "model.pretrained=upernet_r50_512x1024_40k_cityscapes_20200605_094827-aa54cb54.pth"]
+    command: ["sh", "-c", "sleep infinity"]
+    volumeMounts:
+    - mountPath: /dev/shm
+      name: dshm
+    - mountPath: /nfs_3/data/cityscapes/
+      name: dataset 
+    - mountPath: /lib/interpose/
+      name: intercept 
+    - mountPath: /dev/test/
+      name: alnair-test
+    - mountPath: /dev/raw/
+      name: rawdemo
+  volumes:
+  - name: dshm  # this is to trick pytorch when large size of shared memory is needed
+    emptyDir:
+      medium: Memory
+  - name: dataset
+    hostPath:
+      path: /nfs_3/data/cityscapes/
+      type: Directory
+  - name: intercept
+    hostPath:
+      path: /home/steven/dev/alnair/intercept-lib/profiler-hook-lib/build/lib
+      type: Directory
+  - name: alnair-test
+    hostPath:
+      path: /home/steven/dev/alnair/intercept-lib/profiler-hook-lib/test
+      type: Directory
+  - name: rawdemo
+    hostPath:
+      path: /home/steven/dev/alnair/intercept-lib/intercept-cuda-11.3-demo  
+      type: Directory
+  restartPolicy: OnFailure
