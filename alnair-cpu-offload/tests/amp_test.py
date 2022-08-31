@@ -10,9 +10,10 @@ import torchvision.transforms as transforms
 from apex import amp
 
 import copy
+import time
 
 
-use_amp = False
+use_amp = True
 clean_opt = False
 
 device='cuda'
@@ -28,8 +29,8 @@ dataset = datasets.FakeData(transform=transforms.ToTensor())
 loader = DataLoader(
     dataset,
     batch_size=64,
-    num_workers=4,
-    pin_memory=True,
+    num_workers=0,
+    pin_memory=False,
     shuffle=True
 )
 criterion = nn.CrossEntropyLoss()
@@ -43,6 +44,8 @@ for opt_idx, optimizer in enumerate(optimizers):
     
     # Train
     for epoch in range(5):
+        start = time.perf_counter()
+
         for data, target in loader:
             data = data.to(device, non_blocking=True)
             target = target.to(device, non_blocking=True)
@@ -55,9 +58,10 @@ for opt_idx, optimizer in enumerate(optimizers):
             else:
                 loss.backward()
             optimizer.step()
+        elapsed = time.perf_counter() - start
             
-        print('OptIdx {}, epoch {}, loss {}, mem allocated {:.3f}MB'.format(
-            opt_idx, epoch, loss.item(), torch.cuda.memory_allocated()/1024**2))
+        print('OptIdx {}, epoch {}, loss {}, mem allocated {:.3f}MB, time: {:.3f} seconds.'.format(
+            opt_idx, epoch, loss.item(), torch.cuda.memory_allocated()/1024**2, elapsed))
 
     if clean_opt:
         optimizers[opt_idx] = None
