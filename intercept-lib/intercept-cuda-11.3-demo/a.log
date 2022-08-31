@@ -1,0 +1,758 @@
+testing cudaMalloc...
+Enter cuGetProcAddress
+symbol cuGetProcAddress, cudaVersion 11030, flags 0
+Enter cuGetProcAddress
+symbol cuInit, cudaVersion 2000, flags 0
+Enter cuGetProcAddress
+symbol cuGetProcAddress, cudaVersion 11030, flags 0
+Enter cuGetProcAddress
+symbol cuDeviceGet, cudaVersion 2000, flags 0
+Enter cuGetProcAddress
+symbol cuDeviceGetCount, cudaVersion 2000, flags 0
+Enter cuGetProcAddress
+symbol cuDeviceGetName, cudaVersion 2000, flags 0
+Enter cuGetProcAddress
+symbol cuDeviceTotalMem, cudaVersion 3020, flags 0
+Enter cuGetProcAddress
+symbol cuDeviceGetAttribute, cudaVersion 2000, flags 0
+Enter cuGetProcAddress
+symbol cuDeviceGetP2PAttribute, cudaVersion 8000, flags 0
+Enter cuGetProcAddress
+symbol cuDriverGetVersion, cudaVersion 2020, flags 0
+Enter cuGetProcAddress
+symbol cuDeviceGetByPCIBusId, cudaVersion 4010, flags 0
+Enter cuGetProcAddress
+symbol cuDeviceGetPCIBusId, cudaVersion 4010, flags 0
+Enter cuGetProcAddress
+symbol cuDeviceGetUuid, cudaVersion 9020, flags 0
+Enter cuGetProcAddress
+symbol cuDeviceGetTexture1DLinearMaxWidth, cudaVersion 11010, flags 0
+Enter cuGetProcAddress
+symbol cuDeviceGetDefaultMemPool, cudaVersion 11020, flags 0
+Enter cuGetProcAddress
+symbol cuDeviceSetMemPool, cudaVersion 11020, flags 0
+Enter cuGetProcAddress
+symbol cuDeviceGetMemPool, cudaVersion 11020, flags 0
+Enter cuGetProcAddress
+symbol cuFlushGPUDirectRDMAWrites, cudaVersion 11030, flags 0
+Enter cuGetProcAddress
+symbol cuDevicePrimaryCtxRetain, cudaVersion 7000, flags 0
+Enter cuGetProcAddress
+symbol cuDevicePrimaryCtxRelease, cudaVersion 7000, flags 0
+Enter cuGetProcAddress
+symbol cuDevicePrimaryCtxSetFlags, cudaVersion 11000, flags 0
+Enter cuGetProcAddress
+symbol cuDevicePrimaryCtxGetState, cudaVersion 7000, flags 0
+Enter cuGetProcAddress
+symbol cuDevicePrimaryCtxReset, cudaVersion 7000, flags 0
+Enter cuGetProcAddress
+symbol cuCtxCreate, cudaVersion 3020, flags 0
+Enter cuGetProcAddress
+symbol cuCtxGetFlags, cudaVersion 7000, flags 0
+Enter cuGetProcAddress
+symbol cuCtxSetCurrent, cudaVersion 4000, flags 0
+Enter cuGetProcAddress
+symbol cuCtxGetCurrent, cudaVersion 4000, flags 0
+Enter cuGetProcAddress
+symbol cuCtxDetach, cudaVersion 2000, flags 0
+Enter cuGetProcAddress
+symbol cuCtxGetApiVersion, cudaVersion 3020, flags 0
+Enter cuGetProcAddress
+symbol cuCtxGetDevice, cudaVersion 2000, flags 0
+Enter cuGetProcAddress
+symbol cuCtxGetLimit, cudaVersion 3010, flags 0
+Enter cuGetProcAddress
+symbol cuCtxSetLimit, cudaVersion 3010, flags 0
+Enter cuGetProcAddress
+symbol cuCtxGetCacheConfig, cudaVersion 3020, flags 0
+Enter cuGetProcAddress
+symbol cuCtxSetCacheConfig, cudaVersion 3020, flags 0
+Enter cuGetProcAddress
+symbol cuCtxGetSharedMemConfig, cudaVersion 4020, flags 0
+Enter cuGetProcAddress
+symbol cuCtxGetStreamPriorityRange, cudaVersion 5050, flags 0
+Enter cuGetProcAddress
+symbol cuCtxSetSharedMemConfig, cudaVersion 4020, flags 0
+Enter cuGetProcAddress
+symbol cuCtxSynchronize, cudaVersion 2000, flags 0
+Enter cuGetProcAddress
+symbol cuCtxResetPersistingL2Cache, cudaVersion 11000, flags 0
+Enter cuGetProcAddress
+symbol cuModuleLoad, cudaVersion 2000, flags 0
+Enter cuGetProcAddress
+symbol cuModuleLoadData, cudaVersion 2000, flags 0
+Enter cuGetProcAddress
+symbol cuModuleLoadFatBinary, cudaVersion 2000, flags 0
+Enter cuGetProcAddress
+symbol cuModuleUnload, cudaVersion 2000, flags 0
+Enter cuGetProcAddress
+symbol cuModuleGetFunction, cudaVersion 2000, flags 0
+Enter cuGetProcAddress
+symbol cuModuleGetGlobal, cudaVersion 3020, flags 0
+Enter cuGetProcAddress
+symbol cuModuleGetTexRef, cudaVersion 2000, flags 0
+Enter cuGetProcAddress
+symbol cuModuleGetSurfRef, cudaVersion 3000, flags 0
+Enter cuGetProcAddress
+symbol cuModuleGetLoadingMode, cudaVersion 11070, flags 0
+Enter cuGetProcAddress
+symbol cuLinkCreate, cudaVersion 5050, flags 0
+Enter cuGetProcAddress
+symbol cuLinkAddData, cudaVersion 5050, flags 0
+Enter cuGetProcAddress
+symbol cuLinkAddFile, cudaVersion 5050, flags 0
+Enter cuGetProcAddress
+symbol cuLinkComplete, cudaVersion 5050, flags 0
+Enter cuGetProcAddress
+symbol cuLinkDestroy, cudaVersion 5050, flags 0
+Enter cuGetProcAddress
+symbol cuMemGetInfo, cudaVersion 3020, flags 0
+Enter cuGetProcAddress
+symbol cuMemAllocManaged, cudaVersion 6000, flags 0
+Enter cuGetProcAddress
+symbol cuMemAlloc, cudaVersion 3020, flags 0
+Enter cuGetProcAddress
+symbol cuMemAllocPitch, cudaVersion 3020, flags 0
+Enter cuGetProcAddress
+symbol cuMemFree, cudaVersion 3020, flags 0
+Enter cuGetProcAddress
+symbol cuMemGetAddressRange, cudaVersion 3020, flags 0
+Enter cuGetProcAddress
+symbol cuMemFreeHost, cudaVersion 2000, flags 0
+Enter cuGetProcAddress
+symbol cuMemHostAlloc, cudaVersion 2020, flags 0
+Enter cuGetProcAddress
+symbol cuMemHostGetDevicePointer, cudaVersion 3020, flags 0
+Enter cuGetProcAddress
+symbol cuMemHostGetFlags, cudaVersion 2030, flags 0
+Enter cuGetProcAddress
+symbol cuMemHostRegister, cudaVersion 6050, flags 0
+Enter cuGetProcAddress
+symbol cuMemHostUnregister, cudaVersion 4000, flags 0
+Enter cuGetProcAddress
+symbol cuPointerGetAttribute, cudaVersion 4000, flags 0
+Enter cuGetProcAddress
+symbol cuPointerGetAttributes, cudaVersion 7000, flags 0
+Enter cuGetProcAddress
+symbol cuMemAllocAsync, cudaVersion 11020, flags 0
+Enter cuGetProcAddress
+symbol cuMemAllocAsync, cudaVersion 11020, flags 2
+Enter cuGetProcAddress
+symbol cuMemAllocFromPoolAsync, cudaVersion 11020, flags 0
+Enter cuGetProcAddress
+symbol cuMemAllocFromPoolAsync, cudaVersion 11020, flags 2
+Enter cuGetProcAddress
+symbol cuMemFreeAsync, cudaVersion 11020, flags 0
+Enter cuGetProcAddress
+symbol cuMemFreeAsync, cudaVersion 11020, flags 2
+Enter cuGetProcAddress
+symbol cuMemPoolTrimTo, cudaVersion 11020, flags 0
+Enter cuGetProcAddress
+symbol cuMemPoolSetAttribute, cudaVersion 11020, flags 0
+Enter cuGetProcAddress
+symbol cuMemPoolGetAttribute, cudaVersion 11020, flags 0
+Enter cuGetProcAddress
+symbol cuMemPoolSetAccess, cudaVersion 11020, flags 0
+Enter cuGetProcAddress
+symbol cuMemPoolGetAccess, cudaVersion 11020, flags 0
+Enter cuGetProcAddress
+symbol cuMemPoolCreate, cudaVersion 11020, flags 0
+Enter cuGetProcAddress
+symbol cuMemPoolDestroy, cudaVersion 11020, flags 0
+Enter cuGetProcAddress
+symbol cuMemPoolExportToShareableHandle, cudaVersion 11020, flags 0
+Enter cuGetProcAddress
+symbol cuMemPoolImportFromShareableHandle, cudaVersion 11020, flags 0
+Enter cuGetProcAddress
+symbol cuMemPoolExportPointer, cudaVersion 11020, flags 0
+Enter cuGetProcAddress
+symbol cuMemPoolImportPointer, cudaVersion 11020, flags 0
+Enter cuGetProcAddress
+symbol cuMemcpy, cudaVersion 4000, flags 0
+Enter cuGetProcAddress
+symbol cuMemcpy, cudaVersion 7000, flags 2
+Enter cuGetProcAddress
+symbol cuMemcpyAsync, cudaVersion 4000, flags 0
+Enter cuGetProcAddress
+symbol cuMemcpyAsync, cudaVersion 7000, flags 2
+Enter cuGetProcAddress
+symbol cuMemcpyPeer, cudaVersion 4000, flags 0
+Enter cuGetProcAddress
+symbol cuMemcpyPeer, cudaVersion 7000, flags 2
+Enter cuGetProcAddress
+symbol cuMemcpyPeerAsync, cudaVersion 4000, flags 0
+Enter cuGetProcAddress
+symbol cuMemcpyPeerAsync, cudaVersion 7000, flags 2
+Enter cuGetProcAddress
+symbol cuMemcpyHtoD, cudaVersion 3020, flags 0
+Enter cuGetProcAddress
+symbol cuMemcpyHtoD, cudaVersion 7000, flags 2
+Enter cuGetProcAddress
+symbol cuMemcpyHtoDAsync, cudaVersion 3020, flags 0
+Enter cuGetProcAddress
+symbol cuMemcpyHtoDAsync, cudaVersion 7000, flags 2
+Enter cuGetProcAddress
+symbol cuMemcpyDtoH, cudaVersion 3020, flags 0
+Enter cuGetProcAddress
+symbol cuMemcpyDtoH, cudaVersion 7000, flags 2
+Enter cuGetProcAddress
+symbol cuMemcpyDtoHAsync, cudaVersion 3020, flags 0
+Enter cuGetProcAddress
+symbol cuMemcpyDtoHAsync, cudaVersion 7000, flags 2
+Enter cuGetProcAddress
+symbol cuMemcpyDtoD, cudaVersion 3020, flags 0
+Enter cuGetProcAddress
+symbol cuMemcpyDtoD, cudaVersion 7000, flags 2
+Enter cuGetProcAddress
+symbol cuMemcpyDtoDAsync, cudaVersion 3020, flags 0
+Enter cuGetProcAddress
+symbol cuMemcpyDtoDAsync, cudaVersion 7000, flags 2
+Enter cuGetProcAddress
+symbol cuMemcpy2DUnaligned, cudaVersion 3020, flags 0
+Enter cuGetProcAddress
+symbol cuMemcpy2DUnaligned, cudaVersion 7000, flags 2
+Enter cuGetProcAddress
+symbol cuMemcpy2DAsync, cudaVersion 3020, flags 0
+Enter cuGetProcAddress
+symbol cuMemcpy2DAsync, cudaVersion 7000, flags 2
+Enter cuGetProcAddress
+symbol cuMemcpy3D, cudaVersion 3020, flags 0
+Enter cuGetProcAddress
+symbol cuMemcpy3D, cudaVersion 7000, flags 2
+Enter cuGetProcAddress
+symbol cuMemcpy3DAsync, cudaVersion 3020, flags 0
+Enter cuGetProcAddress
+symbol cuMemcpy3DAsync, cudaVersion 7000, flags 2
+Enter cuGetProcAddress
+symbol cuMemcpy3DPeer, cudaVersion 4000, flags 0
+Enter cuGetProcAddress
+symbol cuMemcpy3DPeer, cudaVersion 7000, flags 2
+Enter cuGetProcAddress
+symbol cuMemcpy3DPeerAsync, cudaVersion 4000, flags 0
+Enter cuGetProcAddress
+symbol cuMemcpy3DPeerAsync, cudaVersion 7000, flags 2
+Enter cuGetProcAddress
+symbol cuMemsetD8, cudaVersion 3020, flags 0
+Enter cuGetProcAddress
+symbol cuMemsetD8, cudaVersion 7000, flags 2
+Enter cuGetProcAddress
+symbol cuMemsetD8Async, cudaVersion 3020, flags 0
+Enter cuGetProcAddress
+symbol cuMemsetD8Async, cudaVersion 7000, flags 2
+Enter cuGetProcAddress
+symbol cuMemsetD2D8, cudaVersion 3020, flags 0
+Enter cuGetProcAddress
+symbol cuMemsetD2D8, cudaVersion 7000, flags 2
+Enter cuGetProcAddress
+symbol cuMemsetD2D8Async, cudaVersion 3020, flags 0
+Enter cuGetProcAddress
+symbol cuMemsetD2D8Async, cudaVersion 7000, flags 2
+Enter cuGetProcAddress
+symbol cuFuncSetCacheConfig, cudaVersion 3000, flags 0
+Enter cuGetProcAddress
+symbol cuFuncSetSharedMemConfig, cudaVersion 4020, flags 0
+Enter cuGetProcAddress
+symbol cuFuncGetAttribute, cudaVersion 2020, flags 0
+Enter cuGetProcAddress
+symbol cuFuncSetAttribute, cudaVersion 9000, flags 0
+Enter cuGetProcAddress
+symbol cuArrayCreate, cudaVersion 3020, flags 0
+Enter cuGetProcAddress
+symbol cuArrayGetDescriptor, cudaVersion 3020, flags 0
+Enter cuGetProcAddress
+symbol cuArrayGetSparseProperties, cudaVersion 11010, flags 0
+Enter cuGetProcAddress
+symbol cuArrayGetPlane, cudaVersion 11020, flags 0
+Enter cuGetProcAddress
+symbol cuArray3DCreate, cudaVersion 3020, flags 0
+Enter cuGetProcAddress
+symbol cuArray3DGetDescriptor, cudaVersion 3020, flags 0
+Enter cuGetProcAddress
+symbol cuArrayDestroy, cudaVersion 2000, flags 0
+Enter cuGetProcAddress
+symbol cuMipmappedArrayCreate, cudaVersion 5000, flags 0
+Enter cuGetProcAddress
+symbol cuMipmappedArrayGetLevel, cudaVersion 5000, flags 0
+Enter cuGetProcAddress
+symbol cuMipmappedArrayGetSparseProperties, cudaVersion 11010, flags 0
+Enter cuGetProcAddress
+symbol cuMipmappedArrayDestroy, cudaVersion 5000, flags 0
+Enter cuGetProcAddress
+symbol cuArrayGetMemoryRequirements, cudaVersion 11060, flags 0
+Enter cuGetProcAddress
+symbol cuMipmappedArrayGetMemoryRequirements, cudaVersion 11060, flags 0
+Enter cuGetProcAddress
+symbol cuTexRefCreate, cudaVersion 2000, flags 0
+Enter cuGetProcAddress
+symbol cuTexRefDestroy, cudaVersion 2000, flags 0
+Enter cuGetProcAddress
+symbol cuTexRefSetArray, cudaVersion 2000, flags 0
+Enter cuGetProcAddress
+symbol cuTexRefSetMipmappedArray, cudaVersion 5000, flags 0
+Enter cuGetProcAddress
+symbol cuTexRefSetAddress, cudaVersion 3020, flags 0
+Enter cuGetProcAddress
+symbol cuTexRefSetAddress2D, cudaVersion 4010, flags 0
+Enter cuGetProcAddress
+symbol cuTexRefSetFormat, cudaVersion 2000, flags 0
+Enter cuGetProcAddress
+symbol cuTexRefSetAddressMode, cudaVersion 2000, flags 0
+Enter cuGetProcAddress
+symbol cuTexRefSetFilterMode, cudaVersion 2000, flags 0
+Enter cuGetProcAddress
+symbol cuTexRefSetMipmapFilterMode, cudaVersion 5000, flags 0
+Enter cuGetProcAddress
+symbol cuTexRefSetMipmapLevelBias, cudaVersion 5000, flags 0
+Enter cuGetProcAddress
+symbol cuTexRefSetMipmapLevelClamp, cudaVersion 5000, flags 0
+Enter cuGetProcAddress
+symbol cuTexRefSetMaxAnisotropy, cudaVersion 5000, flags 0
+Enter cuGetProcAddress
+symbol cuTexRefSetFlags, cudaVersion 2000, flags 0
+Enter cuGetProcAddress
+symbol cuTexRefSetBorderColor, cudaVersion 8000, flags 0
+Enter cuGetProcAddress
+symbol cuTexRefGetBorderColor, cudaVersion 8000, flags 0
+Enter cuGetProcAddress
+symbol cuSurfRefSetArray, cudaVersion 3000, flags 0
+Enter cuGetProcAddress
+symbol cuTexObjectCreate, cudaVersion 5000, flags 0
+Enter cuGetProcAddress
+symbol cuTexObjectDestroy, cudaVersion 5000, flags 0
+Enter cuGetProcAddress
+symbol cuTexObjectGetResourceDesc, cudaVersion 5000, flags 0
+Enter cuGetProcAddress
+symbol cuTexObjectGetTextureDesc, cudaVersion 5000, flags 0
+Enter cuGetProcAddress
+symbol cuTexObjectGetResourceViewDesc, cudaVersion 5000, flags 0
+Enter cuGetProcAddress
+symbol cuSurfObjectCreate, cudaVersion 5000, flags 0
+Enter cuGetProcAddress
+symbol cuSurfObjectDestroy, cudaVersion 5000, flags 0
+Enter cuGetProcAddress
+symbol cuSurfObjectGetResourceDesc, cudaVersion 5000, flags 0
+Enter cuGetProcAddress
+symbol cuImportExternalMemory, cudaVersion 10000, flags 0
+Enter cuGetProcAddress
+symbol cuExternalMemoryGetMappedBuffer, cudaVersion 10000, flags 0
+Enter cuGetProcAddress
+symbol cuExternalMemoryGetMappedMipmappedArray, cudaVersion 10000, flags 0
+Enter cuGetProcAddress
+symbol cuDestroyExternalMemory, cudaVersion 10000, flags 0
+Enter cuGetProcAddress
+symbol cuImportExternalSemaphore, cudaVersion 10000, flags 0
+Enter cuGetProcAddress
+symbol cuSignalExternalSemaphoresAsync, cudaVersion 10000, flags 0
+Enter cuGetProcAddress
+symbol cuSignalExternalSemaphoresAsync, cudaVersion 10000, flags 2
+Enter cuGetProcAddress
+symbol cuWaitExternalSemaphoresAsync, cudaVersion 10000, flags 0
+Enter cuGetProcAddress
+symbol cuWaitExternalSemaphoresAsync, cudaVersion 10000, flags 2
+Enter cuGetProcAddress
+symbol cuDestroyExternalSemaphore, cudaVersion 10000, flags 0
+Enter cuGetProcAddress
+symbol cuDeviceGetNvSciSyncAttributes, cudaVersion 10020, flags 0
+Enter cuGetProcAddress
+symbol cuLaunchKernel, cudaVersion 4000, flags 0
+Enter cuGetProcAddress
+symbol cuLaunchKernel, cudaVersion 7000, flags 2
+Enter cuGetProcAddress
+symbol cuLaunchCooperativeKernel, cudaVersion 9000, flags 0
+Enter cuGetProcAddress
+symbol cuLaunchCooperativeKernel, cudaVersion 9000, flags 2
+Enter cuGetProcAddress
+symbol cuLaunchCooperativeKernelMultiDevice, cudaVersion 9000, flags 0
+Enter cuGetProcAddress
+symbol cuLaunchHostFunc, cudaVersion 10000, flags 0
+Enter cuGetProcAddress
+symbol cuLaunchHostFunc, cudaVersion 10000, flags 2
+Enter cuGetProcAddress
+symbol cuEventCreate, cudaVersion 2000, flags 0
+Enter cuGetProcAddress
+symbol cuEventRecord, cudaVersion 2000, flags 0
+Enter cuGetProcAddress
+symbol cuEventRecord, cudaVersion 7000, flags 2
+Enter cuGetProcAddress
+symbol cuEventRecordWithFlags, cudaVersion 11010, flags 0
+Enter cuGetProcAddress
+symbol cuEventRecordWithFlags, cudaVersion 11010, flags 2
+Enter cuGetProcAddress
+symbol cuEventQuery, cudaVersion 2000, flags 0
+Enter cuGetProcAddress
+symbol cuEventSynchronize, cudaVersion 2000, flags 0
+Enter cuGetProcAddress
+symbol cuEventDestroy, cudaVersion 4000, flags 0
+Enter cuGetProcAddress
+symbol cuEventElapsedTime, cudaVersion 2000, flags 0
+Enter cuGetProcAddress
+symbol cuStreamWaitValue32, cudaVersion 8000, flags 0
+Enter cuGetProcAddress
+symbol cuStreamWaitValue32, cudaVersion 8000, flags 2
+Enter cuGetProcAddress
+symbol cuStreamWriteValue32, cudaVersion 8000, flags 0
+Enter cuGetProcAddress
+symbol cuStreamWriteValue32, cudaVersion 8000, flags 2
+Enter cuGetProcAddress
+symbol cuStreamWaitValue64, cudaVersion 9000, flags 0
+Enter cuGetProcAddress
+symbol cuStreamWaitValue64, cudaVersion 9000, flags 2
+Enter cuGetProcAddress
+symbol cuStreamWriteValue64, cudaVersion 9000, flags 0
+Enter cuGetProcAddress
+symbol cuStreamWriteValue64, cudaVersion 9000, flags 2
+Enter cuGetProcAddress
+symbol cuStreamBatchMemOp, cudaVersion 8000, flags 0
+Enter cuGetProcAddress
+symbol cuStreamBatchMemOp, cudaVersion 8000, flags 2
+Enter cuGetProcAddress
+symbol cuStreamCreate, cudaVersion 2000, flags 0
+Enter cuGetProcAddress
+symbol cuStreamCreateWithPriority, cudaVersion 5050, flags 0
+Enter cuGetProcAddress
+symbol cuStreamGetPriority, cudaVersion 5050, flags 0
+Enter cuGetProcAddress
+symbol cuStreamGetPriority, cudaVersion 7000, flags 2
+Enter cuGetProcAddress
+symbol cuStreamGetFlags, cudaVersion 5050, flags 0
+Enter cuGetProcAddress
+symbol cuStreamGetCtx, cudaVersion 9020, flags 0
+Enter cuGetProcAddress
+symbol cuStreamGetFlags, cudaVersion 7000, flags 2
+Enter cuGetProcAddress
+symbol cuStreamDestroy, cudaVersion 4000, flags 0
+Enter cuGetProcAddress
+symbol cuStreamWaitEvent, cudaVersion 3020, flags 0
+Enter cuGetProcAddress
+symbol cuStreamWaitEvent, cudaVersion 7000, flags 2
+Enter cuGetProcAddress
+symbol cuStreamAddCallback, cudaVersion 5000, flags 0
+Enter cuGetProcAddress
+symbol cuStreamAddCallback, cudaVersion 7000, flags 2
+Enter cuGetProcAddress
+symbol cuStreamSynchronize, cudaVersion 2000, flags 0
+Enter cuGetProcAddress
+symbol cuStreamSynchronize, cudaVersion 7000, flags 2
+Enter cuGetProcAddress
+symbol cuStreamQuery, cudaVersion 2000, flags 0
+Enter cuGetProcAddress
+symbol cuStreamQuery, cudaVersion 7000, flags 2
+Enter cuGetProcAddress
+symbol cuStreamAttachMemAsync, cudaVersion 6000, flags 0
+Enter cuGetProcAddress
+symbol cuStreamAttachMemAsync, cudaVersion 7000, flags 2
+Enter cuGetProcAddress
+symbol cuStreamCopyAttributes, cudaVersion 11000, flags 0
+Enter cuGetProcAddress
+symbol cuStreamCopyAttributes, cudaVersion 11000, flags 2
+Enter cuGetProcAddress
+symbol cuStreamGetAttribute, cudaVersion 11000, flags 0
+Enter cuGetProcAddress
+symbol cuStreamGetAttribute, cudaVersion 11000, flags 2
+Enter cuGetProcAddress
+symbol cuStreamSetAttribute, cudaVersion 11000, flags 0
+Enter cuGetProcAddress
+symbol cuStreamSetAttribute, cudaVersion 11000, flags 2
+Enter cuGetProcAddress
+symbol cuDeviceCanAccessPeer, cudaVersion 4000, flags 0
+Enter cuGetProcAddress
+symbol cuCtxEnablePeerAccess, cudaVersion 4000, flags 0
+Enter cuGetProcAddress
+symbol cuCtxDisablePeerAccess, cudaVersion 4000, flags 0
+Enter cuGetProcAddress
+symbol cuIpcGetEventHandle, cudaVersion 4010, flags 0
+Enter cuGetProcAddress
+symbol cuIpcOpenEventHandle, cudaVersion 4010, flags 0
+Enter cuGetProcAddress
+symbol cuIpcGetMemHandle, cudaVersion 4010, flags 0
+Enter cuGetProcAddress
+symbol cuIpcOpenMemHandle, cudaVersion 4010, flags 0
+Enter cuGetProcAddress
+symbol cuIpcOpenMemHandle, cudaVersion 11000, flags 0
+Enter cuGetProcAddress
+symbol cuIpcCloseMemHandle, cudaVersion 4010, flags 0
+Enter cuGetProcAddress
+symbol cuGLCtxCreate, cudaVersion 3020, flags 0
+Enter cuGetProcAddress
+symbol cuGLInit, cudaVersion 2000, flags 0
+Enter cuGetProcAddress
+symbol cuGLGetDevices, cudaVersion 4010, flags 0
+Enter cuGetProcAddress
+symbol cuGLRegisterBufferObject, cudaVersion 2000, flags 0
+Enter cuGetProcAddress
+symbol cuGLMapBufferObject, cudaVersion 3020, flags 0
+Enter cuGetProcAddress
+symbol cuGLMapBufferObject, cudaVersion 7000, flags 2
+Enter cuGetProcAddress
+symbol cuGLMapBufferObjectAsync, cudaVersion 3020, flags 0
+Enter cuGetProcAddress
+symbol cuGLMapBufferObjectAsync, cudaVersion 7000, flags 2
+Enter cuGetProcAddress
+symbol cuGLUnmapBufferObject, cudaVersion 2000, flags 0
+Enter cuGetProcAddress
+symbol cuGLUnmapBufferObjectAsync, cudaVersion 2030, flags 0
+Enter cuGetProcAddress
+symbol cuGLUnregisterBufferObject, cudaVersion 2000, flags 0
+Enter cuGetProcAddress
+symbol cuGLSetBufferObjectMapFlags, cudaVersion 2030, flags 0
+Enter cuGetProcAddress
+symbol cuGraphicsGLRegisterImage, cudaVersion 3000, flags 0
+Enter cuGetProcAddress
+symbol cuGraphicsGLRegisterBuffer, cudaVersion 3000, flags 0
+Enter cuGetProcAddress
+symbol cuGraphicsEGLRegisterImage, cudaVersion 7000, flags 0
+Enter cuGetProcAddress
+symbol cuEGLStreamConsumerConnect, cudaVersion 7000, flags 0
+Enter cuGetProcAddress
+symbol cuEGLStreamConsumerDisconnect, cudaVersion 7000, flags 0
+Enter cuGetProcAddress
+symbol cuEGLStreamConsumerAcquireFrame, cudaVersion 7000, flags 0
+Enter cuGetProcAddress
+symbol cuEGLStreamConsumerReleaseFrame, cudaVersion 7000, flags 0
+Enter cuGetProcAddress
+symbol cuEGLStreamProducerConnect, cudaVersion 7000, flags 0
+Enter cuGetProcAddress
+symbol cuEGLStreamProducerDisconnect, cudaVersion 7000, flags 0
+Enter cuGetProcAddress
+symbol cuEGLStreamProducerPresentFrame, cudaVersion 7000, flags 0
+Enter cuGetProcAddress
+symbol cuEGLStreamProducerReturnFrame, cudaVersion 7000, flags 0
+Enter cuGetProcAddress
+symbol cuGraphicsResourceGetMappedEglFrame, cudaVersion 7000, flags 0
+Enter cuGetProcAddress
+symbol cuEGLStreamConsumerConnectWithFlags, cudaVersion 8000, flags 0
+Enter cuGetProcAddress
+symbol cuGraphicsUnregisterResource, cudaVersion 3000, flags 0
+Enter cuGetProcAddress
+symbol cuGraphicsMapResources, cudaVersion 3000, flags 0
+Enter cuGetProcAddress
+symbol cuGraphicsMapResources, cudaVersion 7000, flags 2
+Enter cuGetProcAddress
+symbol cuGraphicsUnmapResources, cudaVersion 3000, flags 0
+Enter cuGetProcAddress
+symbol cuGraphicsUnmapResources, cudaVersion 7000, flags 2
+Enter cuGetProcAddress
+symbol cuGraphicsResourceSetMapFlags, cudaVersion 6050, flags 0
+Enter cuGetProcAddress
+symbol cuGraphicsSubResourceGetMappedArray, cudaVersion 3000, flags 0
+Enter cuGetProcAddress
+symbol cuGraphicsResourceGetMappedMipmappedArray, cudaVersion 5000, flags 0
+Enter cuGetProcAddress
+symbol cuGraphicsResourceGetMappedPointer, cudaVersion 3020, flags 0
+Enter cuGetProcAddress
+symbol cuProfilerInitialize, cudaVersion 4000, flags 0
+Enter cuGetProcAddress
+symbol cuProfilerStart, cudaVersion 4000, flags 0
+Enter cuGetProcAddress
+symbol cuProfilerStop, cudaVersion 4000, flags 0
+Enter cuGetProcAddress
+symbol cuVDPAUGetDevice, cudaVersion 3010, flags 0
+Enter cuGetProcAddress
+symbol cuVDPAUCtxCreate, cudaVersion 3020, flags 0
+Enter cuGetProcAddress
+symbol cuGraphicsVDPAURegisterVideoSurface, cudaVersion 3010, flags 0
+Enter cuGetProcAddress
+symbol cuGraphicsVDPAURegisterOutputSurface, cudaVersion 3010, flags 0
+Enter cuGetProcAddress
+symbol cuGetExportTable, cudaVersion 3000, flags 0
+Enter cuGetProcAddress
+symbol cuOccupancyMaxActiveBlocksPerMultiprocessorWithFlags, cudaVersion 7000, flags 0
+Enter cuGetProcAddress
+symbol cuOccupancyAvailableDynamicSMemPerBlock, cudaVersion 10020, flags 0
+Enter cuGetProcAddress
+symbol cuMemAdvise, cudaVersion 8000, flags 0
+Enter cuGetProcAddress
+symbol cuMemPrefetchAsync, cudaVersion 8000, flags 0
+Enter cuGetProcAddress
+symbol cuMemPrefetchAsync, cudaVersion 8000, flags 2
+Enter cuGetProcAddress
+symbol cuMemRangeGetAttribute, cudaVersion 8000, flags 0
+Enter cuGetProcAddress
+symbol cuMemRangeGetAttributes, cudaVersion 8000, flags 0
+Enter cuGetProcAddress
+symbol cuGetErrorString, cudaVersion 6000, flags 0
+Enter cuGetProcAddress
+symbol cuGetErrorName, cudaVersion 6000, flags 0
+Enter cuGetProcAddress
+symbol cuGraphCreate, cudaVersion 10000, flags 0
+Enter cuGetProcAddress
+symbol cuGraphAddKernelNode, cudaVersion 10000, flags 0
+Enter cuGetProcAddress
+symbol cuGraphKernelNodeGetParams, cudaVersion 10000, flags 0
+Enter cuGetProcAddress
+symbol cuGraphKernelNodeSetParams, cudaVersion 10000, flags 0
+Enter cuGetProcAddress
+symbol cuGraphAddMemcpyNode, cudaVersion 10000, flags 0
+Enter cuGetProcAddress
+symbol cuGraphMemcpyNodeGetParams, cudaVersion 10000, flags 0
+Enter cuGetProcAddress
+symbol cuGraphMemcpyNodeSetParams, cudaVersion 10000, flags 0
+Enter cuGetProcAddress
+symbol cuGraphAddMemsetNode, cudaVersion 10000, flags 0
+Enter cuGetProcAddress
+symbol cuGraphMemsetNodeGetParams, cudaVersion 10000, flags 0
+Enter cuGetProcAddress
+symbol cuGraphMemsetNodeSetParams, cudaVersion 10000, flags 0
+Enter cuGetProcAddress
+symbol cuGraphAddHostNode, cudaVersion 10000, flags 0
+Enter cuGetProcAddress
+symbol cuGraphHostNodeGetParams, cudaVersion 10000, flags 0
+Enter cuGetProcAddress
+symbol cuGraphHostNodeSetParams, cudaVersion 10000, flags 0
+Enter cuGetProcAddress
+symbol cuGraphAddChildGraphNode, cudaVersion 10000, flags 0
+Enter cuGetProcAddress
+symbol cuGraphChildGraphNodeGetGraph, cudaVersion 10000, flags 0
+Enter cuGetProcAddress
+symbol cuGraphAddEmptyNode, cudaVersion 10000, flags 0
+Enter cuGetProcAddress
+symbol cuGraphAddEventRecordNode, cudaVersion 11010, flags 0
+Enter cuGetProcAddress
+symbol cuGraphEventRecordNodeGetEvent, cudaVersion 11010, flags 0
+Enter cuGetProcAddress
+symbol cuGraphEventRecordNodeSetEvent, cudaVersion 11010, flags 0
+Enter cuGetProcAddress
+symbol cuGraphAddEventWaitNode, cudaVersion 11010, flags 0
+Enter cuGetProcAddress
+symbol cuGraphEventWaitNodeGetEvent, cudaVersion 11010, flags 0
+Enter cuGetProcAddress
+symbol cuGraphEventWaitNodeSetEvent, cudaVersion 11010, flags 0
+Enter cuGetProcAddress
+symbol cuGraphAddExternalSemaphoresSignalNode, cudaVersion 11020, flags 0
+Enter cuGetProcAddress
+symbol cuGraphExternalSemaphoresSignalNodeGetParams, cudaVersion 11020, flags 0
+Enter cuGetProcAddress
+symbol cuGraphExternalSemaphoresSignalNodeSetParams, cudaVersion 11020, flags 0
+Enter cuGetProcAddress
+symbol cuGraphAddExternalSemaphoresWaitNode, cudaVersion 11020, flags 0
+Enter cuGetProcAddress
+symbol cuGraphExternalSemaphoresWaitNodeGetParams, cudaVersion 11020, flags 0
+Enter cuGetProcAddress
+symbol cuGraphExternalSemaphoresWaitNodeSetParams, cudaVersion 11020, flags 0
+Enter cuGetProcAddress
+symbol cuGraphExecExternalSemaphoresSignalNodeSetParams, cudaVersion 11020, flags 0
+Enter cuGetProcAddress
+symbol cuGraphExecExternalSemaphoresWaitNodeSetParams, cudaVersion 11020, flags 0
+Enter cuGetProcAddress
+symbol cuGraphAddMemAllocNode, cudaVersion 11040, flags 0
+Enter cuGetProcAddress
+symbol cuGraphMemAllocNodeGetParams, cudaVersion 11040, flags 0
+Enter cuGetProcAddress
+symbol cuGraphAddMemFreeNode, cudaVersion 11040, flags 0
+Enter cuGetProcAddress
+symbol cuGraphMemFreeNodeGetParams, cudaVersion 11040, flags 0
+Enter cuGetProcAddress
+symbol cuDeviceGraphMemTrim, cudaVersion 11040, flags 0
+Enter cuGetProcAddress
+symbol cuDeviceGetGraphMemAttribute, cudaVersion 11040, flags 0
+Enter cuGetProcAddress
+symbol cuDeviceSetGraphMemAttribute, cudaVersion 11040, flags 0
+Enter cuGetProcAddress
+symbol cuGraphClone, cudaVersion 10000, flags 0
+Enter cuGetProcAddress
+symbol cuGraphNodeFindInClone, cudaVersion 10000, flags 0
+Enter cuGetProcAddress
+symbol cuGraphNodeGetType, cudaVersion 10000, flags 0
+Enter cuGetProcAddress
+symbol cuGraphGetNodes, cudaVersion 10000, flags 0
+Enter cuGetProcAddress
+symbol cuGraphGetRootNodes, cudaVersion 10000, flags 0
+Enter cuGetProcAddress
+symbol cuGraphGetEdges, cudaVersion 10000, flags 0
+Enter cuGetProcAddress
+symbol cuGraphNodeGetDependencies, cudaVersion 10000, flags 0
+Enter cuGetProcAddress
+symbol cuGraphNodeGetDependentNodes, cudaVersion 10000, flags 0
+Enter cuGetProcAddress
+symbol cuGraphAddDependencies, cudaVersion 10000, flags 0
+Enter cuGetProcAddress
+symbol cuGraphRemoveDependencies, cudaVersion 10000, flags 0
+Enter cuGetProcAddress
+symbol cuGraphDestroyNode, cudaVersion 10000, flags 0
+Enter cuGetProcAddress
+symbol cuGraphInstantiate, cudaVersion 10000, flags 0
+Enter cuGetProcAddress
+symbol cuGraphInstantiate, cudaVersion 11000, flags 0
+Enter cuGetProcAddress
+symbol cuGraphInstantiateWithFlags, cudaVersion 11040, flags 0
+Enter cuGetProcAddress
+symbol cuGraphUpload, cudaVersion 11010, flags 0
+Enter cuGetProcAddress
+symbol cuGraphUpload, cudaVersion 11010, flags 2
+Enter cuGetProcAddress
+symbol cuGraphLaunch, cudaVersion 10000, flags 0
+Enter cuGetProcAddress
+symbol cuGraphLaunch, cudaVersion 10000, flags 2
+Enter cuGetProcAddress
+symbol cuGraphExecDestroy, cudaVersion 10000, flags 0
+Enter cuGetProcAddress
+symbol cuGraphDestroy, cudaVersion 10000, flags 0
+Enter cuGetProcAddress
+symbol cuStreamBeginCapture, cudaVersion 10000, flags 0
+Enter cuGetProcAddress
+symbol cuStreamBeginCapture, cudaVersion 10000, flags 2
+Enter cuGetProcAddress
+symbol cuStreamBeginCapture, cudaVersion 10010, flags 0
+Enter cuGetProcAddress
+symbol cuStreamBeginCapture, cudaVersion 10010, flags 2
+Enter cuGetProcAddress
+symbol cuStreamEndCapture, cudaVersion 10000, flags 0
+Enter cuGetProcAddress
+symbol cuStreamEndCapture, cudaVersion 10000, flags 2
+Enter cuGetProcAddress
+symbol cuStreamIsCapturing, cudaVersion 10000, flags 0
+Enter cuGetProcAddress
+symbol cuStreamIsCapturing, cudaVersion 10000, flags 2
+Enter cuGetProcAddress
+symbol cuStreamGetCaptureInfo, cudaVersion 10010, flags 0
+Enter cuGetProcAddress
+symbol cuStreamGetCaptureInfo, cudaVersion 10010, flags 2
+Enter cuGetProcAddress
+symbol cuStreamGetCaptureInfo, cudaVersion 11030, flags 0
+Enter cuGetProcAddress
+symbol cuStreamGetCaptureInfo, cudaVersion 11030, flags 2
+Enter cuGetProcAddress
+symbol cuStreamUpdateCaptureDependencies, cudaVersion 11030, flags 0
+Enter cuGetProcAddress
+symbol cuStreamUpdateCaptureDependencies, cudaVersion 11030, flags 2
+Enter cuGetProcAddress
+symbol cuGraphExecKernelNodeSetParams, cudaVersion 10010, flags 0
+Enter cuGetProcAddress
+symbol cuGraphExecMemcpyNodeSetParams, cudaVersion 10020, flags 0
+Enter cuGetProcAddress
+symbol cuGraphExecMemsetNodeSetParams, cudaVersion 10020, flags 0
+Enter cuGetProcAddress
+symbol cuGraphExecHostNodeSetParams, cudaVersion 10020, flags 0
+Enter cuGetProcAddress
+symbol cuGraphExecChildGraphNodeSetParams, cudaVersion 11010, flags 0
+Enter cuGetProcAddress
+symbol cuGraphExecEventRecordNodeSetEvent, cudaVersion 11010, flags 0
+Enter cuGetProcAddress
+symbol cuGraphExecEventWaitNodeSetEvent, cudaVersion 11010, flags 0
+Enter cuGetProcAddress
+symbol cuThreadExchangeStreamCaptureMode, cudaVersion 10010, flags 0
+Enter cuGetProcAddress
+symbol cuGraphExecUpdate, cudaVersion 10020, flags 0
+Enter cuGetProcAddress
+symbol cuGraphKernelNodeCopyAttributes, cudaVersion 11000, flags 0
+Enter cuGetProcAddress
+symbol cuGraphKernelNodeGetAttribute, cudaVersion 11000, flags 0
+Enter cuGetProcAddress
+symbol cuGraphKernelNodeSetAttribute, cudaVersion 11000, flags 0
+Enter cuGetProcAddress
+symbol cuGraphDebugDotPrint, cudaVersion 11030, flags 0
+Enter cuGetProcAddress
+symbol cuUserObjectCreate, cudaVersion 11030, flags 0
+Enter cuGetProcAddress
+symbol cuUserObjectRetain, cudaVersion 11030, flags 0
+Enter cuGetProcAddress
+symbol cuUserObjectRelease, cudaVersion 11030, flags 0
+Enter cuGetProcAddress
+symbol cuGraphRetainUserObject, cudaVersion 11030, flags 0
+Enter cuGetProcAddress
+symbol cuGraphReleaseUserObject, cudaVersion 11030, flags 0
+Enter cuGetProcAddress
+symbol cuGraphNodeSetEnabled, cudaVersion 11060, flags 0
+Enter cuGetProcAddress
+symbol cuGraphNodeGetEnabled, cudaVersion 11060, flags 0
+cuInitc_hook is called
