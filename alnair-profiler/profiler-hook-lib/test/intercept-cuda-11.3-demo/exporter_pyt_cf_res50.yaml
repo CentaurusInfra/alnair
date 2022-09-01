@@ -1,0 +1,38 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pyt-rn50-cf
+spec:
+  terminationGracePeriodSeconds: 0
+  containers:
+  - name: gpu-pod
+    image: centaurusinfra/pytorch-test:latest
+    resources:
+      limits:
+        alnair/vgpu-memory: 4
+        alnair/vgpu-compute: 50
+    workingDir: /tmp/test
+    # command: ["sh", "-c", "python3  pyt-cf-rn50-pack.py"]
+    command: ["sh", "-c", "nvidia-smi -L; sleep infinity"]
+    volumeMounts:
+      - name: demo
+        mountPath: /alnair/
+      - name: rawdemo
+        mountPath: /raw/
+      - name: intercept
+        mountPath: /intercept/       
+  volumes:
+    # - name: bin
+    #   hostPath:
+    #      path: /home/steven/dev/Gemini    
+    - name: rawdemo
+      hostPath:
+         path: /home/steven/dev/alnair/intercept-lib/intercept-cuda-11.3-demo       
+    - name: demo
+      hostPath:
+         path: /home/steven/dev/alnair/intercept-lib/test/intercept-cuda-11.3-demo      
+    - name: intercept
+      hostPath:
+         path: /home/steven/dev/alnair/intercept-lib/build/lib/
+  restartPolicy: OnFailure
+
