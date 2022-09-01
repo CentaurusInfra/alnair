@@ -91,7 +91,7 @@ static void* post_hooks[SYM_CU_SYMBOLS] = {
     (void*) cuMemcpyDtoH_posthook
 };
 
-static void* enable_timeline[SYM_CU_SYMBOLS] = {
+static bool enable_timeline[SYM_CU_SYMBOLS] = {
     true, 
     false,
     false,
@@ -174,7 +174,7 @@ void* dlsym(void *handle, const char *symbol)
     CUresult funcname params                                                                                       \
     {                                                                                                              \
         CUresult res = CUDA_SUCCESS;                                                                               \
-        std::chrono::time_point<std::chrono::system_clock>  Kbegin;                                                \
+        unsigned long  Kbegin;                                                \
         if (hooks[hooksymbol]) {                                                                                   \
             res = ((CUresult (*)params)hooks[hooksymbol])(__VA_ARGS__);                                            \
         }                                                                                                          \
@@ -182,10 +182,10 @@ void* dlsym(void *handle, const char *symbol)
         if(real_func[hooksymbol] == NULL)                                                                          \
             real_func[hooksymbol] = real_dlsym(RTLD_NEXT, STRINGIFY(funcname));                                    \
         if(enable_timeline[hooksymbol])                                                                            \
-            Kbegin = std::chrono::system_clock::now();                                                          \
+            Kbegin = (std::chrono::system_clock::now().time_since_epoch()).count();                                \
         res = ((CUresult (*)params)real_func[hooksymbol])(__VA_ARGS__);                                            \
         if(enable_timeline[hooksymbol])                                                                            \
-            pf_queue.push({hooksymbol, Kbegin, (std::chrono::system_clock::now() - Kbegin).count()/1000});   \
+            pf_queue.push({hooksymbol, Kbegin, ((std::chrono::system_clock::now().time_since_epoch()).count() - Kbegin)/1000});   \
         if(CUDA_SUCCESS == res && post_hooks[hooksymbol]) {                                                        \
             res = ((CUresult (*)params)post_hooks[hooksymbol])(__VA_ARGS__);                                       \
         }                                                                                                          \

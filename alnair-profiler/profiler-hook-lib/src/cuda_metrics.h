@@ -30,15 +30,15 @@ typedef struct cuda_metrics {
     unsigned int D2HCnt;
     // unsigned long H2DTime;
     // unsigned long D2HTime;    
-    std::chrono::time_point<std::chrono::system_clock>  Kbegin;    
-    std::chrono::time_point<std::chrono::system_clock>  H2Dbegin;    
-    std::chrono::time_point<std::chrono::system_clock>  D2Hbegin;    
+    unsigned long  Kbegin;    
+    unsigned long  H2Dbegin;    
+    unsigned long  D2Hbegin;    
     unsigned int   UUID;
     struct timespec period;
 } cuda_metrics_t;
 
 typedef struct pflog {
     unsigned int kernelid;
-    std::chrono::time_point<std::chrono::system_clock>  begin;    
-    unsigned long long burst;
+    unsigned long  begin;    
+    unsigned long  burst;
 } pflog_t;

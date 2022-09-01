@@ -286,7 +286,8 @@ CUresult cuLaunchKernel_hook(CUfunction f, unsigned int gridDimX, unsigned int g
     // unsigned int cost = gridDimX * gridDimY * gridDimZ * blockDimX * blockDimY * blockDimZ;
     pthread_mutex_lock(&launch_mutex);
     pf.kernelCnt ++;
-    pf.Kbegin = std::chrono::steady_clock::now();
+    auto p1 = std::chrono::system_clock::now();
+    pf.Kbegin = (p1.time_since_epoch()).count();
     pthread_mutex_unlock(&launch_mutex);
 
 
@@ -301,7 +302,9 @@ CUresult cuLaunchKernel_posthook(CUfunction f, unsigned int gridDimX, unsigned i
     CUresult cures = CUDA_SUCCESS;
     // unsigned int cost = gridDimX * gridDimY * gridDimZ * blockDimX * blockDimY * blockDimZ;
     pthread_mutex_lock(&launch_mutex);
-    pf.kernelRunTime += (std::chrono::steady_clock::now() - pf.Kbegin).count() / 1000 ; //milliseconds
+    auto p1 = std::chrono::system_clock::now();
+    unsigned long end = (p1.time_since_epoch()).count();
+    pf.kernelRunTime += (end - pf.Kbegin) / 1000 ; //microseconds
     pthread_mutex_unlock(&launch_mutex);
 
 
