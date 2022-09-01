@@ -225,6 +225,8 @@ static void post_cuinit(void)
 
 CUresult cuInit_hook (unsigned int Flags)
 {
+    std::cout << "====cuInit hooked====at "<< std::endl;
+    
     CUresult cures = CUDA_SUCCESS;
     int res = 0;
     
@@ -240,6 +242,8 @@ CUresult cuInit_hook (unsigned int Flags)
 
 CUresult cuInit_posthook (unsigned int Flags)
 {
+    std::cout << "====cuInit post hooked====at " << std::endl;
+
     CUresult cures = CUDA_SUCCESS;
     int res = 0;
 
@@ -273,6 +277,8 @@ CUresult cuLaunchKernel_hook(CUfunction f, unsigned int gridDimX, unsigned int g
                              unsigned int blockDimZ, unsigned int sharedMemBytes, CUstream hStream, 
                              void** kernelParams, void** extra)
 {
+    std::cout << "====cuLaunchKernel hooked====at " << std::endl;
+
     CUresult cures = CUDA_SUCCESS;
     // unsigned int cost = gridDimX * gridDimY * gridDimZ * blockDimX * blockDimY * blockDimZ;
     pthread_mutex_lock(&launch_mutex);
@@ -378,8 +384,7 @@ CUresult cuMemcpyDtoH_posthook(void *dstHost, CUdeviceptr srcDevice, size_t Byte
   return CUDA_SUCCESS;
 }
 
-CUresult cuMemcpyHtoD_prehook(void *dstHost, CUarray srcArray, size_t srcOffset,
-                               size_t ByteCount) {
+CUresult cuMemcpyHtoD_prehook( CUdeviceptr dptr, const void* srcHost, size_t ByteCount ) {
   pthread_mutex_lock(&H2D_mutex);
   pf.H2DCnt ++;
   pf.H2Dbegin = std::chrono::steady_clock::now();
@@ -388,7 +393,7 @@ CUresult cuMemcpyHtoD_prehook(void *dstHost, CUarray srcArray, size_t srcOffset,
   return CUDA_SUCCESS;
 }
 
-CUresult cuMemcpyHtoD_posthook(void *dstHost, CUdeviceptr srcDevice, size_t ByteCount) {
+CUresult cuMemcpyHtoD_posthook( CUdeviceptr dptr, const void* srcHost, size_t ByteCount ) {
   
   pthread_mutex_lock(&H2D_mutex);
   pf.H2DTime += (pf.H2Dbegin  - std::chrono::steady_clock::now()).count() /1000;

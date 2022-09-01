@@ -60,6 +60,8 @@ void log_api_call(const int pid, const int memUsed, const int kernelCnt, const i
 
 void* profiling_thread_func(void *arg) 
 {
+    std::cout << "==== profiling thread ==== " << std::endl;
+    log_api_call(1, 100, 1000, 10000);
     
     while(true) {
         unsigned int curGroupUsage;
@@ -70,5 +72,6 @@ void* profiling_thread_func(void *arg)
         nanosleep(&pf.period, NULL);
     }
 
+    std::cout << "==== profiling thread end ==== " << std::endl;
     return NULL;
 }

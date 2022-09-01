@@ -141,10 +141,17 @@ void* dlsym(void *handle, const char *symbol)
         return (void*)(&cuLaunchKernel);
     }
 
+    if (strcmp(symbol, STRINGIFY(cuMemcpyDtoH)) == 0) {
+        return (void *)(&cuMemcpyDtoH);
+    }
+
+    if (strcmp(symbol, STRINGIFY(cuMemcpyHtoD)) == 0) {
+        return (void *)(&cuMemcpyHtoD);
+    }
+
     if (strcmp(symbol, STRINGIFY(cuGetProcAddress)) == 0) {
         return (void *)(&cuGetProcAddress);
     }
-
     return (real_dlsym(handle, symbol));
 }
 
@@ -182,8 +189,8 @@ GENERATE_INTERCEPT_FUNCTION(SYM_CU_LAUNCH_KERNEL, cuLaunchKernel,
 
 CUresult CUDAAPI cuGetProcAddress(const char *symbol, void **pfn, int cudaVersion, cuuint64_t flags) {
 #ifdef _DEBUG
-    //printf("Enter %s\n", SYMBOL_STRING(cuGetProcAddress));
-    //printf("symbol %s, cudaVersion %d, flags %lu\n", symbol, cudaVersion, flags);
+    printf("Enter %s\n", STRINGIFY(cuGetProcAddress));
+    printf("symbol %s, cudaVersion %d, flags %lu\n", symbol, cudaVersion, flags);
 #endif
     typedef decltype(&cuGetProcAddress) funcType;
     funcType actualFunc;

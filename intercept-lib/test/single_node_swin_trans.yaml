@@ -5,7 +5,8 @@ metadata:
 spec:
   containers:
   - name: pytorch
-    image: centaurusinfra/swin-transform-ss-cityscapes
+    # image: centaurusinfra/swin-transform-ss-cityscapes
+    image: centaurusinfra/pytorch-testing
     # command: ["tools/dist_train.sh", "configs/upernet/upernet_r101_512x1024_40k_cityscapes.py", "2", "--options", "model.pretrained=upernet_r50_512x1024_40k_cityscapes_20200605_094827-aa54cb54.pth"]
     command: ["sh", "-c", "sleep infinity"]
     volumeMounts:
@@ -19,6 +20,8 @@ spec:
       name: alnair-test
     - mountPath: /dev/raw/
       name: rawdemo
+    - name: bin
+      mountPath: /mine/test      
   volumes:
   - name: dshm  # this is to trick pytorch when large size of shared memory is needed
     emptyDir:
@@ -38,5 +41,9 @@ spec:
   - name: rawdemo
     hostPath:
       path: /home/steven/dev/alnair/intercept-lib/intercept-cuda-11.3-demo  
+      type: Directory
+  - name: bin
+    hostPath:
+      path: /home/steven/dev/tf_experiments      
       type: Directory
   restartPolicy: OnFailure
