@@ -1,0 +1,2 @@
+g++ -I/usr/local/cuda-11.4/targets/x86_64-linux/include -fPIC -c -o build/obj/cuda_metrics.o src/cuda_metrics.cc
+Makefile:29: recipe for target 'build/obj/cuda_metrics.o' failed
