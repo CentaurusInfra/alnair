@@ -26,7 +26,8 @@ limitations under the License.
 
 #include "cuda_metrics.h"
 
-const char metrices_file[] = "/var/lib/alnair/workspace/metrics.log";
+// const char metrices_file[] = "/var/lib/alnair/workspace/metrics.log";
+const char metrices_file[] = "./metrics.log";
 
 cuda_metrics_t pf = {
     .mutex = PTHREAD_MUTEX_INITIALIZER,
@@ -61,7 +62,6 @@ void log_api_call(const int pid, const int memUsed, const int kernelCnt, const i
 void* profiling_thread_func(void *arg) 
 {
     std::cout << "==== profiling thread ==== " << std::endl;
-    log_api_call(1, 100, 1000, 10000);
     
     while(true) {
         unsigned int curGroupUsage;

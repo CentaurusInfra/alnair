@@ -277,8 +277,7 @@ CUresult cuLaunchKernel_hook(CUfunction f, unsigned int gridDimX, unsigned int g
                              unsigned int blockDimZ, unsigned int sharedMemBytes, CUstream hStream, 
                              void** kernelParams, void** extra)
 {
-    std::cout << "====cuLaunchKernel hooked====at " << std::endl;
-
+    
     CUresult cures = CUDA_SUCCESS;
     // unsigned int cost = gridDimX * gridDimY * gridDimZ * blockDimX * blockDimY * blockDimZ;
     pthread_mutex_lock(&launch_mutex);
