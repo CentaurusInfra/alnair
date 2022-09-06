@@ -26,7 +26,11 @@ limitations under the License.
 
 #include "cuda_metrics.h"
 
-const char metrices_file[] = "/var/lib/alnair/workspace/metrics.log";
+const char PFLOG[] = "/pflog";
+const char metrices_file[] = "metrics.log";
+const char profiling_file[] = "pf.log";
+
+extern  std::queue<pflog> pf_queue;
 
 cuda_metrics_t pf = {
     .mutex = PTHREAD_MUTEX_INITIALIZER,
@@ -48,24 +52,58 @@ cuda_metrics_t pf = {
     }
 };
 
-void log_api_call(const int pid, const int memUsed, const int kernelCnt, const int tokens) 
+char* funcname[] ={
+    "cuInit",
+    "cuMemAlloc",
+    "cuLaunchKernel"
+    "cuGetProcAddress" 
+    "cuMemcpyH2D", 
+    "cuMemcpyH2D"
+    };
+
+void log_api_call(const int pid, const int memUsed, const int kernelCnt, const int burst) 
 {                                                                                               
     std::chrono::time_point<std::chrono::system_clock> now = std::chrono::system_clock::now();  
     auto duration = now.time_since_epoch();                                                     
     std::ofstream fmet (metrices_file);                                                                         
     //print timestamp at nano seconds when a cuda API is called                                                                     
-    fmet << "pid:" << pid << "\nkernel-cnt:" << kernelCnt << "\nmem-used:" << memUsed << "\ntoken-cnt:"  << tokens << std::endl;                                     
+    fmet << "pid:" << pid << "\nkernel-cnt:" << kernelCnt << "\nmem-used:" << memUsed << "\nburst-tm:"  << burst << std::endl;                                     
     fmet.close();                                                                               
 }  
 
+void log_api_timing() 
+{                                                                                               
+    std::ofstream fmet (profiling_file);                                                                         
+    while (!pf_queue.empty()) {
+      // process request
+      pflog log = pf_queue.front();
+      pf_queue.pop();
+      fmet <<"name:" log.funcName << "\nstart:" << log.start << "\nlast:"  << log.duration << std::endl;                                     
+    }
+    fmet.close();                                                                               
+}
 void* profiling_thread_func(void *arg) 
 {
-    
+    std::cout << "====profiling thread runnin ==== ";
+    static std::string metfile;
+    static std::string tlfile;
+
+    if(const char* env_p = std::getenv("PFLOG")) {
+        metfile = std::string(env_p) + std::string("/")+std::string(metrices_file);
+        tlfile = std::string(env_p) + std::string("/")+std::string(profiling_file);
+    } else {
+        metfile = std::string(PFLOG) + std::string("/")+std::string(metrices_file);
+        tlfile = std::string(PFLOG) + std::string("/")+std::string(profiling_file);
+        
+    }
+    std::cout << "pflog dir is: " << metfile << std::endl;
+
     while(true) {
         unsigned int curGroupUsage;
         int ret;
         // pthread_mutex_lock(&pf.mutex);
         log_api_call(pf.pid, pf.memUsed, pf.kernelCnt, pf.kernelRunTime);
+        log_api_timing() 
         // pthread_mutex_unlock(&pf.mutex);        
         nanosleep(&pf.period, NULL);
     }

@@ -26,64 +26,73 @@ limitations under the License.
 
 #include "cuda_metrics.h"
 
+
 const char PFLOG[] = "/pflog";
 const char metrices_file[] = "metrics.log";
-const char profiling_file[] = "pf.log";
+const char profiling_file[] = "timeline.log";
 static std::string metfile;
 static std::string tlfile;
-static std::queue<pflog_t> pf_queue;
+std::queue<pflog_t> pf_queue;
+
+
+const std::string funcname[] ={
+    "cuInit",
+    "cuMemAlloc",
+    "cuMemFree",
+    "cuLaunchKernel",
+    "cuMemcpyH2D", 
+    "cuMemcpyD2H",
+    "cuGetProcAddress"
+    };
 
 cuda_metrics_t pf = {
     .mutex = PTHREAD_MUTEX_INITIALIZER,
-    .kernelCnt = 0,
-    .memUsed = 0,
     .pid = 0,
-    .kernelRunTime = 0,
-    .H2DCnt = 0,
-    .D2HCnt = 0,
-    .Kbegin = 0,
-    .H2Dbegin = 0,
-    .D2Hbegin = 0,
-    .UUID = 0,
     .period = {
         .tv_sec = 0,
         .tv_nsec = 100 * 1000000
     }
 };
 
-static const char* funcname[] ={
-    "cuInit",
-    "cuMemAlloc",
-    "cuLaunchKernel"
-    "cuGetProcAddress" 
-    "cuMemcpyH2D", 
-    "cuMemcpyH2D"
-    };
+unsigned int api_stats[SYM_CU_SYMBOLS][STAT_CNT] = {
+    {0, 0},               //cuInit
+    {0, 0},              //cuAlloc
+    {0, 0},              //cuFree
+    {0, 0},              //cuLaunch
+    {0, 0},              //cuH2D
+    {0, 0},               //cuD2H
+    {0, 0}             //cuGetProcAddress
+};
 
-void log_api_call(const int pid, const int memUsed, const int kernelCnt, const int burst) 
+// void log_api_call(const int pid, const int memUsed, const int kernelCnt, const int burst) 
+void log_api_call() 
 {                                                                                               
     // std::chrono::time_point<std::chrono::system_clock> now = std::chrono::system_clock::now();  
     // auto duration = now.time_since_epoch();                                                     
-    std::ofstream fmet (metfile);                                                                         
-    //print timestamp at nano seconds when a cuda API is called                                                                     
-    fmet << "pid:" << pid << "\nkernel-cnt:" << kernelCnt << "\nmem-used:" << memUsed << "\nburst-tm:"  << burst << std::endl;                                     
+    std::ofstream fmet (metfile);
+    for (int i = 0; i < SYM_CU_SYMBOLS; i++) {
+        //print timestamp at nano seconds when a cuda API is called                                                                     
+        fmet << "name:" << funcname[i] << "\ncount:" << api_stats[i][0] << "\nburst:"  << api_stats[i][1] << std::endl; 
+    }
     fmet.close();                                                                               
 }  
 
 void log_api_timing() 
-{                                                                                               
-    std::ofstream fmet (tlfile);                                                                         
+{   
+    std::ofstream fmet;                                                                         
+
+    fmet.open(tlfile, std::ios_base::app);                                                                         
     while (!pf_queue.empty()) {
       // process request
       pflog log = pf_queue.front();
       pf_queue.pop();
-      fmet <<"name:" << funcname[log.kernelid] << "\nstart:" << log.begin << "\nburst:"  << log.burst << std::endl;                                     
+      fmet <<"name:" << funcname[log.kernelid] << " start:" << log.begin << " burst:"  << log.burst << std::endl;                                     
     }
     fmet.close();                                                                               
 }
 void* profiling_thread_func(void *arg) 
 {
-    std::cout << "====profiling thread runnin ==== ";
+    std::cout << "====profiling thread runnin ==== " << std::endl;
 
 
     if(const char* env_p = std::getenv("PFLOG")) {
@@ -100,8 +109,9 @@ void* profiling_thread_func(void *arg)
         unsigned int curGroupUsage;
         int ret;
         // pthread_mutex_lock(&pf.mutex);
-        log_api_call(pf.pid, pf.memUsed, pf.kernelCnt, pf.kernelRunTime);
-        log_api_timing();
+        // log_api_call(pf.pid, pf.memUsed, pf.kernelCnt, pf.kernelRunTime);
+        log_api_call();
+        // log_api_timing();
         // pthread_mutex_unlock(&pf.mutex);        
         nanosleep(&pf.period, NULL);
     }

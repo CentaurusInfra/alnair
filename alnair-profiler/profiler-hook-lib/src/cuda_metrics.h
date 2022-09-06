@@ -20,20 +20,30 @@ limitations under the License.
 #include <cuda.h>
 #include <queue>
 
+
+typedef enum HookSymbolsEnum {
+    SYM_CU_INIT,
+    SYM_CU_MEM_ALLOC,
+    SYM_CU_MEM_FREE,
+    SYM_CU_LAUNCH_KERNEL,
+    SYM_CU_MEM_H2D,
+    SYM_CU_MEM_D2H,
+    SYM_CU_HOOK_GET_PROC_ADDRESS,
+    SYM_CU_SYMBOLS,
+} HookSymbols;
+
+//
+// profiling flags: [statics, timeline]
+//
+typedef enum MetricsEnum {
+    MET_STAT,
+    MET_TIMELINE,
+    STAT_CNT
+} Metrics_ENU;
+
 typedef struct cuda_metrics {
     pthread_mutex_t mutex;
-    unsigned int kernelCnt;
-    unsigned long long memUsed;
-    unsigned int pid;
-    unsigned long kernelRunTime;
-    unsigned int H2DCnt;
-    unsigned int D2HCnt;
-    // unsigned long H2DTime;
-    // unsigned long D2HTime;    
-    unsigned long  Kbegin;    
-    unsigned long  H2Dbegin;    
-    unsigned long  D2Hbegin;    
-    unsigned int   UUID;
+    unsigned int pid; 
     struct timespec period;
 } cuda_metrics_t;
 

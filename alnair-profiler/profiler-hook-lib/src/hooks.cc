@@ -37,10 +37,10 @@ limitations under the License.
 /////////////////////////////////////////////////////
 extern cuda_metrics_t pf;
 extern void log_api_call(const char *pid, const int memUsed, const int kernelCnt, const int tokens);
-extern  std::queue<pflog> pf_queue;
 
 
 extern void* profiling_thread_func(void *arg);
+extern  std::queue<pflog> pf_queue;
 
 
 pthread_mutex_t mem_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -76,24 +76,24 @@ static void print_trace (void)
 
 //example line, k8s v1.21 format
 //6:memory:/kubepods/besteffort/podb494d806-bfe7-4c33-8e23-032da1434a90/06b159b3f1cb4c021766a97e5ac82d18284c381223e5539aa510269ee5eed4d3
-static std::string get_cgroup() 
-{
-    std::ifstream fs("/proc/self/cgroup");
-    for(std::string line; std::getline(fs, line); ) {
-        std::stringstream ss(line);
-        std::string item;
-        while(std::getline(ss, item, ':')) {
-            if(item == "memory") {
-                std::getline(ss, item, ':');
-                return item;
-            }
-        }
-    }
-    fs.close();
-    return "";
-}
+// static std::string get_cgroup() 
+// {
+//     std::ifstream fs("/proc/self/cgroup");
+//     for(std::string line; std::getline(fs, line); ) {
+//         std::stringstream ss(line);
+//         std::string item;
+//         while(std::getline(ss, item, ':')) {
+//             if(item == "memory") {
+//                 std::getline(ss, item, ':');
+//                 return item;
+//             }
+//         }
+//     }
+//     fs.close();
+//     return "";
+// }
 
-static std::string cgroup = get_cgroup();
+// static std::string cgroup = get_cgroup();
 
 static int get_gpu_compute_processes(unsigned int* procCount, nvmlProcessInfo_t* procInfos) 
 {
@@ -116,7 +116,13 @@ static int get_gpu_compute_processes(unsigned int* procCount, nvmlProcessInfo_t*
 
 static void read_pids(std::set<unsigned int>& pids)
 {
-    std::ifstream fs("/var/lib/alnair/workspace/cgroup.procs");
+    std::string cgfile;
+    if(const char* env_p = std::getenv("PFLOG")) {
+        cgfile = std::string(env_p) + std::string("/")+std::string("cgroup.procs");
+    } else {
+        cgfile = std::string("/pflog") + std::string("/")+std::string("cgroup.procs");        
+    }    
+    std::ifstream fs(cgfile);
     for(std::string line; std::getline(fs, line); ) {
         pids.insert(atoi(line.c_str()));
     }
@@ -156,8 +162,10 @@ static unsigned int find_proc()
 
     for(int i=0; i < numProc; ++i) {
         unsigned int pid = sample[i].pid;
+        //  std::cout << " pid " << pid << std::endl;
         if(pids.find(pid) != pids.end()) return pid;
     }
+    std::cout << " find no PID " << numProc << std::endl;
 
     return NO_PID;
 }
@@ -209,6 +217,8 @@ static void post_cuinit(void)
     if (proc_id < 0) {
         fprintf(stderr,"ERROR: there is no valid process id for GPU process.\n");
     }
+    std::cout << "pid:" << proc_id << std::endl;
+
     pf.pid = proc_id;
     cures = cuDeviceGetUuid(&uuid, dev);
     
@@ -230,7 +240,7 @@ static void post_cuinit(void)
 
 CUresult cuInit_hook (unsigned int Flags)
 {
-    std::cout << "====cuInit hooked====at "<< std::endl;
+    // std::cout << "====cuInit hooked==== "<< std::endl;
     
     CUresult cures = CUDA_SUCCESS;
     int res = 0;
@@ -246,12 +256,13 @@ CUresult cuInit_hook (unsigned int Flags)
 
 CUresult cuInit_posthook (unsigned int Flags)
 {
-    std::cout << "====cuInit post hooked====at " << std::endl;
+    // std::cout << "====cuInit post hooked==== " << std::endl;
 
     CUresult cures = CUDA_SUCCESS;
     int res = 0;
 
     // initialize for GPU compute monitoring
+    // pf_queue.push({0, 1000, 10000000});    
     res = pthread_once(&post_cuinit_ctrl, post_cuinit);
     if(res < 0) {
         fprintf(stderr,"post_cuinit failed, errno=%d\n", errno);
@@ -283,13 +294,6 @@ CUresult cuLaunchKernel_hook(CUfunction f, unsigned int gridDimX, unsigned int g
 {
     
     CUresult cures = CUDA_SUCCESS;
-    // unsigned int cost = gridDimX * gridDimY * gridDimZ * blockDimX * blockDimY * blockDimZ;
-    pthread_mutex_lock(&launch_mutex);
-    pf.kernelCnt ++;
-    auto p1 = std::chrono::system_clock::now();
-    pf.Kbegin = (p1.time_since_epoch()).count();
-    pthread_mutex_unlock(&launch_mutex);
-
 
     return cures;
 }
@@ -301,59 +305,53 @@ CUresult cuLaunchKernel_posthook(CUfunction f, unsigned int gridDimX, unsigned i
 {
     CUresult cures = CUDA_SUCCESS;
     // unsigned int cost = gridDimX * gridDimY * gridDimZ * blockDimX * blockDimY * blockDimZ;
-    pthread_mutex_lock(&launch_mutex);
-    auto p1 = std::chrono::system_clock::now();
-    unsigned long end = (p1.time_since_epoch()).count();
-    pf.kernelRunTime += (end - pf.Kbegin) / 1000 ; //microseconds
-    pthread_mutex_unlock(&launch_mutex);
-
 
     return cures;
 }
 
-// static CUresult update_mem_usage(size_t bytesize )
-// {
-//     CUresult cures = CUDA_SUCCESS;
+static CUresult update_mem_usage(size_t bytesize )
+{
+    CUresult cures = CUDA_SUCCESS;
 
-//     pthread_mutex_lock(&mem_mutex);
-//     pf.memUsed += bytesize;
-//     pthread_mutex_unlock(&mem_mutex);
+    // pthread_mutex_lock(&mem_mutex);
+    // pf.memUsed += bytesize;
+    // pthread_mutex_unlock(&mem_mutex);
 
-//     return (cures);
-// }
+    return (cures);
+}
 
 static CUresult update_mem_usage()
 {
     // get process ids within the same container
-    unsigned long long totalUsage;    
-    std::set<unsigned int> pids;
+//     unsigned long long totalUsage;    
+//     std::set<unsigned int> pids;
 
-    if (proc_id == NO_PID)
-        read_pids(pids);
+//     if (proc_id == NO_PID)
+//         read_pids(pids);
 
-    // get per process gpu memory usage
-    unsigned int numProc = MAXPROC;
-    nvmlProcessInfo_t procInfos[MAXPROC];
-    int ret = get_gpu_compute_processes(&numProc, procInfos);
-    if(ret != 0) return CUDA_SUCCESS;
+//     // get per process gpu memory usage
+//     unsigned int numProc = MAXPROC;
+//     nvmlProcessInfo_t procInfos[MAXPROC];
+//     int ret = get_gpu_compute_processes(&numProc, procInfos);
+//     if(ret != 0) return CUDA_SUCCESS;
 
-    totalUsage = 0;
-    for(int i=0; i < numProc; ++i) {
-        unsigned int pid = procInfos[i].pid;
-        if (proc_id == NO_PID) {
-            if(pids.find(pid) != pids.end()) {totalUsage += procInfos[i].usedGpuMemory;proc_id = pf.pid = pid; break;};
-        } else if(pid == proc_id) {
-            totalUsage += procInfos[i].usedGpuMemory;
-            break;
-        }
-    }
+//     totalUsage = 0;
+//     for(int i=0; i < numProc; ++i) {
+//         unsigned int pid = procInfos[i].pid;
+//         if (proc_id == NO_PID) {
+//             if(pids.find(pid) != pids.end()) {totalUsage += procInfos[i].usedGpuMemory;proc_id = pf.pid = pid; break;};
+//         } else if(pid == proc_id) {
+//             totalUsage += procInfos[i].usedGpuMemory;
+//             break;
+//         }
+//     }
 
-//////////////////////////////////
-// 
-//  profiling memory usage
-//
-//////////////////////////////////
-    pf.memUsed = totalUsage;
+// //////////////////////////////////
+// // 
+// //  profiling memory usage
+// //
+// //////////////////////////////////
+//     pf.memUsed = totalUsage;
 
     return CUDA_SUCCESS;
 }
@@ -386,7 +384,7 @@ CUresult cuMemcpyDtoH_posthook(void *dstHost, CUdeviceptr srcDevice, size_t Byte
 //   pthread_mutex_lock(&D2H_mutex);
 //   pf.D2HTime += (pf.D2Hbegin  - std::chrono::steady_clock::now()).count() /1000;
 //   pthread_mutex_unlock(&D2H_mutex);
-  pf.D2HCnt ++;
+    std::cout << " D2H post hook " << std::endl;
 
   return CUDA_SUCCESS;
 }
@@ -405,7 +403,7 @@ CUresult cuMemcpyHtoD_posthook( CUdeviceptr dptr, const void* srcHost, size_t By
 //   pthread_mutex_lock(&H2D_mutex);
 //   pf.H2DTime += (pf.H2Dbegin  - std::chrono::steady_clock::now()).count() /1000;
 //   pthread_mutex_unlock(&H2D_mutex);
-  pf.H2DCnt ++;
+    std::cout << " H2D post hook " << std::endl;
 
   return CUDA_SUCCESS;
 }
