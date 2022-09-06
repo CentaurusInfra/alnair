@@ -43,27 +43,27 @@ extern "C" { void* __libc_dlopen_mode (const char* name, int mode); }
 
 // extern cuda_metrics_t pf;
 
-CUresult cuInit_hook(unsigned int Flags);
-CUresult cuInit_posthook(unsigned int Flags);
-CUresult cuMemAlloc_hook(CUdeviceptr* dptr, size_t bytesize);
-CUresult cuMemFree_hook(CUdeviceptr *dptr);
-CUresult cuMemcpyDtoH_posthook(void *dstHost, CUdeviceptr srcDevice, size_t ByteCount);
-CUresult cuMemcpyHtoD_posthook( CUdeviceptr dstDevice, const void* srcHost, size_t ByteCount );
-CUresult cuLaunchKernel_hook(CUfunction f, unsigned int gridDimX, unsigned int gridDimY, 
-                                    unsigned int gridDimZ, unsigned int blockDimX, unsigned int blockDimY, 
-                                    unsigned int blockDimZ, unsigned int sharedMemBytes, CUstream hStream, 
-                                    void** kernelParams, void** extra);
-CUresult cuLaunchKernel_posthook(CUfunction f, unsigned int gridDimX, unsigned int gridDimY, 
-                                    unsigned int gridDimZ, unsigned int blockDimX, unsigned int blockDimY, 
-                                    unsigned int blockDimZ, unsigned int sharedMemBytes, CUstream hStream, 
-                                    void** kernelParams, void** extra);
+// CUresult cuInit_hook(unsigned int Flags);
+// CUresult cuInit_posthook(unsigned int Flags);
+// CUresult cuMemAlloc_hook(CUdeviceptr* dptr, size_t bytesize);
+// CUresult cuMemFree_hook(CUdeviceptr *dptr);
+// CUresult cuMemcpyDtoH_posthook(void *dstHost, CUdeviceptr srcDevice, size_t ByteCount);
+// CUresult cuMemcpyHtoD_posthook( CUdeviceptr dstDevice, const void* srcHost, size_t ByteCount );
+// CUresult cuLaunchKernel_hook(CUfunction f, unsigned int gridDimX, unsigned int gridDimY, 
+//                                     unsigned int gridDimZ, unsigned int blockDimX, unsigned int blockDimY, 
+//                                     unsigned int blockDimZ, unsigned int sharedMemBytes, CUstream hStream, 
+//                                     void** kernelParams, void** extra);
+// CUresult cuLaunchKernel_posthook(CUfunction f, unsigned int gridDimX, unsigned int gridDimY, 
+//                                     unsigned int gridDimZ, unsigned int blockDimX, unsigned int blockDimY, 
+//                                     unsigned int blockDimZ, unsigned int sharedMemBytes, CUstream hStream, 
+//                                     void** kernelParams, void** extra);
 
 
 static void* hooks[SYM_CU_SYMBOLS] = {
     NULL, 
-    (void*) cuMemAlloc_hook,
-    (void*) cuMemFree_hook,
-    (void*) cuLaunchKernel_hook,
+    NULL,
+    NULL,
+    NULL,
     NULL,
     NULL,
     NULL
@@ -74,8 +74,8 @@ static void* post_hooks[SYM_CU_SYMBOLS] = {
     NULL,
     NULL,
     NULL,
-    (void*) cuMemcpyHtoD_posthook,
-    (void*) cuMemcpyDtoH_posthook,
+    NULL,
+    NULL,
     NULL
 };
 
@@ -407,15 +407,16 @@ CUresult CUDAAPI cuGetProcAddress(const char *symbol, void **pfn, int cudaVersio
         if(real_func[SYM_CU_MEM_H2D] == NULL) {
             real_func[SYM_CU_MEM_H2D] = *pfn;
         }        
-    std::cout << " getProc H2D" << std::endl;
+    std::cout << " getProc H2D" << "cuda version: " << cudaVersion << std::endl;
         api_stats[SYM_CU_MEM_H2D][0]++;                                                                                                
 
-        *pfn = (void *)(&cuMemcpyHtoD_l);
+        // *pfn = (void *)(&cuMemcpyHtoD_l);
+        *pfn = NULL;
 #pragma push_macro("cuMemcpyDtoH")
 #undef cuMemcpyDtoH
     } else if (strcmp(symbol, STRINGIFY(cuMemcpyDtoH)) == 0) {
 #pragma pop_macro("cuMemcpyDtoH")
-    std::cout << " getProc D2H " << std::endl;
+    std::cout << " getProc D2H " << "cuda version: " << cudaVersion << std::endl;
         api_stats[SYM_CU_MEM_D2H][0]++;                                                                                                
 
         if(real_func[SYM_CU_MEM_D2H] == NULL) {
@@ -428,6 +429,7 @@ CUresult CUDAAPI cuGetProcAddress(const char *symbol, void **pfn, int cudaVersio
 #undef cuInit
     } else if (strcmp(symbol, STRINGIFY(cuInit)) == 0) {
 #pragma pop_macro("cuInit")
+    std::cout << " getProc cuInit " << "cuda version: " << cudaVersion << std::endl;
 
         *pfn = (void *)(&cuInit);
     } 
@@ -435,97 +437,97 @@ CUresult CUDAAPI cuGetProcAddress(const char *symbol, void **pfn, int cudaVersio
     return (result);
 }
 
-CUresult cuLaunchKernel_hook(CUfunction f, unsigned int gridDimX, unsigned int gridDimY, 
-                             unsigned int gridDimZ, unsigned int blockDimX, unsigned int blockDimY, 
-                             unsigned int blockDimZ, unsigned int sharedMemBytes, CUstream hStream, 
-                             void** kernelParams, void** extra)
-{
+// CUresult cuLaunchKernel_hook(CUfunction f, unsigned int gridDimX, unsigned int gridDimY, 
+//                              unsigned int gridDimZ, unsigned int blockDimX, unsigned int blockDimY, 
+//                              unsigned int blockDimZ, unsigned int sharedMemBytes, CUstream hStream, 
+//                              void** kernelParams, void** extra)
+// {
     
-    CUresult cures = CUDA_SUCCESS;
+//     CUresult cures = CUDA_SUCCESS;
 
-    return cures;
-}
+//     return cures;
+// }
 
-CUresult cuLaunchKernel_posthook(CUfunction f, unsigned int gridDimX, unsigned int gridDimY, 
-                             unsigned int gridDimZ, unsigned int blockDimX, unsigned int blockDimY, 
-                             unsigned int blockDimZ, unsigned int sharedMemBytes, CUstream hStream, 
-                             void** kernelParams, void** extra)
-{
-    CUresult cures = CUDA_SUCCESS;
-    // unsigned int cost = gridDimX * gridDimY * gridDimZ * blockDimX * blockDimY * blockDimZ;
+// CUresult cuLaunchKernel_posthook(CUfunction f, unsigned int gridDimX, unsigned int gridDimY, 
+//                              unsigned int gridDimZ, unsigned int blockDimX, unsigned int blockDimY, 
+//                              unsigned int blockDimZ, unsigned int sharedMemBytes, CUstream hStream, 
+//                              void** kernelParams, void** extra)
+// {
+//     CUresult cures = CUDA_SUCCESS;
+//     // unsigned int cost = gridDimX * gridDimY * gridDimZ * blockDimX * blockDimY * blockDimZ;
 
 
 
     
 
-    return cures;
-}
+//     return cures;
+// }
 
-static CUresult update_mem_usage(size_t bytesize )
-{
-    CUresult cures = CUDA_SUCCESS;
+// static CUresult update_mem_usage(size_t bytesize )
+// {
+//     CUresult cures = CUDA_SUCCESS;
 
-    // pthread_mutex_lock(&mem_mutex);
-    // pf.memUsed += bytesize;
-    // pthread_mutex_unlock(&mem_mutex);
+//     // pthread_mutex_lock(&mem_mutex);
+//     // pf.memUsed += bytesize;
+//     // pthread_mutex_unlock(&mem_mutex);
 
-    return (cures);
-}
+//     return (cures);
+// }
 
-static CUresult update_mem_usage()
-{
+// static CUresult update_mem_usage()
+// {
 
-    return CUDA_SUCCESS;
-}
+//     return CUDA_SUCCESS;
+// }
 
-CUresult cuMemAlloc_hook (CUdeviceptr* dptr, size_t bytesize)
-{
-    return update_mem_usage();
+// CUresult cuMemAlloc_hook (CUdeviceptr* dptr, size_t bytesize)
+// {
+//     return update_mem_usage();
 
-}
+// }
 
 
-CUresult cuMemFree_hook (CUdeviceptr* dptr)
-{
-    return update_mem_usage();
-}
+// CUresult cuMemFree_hook (CUdeviceptr* dptr)
+// {
+//     return update_mem_usage();
+// }
 
-CUresult cuMemcpyDtoH_prehook(void *dstHost, CUarray srcArray, size_t srcOffset,
-                               size_t ByteCount) {
+// CUresult cuMemcpyDtoH_prehook(void *dstHost, CUarray srcArray, size_t srcOffset,
+//                                size_t ByteCount) {
   
-//   pthread_mutex_lock(&D2H_mutex);
-//   pf.D2HCnt ++;
-//   pf.D2Hbegin = std::chrono::steady_clock::now();
-//   pthread_mutex_unlock(&D2H_mutex);
+// //   pthread_mutex_lock(&D2H_mutex);
+// //   pf.D2HCnt ++;
+// //   pf.D2Hbegin = std::chrono::steady_clock::now();
+// //   pthread_mutex_unlock(&D2H_mutex);
   
-  return CUDA_SUCCESS;
-}
+//   return CUDA_SUCCESS;
+// }
 
-CUresult cuMemcpyDtoH_posthook(void *dstHost, CUdeviceptr srcDevice, size_t ByteCount) {
+// CUresult cuMemcpyDtoH_posthook(void *dstHost, CUdeviceptr srcDevice, size_t ByteCount) {
 
-//   pthread_mutex_lock(&D2H_mutex);
-//   pf.D2HTime += (pf.D2Hbegin  - std::chrono::steady_clock::now()).count() /1000;
-//   pthread_mutex_unlock(&D2H_mutex);
-    std::cout << " D2H post hook " << std::endl;
+// //   pthread_mutex_lock(&D2H_mutex);
+// //   pf.D2HTime += (pf.D2Hbegin  - std::chrono::steady_clock::now()).count() /1000;
+// //   pthread_mutex_unlock(&D2H_mutex);
+//     std::cout << " D2H post hook " << std::endl;
 
-  return CUDA_SUCCESS;
-}
+//   return CUDA_SUCCESS;
+// }
 
-CUresult cuMemcpyHtoD_prehook( CUdeviceptr dptr, const void* srcHost, size_t ByteCount ) {
-//   pthread_mutex_lock(&H2D_mutex);
-//   pf.H2DCnt ++;
-//   pf.H2Dbegin = std::chrono::steady_clock::now();
-//   pthread_mutex_unlock(&H2D_mutex);
+// CUresult cuMemcpyHtoD_prehook( CUdeviceptr dptr, const void* srcHost, size_t ByteCount ) {
+// //   pthread_mutex_lock(&H2D_mutex);
+// //   pf.H2DCnt ++;
+// //   pf.H2Dbegin = std::chrono::steady_clock::now();
+// //   pthread_mutex_unlock(&H2D_mutex);
   
-  return CUDA_SUCCESS;
-}
+//   return CUDA_SUCCESS;
+// }
 
-CUresult cuMemcpyHtoD_posthook( CUdeviceptr dptr, const void* srcHost, size_t ByteCount ) {
+// CUresult cuMemcpyHtoD_posthook( CUdeviceptr dptr, const void* srcHost, size_t ByteCount ) {
   
-//   pthread_mutex_lock(&H2D_mutex);
-//   pf.H2DTime += (pf.H2Dbegin  - std::chrono::steady_clock::now()).count() /1000;
-//   pthread_mutex_unlock(&H2D_mutex);
-    std::cout << " H2D post hook " << std::endl;
+// //   pthread_mutex_lock(&H2D_mutex);
+// //   pf.H2DTime += (pf.H2Dbegin  - std::chrono::steady_clock::now()).count() /1000;
+// //   pthread_mutex_unlock(&H2D_mutex);
+//     std::cout << " H2D post hook " << std::endl;
 
-  return CUDA_SUCCESS;
-}
+//   return CUDA_SUCCESS;
+// }
