@@ -180,9 +180,6 @@ void log_api_timing()
 }
 void* profiling_thread_func(void *arg) 
 {
-    std::cout << "====profiling thread runnin ==== " << std::endl;
-
-
     if(const char* env_p = std::getenv("PFLOG")) {
         metfile = std::string(env_p) + std::string("/")+std::string(metrices_file);
         tlfile = std::string(env_p) + std::string("/")+std::string(profiling_file);
@@ -227,8 +224,6 @@ void* dlsym(void *handle, const char *symbol)
         if(real_func[SYM_CU_INIT] == NULL) {
             real_func[SYM_CU_INIT] = real_dlsym(handle, symbol);
         }
-            std::cout << "init in dlsym" << std::endl;                                                                                \
-
         return (void*)(&cuInit);
     }
 
@@ -289,10 +284,10 @@ static void initialize(void)
     // Here we only support compute resource sharing within a single device.
     // If multiple devices are visible, gpuComputeLimit would be 100, 
     // and the previous statement would have already exited. 
-    cures = cuDeviceGet(&dev, 0);
-    if(CUDA_SUCCESS != cures) {
-        fprintf(stderr, "cuDeviceGet failed: %d\n", cures);
-    }
+    // cures = cuDeviceGet(&dev, 0);
+    // if(CUDA_SUCCESS != cures) {
+    //     fprintf(stderr, "cuDeviceGet failed: %d\n", cures);
+    // }
 
     // cures = cuDeviceGetAttribute(&numSM, CU_DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT, dev);
     // if(CUDA_SUCCESS != cures) {
@@ -304,11 +299,11 @@ static void initialize(void)
     //     fprintf(stderr, "# of threads per SM query failed: %d\n", cures);
     // }
 
-    cures = cuDeviceGetUuid(&uuid, dev);
+    // cures = cuDeviceGetUuid(&uuid, dev);
     
-    if(CUDA_SUCCESS != cures) {
-        fprintf(stderr, "ERROR: UUid failed, ERRNO %d\n", cures);
-    }
+    // if(CUDA_SUCCESS != cures) {
+    //     fprintf(stderr, "ERROR: UUid failed, ERRNO %d\n", cures);
+    // }
     // fprintf(stderr, "UUid %s\n", (char*) &(pf.UUID));
 
     // initialize for profiler
@@ -329,8 +324,6 @@ static void initialize(void)
         pthread_once(&init_done, initialize);                                                                                          \
         if (hooksymbol == SYM_CU_MEM_H2D)                                                                                              \
             std::cout << "H2D in intercept" << std::endl;                                                                                \
-        if (hooksymbol == SYM_CU_INIT)                                                                                             \
-            std::cout << "cuInit in intercept" << std::endl;                                                                                \
         if (hooks[hooksymbol]) {                                                                                                       \
             res = ((CUresult (*)params)hooks[hooksymbol])(__VA_ARGS__);                                                                \
         }                                                                                                                              \
@@ -414,7 +407,7 @@ CUresult CUDAAPI cuGetProcAddress(const char *symbol, void **pfn, int cudaVersio
         if(real_func[SYM_CU_MEM_H2D] == NULL) {
             real_func[SYM_CU_MEM_H2D] = *pfn;
         }        
-    std::cout << " H2D abc" << std::endl;
+    std::cout << " getProc H2D" << std::endl;
         api_stats[SYM_CU_MEM_H2D][0]++;                                                                                                
 
         *pfn = (void *)(&cuMemcpyHtoD_l);
@@ -422,7 +415,7 @@ CUresult CUDAAPI cuGetProcAddress(const char *symbol, void **pfn, int cudaVersio
 #undef cuMemcpyDtoH
     } else if (strcmp(symbol, STRINGIFY(cuMemcpyDtoH)) == 0) {
 #pragma pop_macro("cuMemcpyDtoH")
-    std::cout << " D2H abc " << std::endl;
+    std::cout << " getProc D2H " << std::endl;
         api_stats[SYM_CU_MEM_D2H][0]++;                                                                                                
 
         if(real_func[SYM_CU_MEM_D2H] == NULL) {
@@ -431,10 +424,10 @@ CUresult CUDAAPI cuGetProcAddress(const char *symbol, void **pfn, int cudaVersio
 
         *pfn = (void *)(&cuMemcpyDtoH_l);
 #pragma push_macro("cuInit")
+
 #undef cuInit
     } else if (strcmp(symbol, STRINGIFY(cuInit)) == 0) {
 #pragma pop_macro("cuInit")
-    std::cout << " cuInit" << std::endl;
 
         *pfn = (void *)(&cuInit);
     } 
@@ -481,36 +474,6 @@ static CUresult update_mem_usage(size_t bytesize )
 
 static CUresult update_mem_usage()
 {
-    // get process ids within the same container
-//     unsigned long long totalUsage;    
-//     std::set<unsigned int> pids;
-
-//     if (proc_id == NO_PID)
-//         read_pids(pids);
-
-//     // get per process gpu memory usage
-//     unsigned int numProc = MAXPROC;
-//     nvmlProcessInfo_t procInfos[MAXPROC];
-//     int ret = get_gpu_compute_processes(&numProc, procInfos);
-//     if(ret != 0) return CUDA_SUCCESS;
-
-//     totalUsage = 0;
-//     for(int i=0; i < numProc; ++i) {
-//         unsigned int pid = procInfos[i].pid;
-//         if (proc_id == NO_PID) {
-//             if(pids.find(pid) != pids.end()) {totalUsage += procInfos[i].usedGpuMemory;proc_id = pf.pid = pid; break;};
-//         } else if(pid == proc_id) {
-//             totalUsage += procInfos[i].usedGpuMemory;
-//             break;
-//         }
-//     }
-
-// //////////////////////////////////
-// // 
-// //  profiling memory usage
-// //
-// //////////////////////////////////
-//     pf.memUsed = totalUsage;
 
     return CUDA_SUCCESS;
 }
