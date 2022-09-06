@@ -42,27 +42,8 @@ extern "C" { void* __libc_dlsym (void *map, const char *name); }
 extern "C" { void* __libc_dlopen_mode (const char* name, int mode); }
 
 static void* hooks[SYM_CU_SYMBOLS]; 
-// = {
-//     NULL, 
-//     NULL,
-//     NULL,
-//     NULL,
-//     NULL,
-//     NULL,
-//     NULL
-// };
 
 static void* post_hooks[SYM_CU_SYMBOLS];
-//  = {
-//     NULL, 
-//     NULL,
-//     NULL,
-//     NULL,
-//     NULL,
-//     NULL,
-//     NULL
-// };
-
 
 static bool enable_timeline[SYM_CU_SYMBOLS][STAT_CNT]; 
 
@@ -99,15 +80,7 @@ cuda_metrics_t pf = {
 };
 
 unsigned int api_stats[SYM_CU_SYMBOLS][STAT_CNT];
-//  = {
-//     {0, 0},               //cuInit
-//     {0, 0},              //cuAlloc
-//     {0, 0},              //cuFree
-//     {0, 0},              //cuLaunch
-//     {0, 0},              //cuH2D
-//     {0, 0},               //cuD2H
-//     {0, 0}             //cuGetProcAddress
-// };
+
 
 // void log_api_call(const int pid, const int memUsed, const int kernelCnt, const int burst) 
 void log_api_call() 
@@ -150,13 +123,11 @@ void* profiling_thread_func(void *arg)
         tlfile = std::string(PFLOG) + std::string("/")+std::string(profiling_file);
         
     }
-    std::cout << "pflog dir is: " << metfile << std::endl;
 
     while(true) {
         unsigned int curGroupUsage;
         int ret;
         // pthread_mutex_lock(&pf.mutex);
-        // log_api_call(pf.pid, pf.memUsed, pf.kernelCnt, pf.kernelRunTime);
         log_api_call();
         log_api_timing();
         // pthread_mutex_unlock(&pf.mutex);        
