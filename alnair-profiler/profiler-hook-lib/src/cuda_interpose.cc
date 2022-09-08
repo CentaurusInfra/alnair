@@ -33,6 +33,7 @@ following references:
 #include <pthread.h>
 #include "cuda_metrics.h"
 #include <iostream>
+#include <map>
 
 #define STRINGIFY(x) STRINGIFY_AUX(x)
 #define STRINGIFY_AUX(x) #x
@@ -41,7 +42,7 @@ following references:
 extern "C" { void* __libc_dlsym (void *map, const char *name); }
 extern "C" { void* __libc_dlopen_mode (const char* name, int mode); }
 
-static void* hooks[SYM_CU_SYMBOLS]; 
+static void* pre_hooks[SYM_CU_SYMBOLS]; 
 
 static void* post_hooks[SYM_CU_SYMBOLS];
 
@@ -73,6 +74,8 @@ const std::string funcname[] ={
 cuda_metrics_t pf = {
     .mutex = PTHREAD_MUTEX_INITIALIZER,
     .pid = 0,
+    .bytes = 0,
+    .mem_used = 0,
     .period = {
         .tv_sec = 0,
         .tv_nsec = 100 * 1000000
@@ -88,9 +91,11 @@ void log_api_call()
     // std::chrono::time_point<std::chrono::system_clock> now = std::chrono::system_clock::now();  
     // auto duration = now.time_since_epoch();                                                     
     std::ofstream fmet (metfile);
+    fmet << "name:mem_used" << ",count:" << pf.mem_used << std::endl; 
+
     for (int i = 0; i < SYM_CU_SYMBOLS; i++) {
         //print timestamp at nano seconds when a cuda API is called                                                                     
-        fmet << "name:" << funcname[i] << "\ncount:" << api_stats[i][0] << "\nburst:"  << api_stats[i][1] << std::endl; 
+        fmet << "name:" << funcname[i] << ",count:" << api_stats[i][0] << ",burst:"  << api_stats[i][1] << std::endl; 
     }
     fmet.close();                                                                               
 }  
@@ -104,10 +109,36 @@ void log_api_timing()
       // process request
       pflog log = pf_queue.front();
       pf_queue.pop();
-      fmet <<"name:" << funcname[log.kernelid] << " start:" << log.begin << " burst:"  << log.burst << std::endl;                                     
+      fmet <<"name:" << funcname[log.kernelid] << ", start:" << log.begin << ", burst:"  << log.burst << ", bytes:"  << log.bytecount << std::endl;                                     
     }
     fmet.close();                                                                               
 }
+
+pthread_mutex_t mem_mutex = PTHREAD_MUTEX_INITIALIZER;
+std::map<CUdeviceptr , size_t> allocation_map;
+
+void update_memory_allocation(CUdeviceptr *ptr) {
+  pthread_mutex_lock(&mem_mutex);
+
+  if (ptr) {
+    std::map<CUdeviceptr, size_t>::const_iterator pos = allocation_map.find(*ptr);  
+
+    if (pos == allocation_map.end()) {
+        fprintf(stderr, "Freeing unknown memory!" );
+    } else {
+        std::cout << "free mem: " << pos->second << std::endl;
+        pf.mem_used -= pos->second ;
+        allocation_map.erase(*ptr);
+        pf.bytes = pos->second;
+    }
+  } else {
+    allocation_map.clear();
+    pf.bytes = pf.mem_used;
+    pf.mem_used = 0;
+  }
+  pthread_mutex_unlock(&mem_mutex);    
+}
+
 void* profiling_thread_func(void *arg) 
 {
     const char* env_p = std::getenv("PFLOG");
@@ -144,6 +175,12 @@ void *libdlHandle = __libc_dlopen_mode("libdl.so", RTLD_LAZY);
 
 static pthread_once_t init_once = PTHREAD_ONCE_INIT;
 static pthread_once_t init_done = PTHREAD_ONCE_INIT;
+
+CUresult cuMemAlloc_prehook(CUdeviceptr* dptr, size_t bytesize);
+CUresult cuMemFree_prehook(CUdeviceptr* dptr);
+
+CUresult cuMemcpyDtoH_prehook(void *dstHost, CUdeviceptr srcDevice, size_t ByteCount);
+CUresult cuMemcpyHtoD_prehook( CUdeviceptr dstDevice, const void* srcHost, size_t ByteCount );
 
 static void initialize(void)
 {
@@ -185,13 +222,18 @@ static void initialize(void)
         fprintf(stderr,"profiler failed to start, errno=%d\n", errno);
     }
    
-    enable_timeline[SYM_CU_INIT][MET_STAT] = true;                      enable_timeline[SYM_CU_INIT][MET_TIMELINE] = true;
-    enable_timeline[SYM_CU_MEM_ALLOC][MET_STAT] = true;                 enable_timeline[SYM_CU_MEM_ALLOC][MET_TIMELINE] = false;
-    enable_timeline[SYM_CU_MEM_FREE][MET_STAT] = true;                  enable_timeline[SYM_CU_MEM_FREE][MET_TIMELINE] = false;
-    enable_timeline[SYM_CU_LAUNCH_KERNEL][MET_STAT] = true;             enable_timeline[SYM_CU_LAUNCH_KERNEL][MET_TIMELINE] = false;
-    enable_timeline[SYM_CU_MEM_H2D][MET_STAT] = true;                   enable_timeline[SYM_CU_MEM_H2D][MET_TIMELINE] = true;
-    enable_timeline[SYM_CU_MEM_D2H][MET_STAT] = true;                   enable_timeline[SYM_CU_MEM_D2H][MET_TIMELINE] = true;
-    enable_timeline[SYM_CU_HOOK_GET_PROC_ADDRESS][MET_STAT] = true;     enable_timeline[SYM_CU_HOOK_GET_PROC_ADDRESS][MET_TIMELINE] = false;
+    enable_timeline[SYM_CU_INIT][MET_STAT] = true;                      enable_timeline[SYM_CU_INIT][MET_TIMELINE] = true;                  enable_timeline[SYM_CU_INIT][MET_BYTES] = false;
+    enable_timeline[SYM_CU_MEM_ALLOC][MET_STAT] = true;                 enable_timeline[SYM_CU_MEM_ALLOC][MET_TIMELINE] = true;            enable_timeline[SYM_CU_MEM_ALLOC][MET_BYTES] = true;
+    enable_timeline[SYM_CU_MEM_FREE][MET_STAT] = true;                  enable_timeline[SYM_CU_MEM_FREE][MET_TIMELINE] = true;             enable_timeline[SYM_CU_MEM_FREE][MET_BYTES] = true;
+    enable_timeline[SYM_CU_LAUNCH_KERNEL][MET_STAT] = true;             enable_timeline[SYM_CU_LAUNCH_KERNEL][MET_TIMELINE] = false;        enable_timeline[SYM_CU_LAUNCH_KERNEL][MET_BYTES] = false;
+    enable_timeline[SYM_CU_MEM_H2D][MET_STAT] = true;                   enable_timeline[SYM_CU_MEM_H2D][MET_TIMELINE] = true;               enable_timeline[SYM_CU_MEM_H2D][MET_BYTES] = true;
+    enable_timeline[SYM_CU_MEM_D2H][MET_STAT] = true;                   enable_timeline[SYM_CU_MEM_D2H][MET_TIMELINE] = true;               enable_timeline[SYM_CU_MEM_D2H][MET_BYTES] = true;
+    enable_timeline[SYM_CU_HOOK_GET_PROC_ADDRESS][MET_STAT] = true;     enable_timeline[SYM_CU_HOOK_GET_PROC_ADDRESS][MET_TIMELINE] = false;enable_timeline[SYM_CU_HOOK_GET_PROC_ADDRESS][MET_BYTES] = false;
+
+    pre_hooks[SYM_CU_MEM_ALLOC] = (void*) cuMemAlloc_prehook;
+    pre_hooks[SYM_CU_MEM_H2D] = (void*) cuMemcpyHtoD_prehook;
+    pre_hooks[SYM_CU_MEM_D2H] = (void*) cuMemcpyDtoH_prehook;
+    pre_hooks[SYM_CU_MEM_FREE] = (void*) cuMemFree_prehook;
     
 }
 
@@ -202,18 +244,20 @@ static void *real_dlsym(void *handle, const char *symbol)
     return (*internal_dlsym)(handle, symbol);
 }
 
+        // if (hooksymbol == SYM_CU_MEM_H2D)                                                                                              \
+        //     std::cout << "H2D in intercept" << std::endl;                                                                              \
+        // if (hooksymbol == SYM_CU_MEM_D2H)                                                                                              \
+        //     std::cout << "D2H in intercept" << std::endl;                                                                              \
+
 #define GENERATE_INTERCEPT_FUNCTION(hooksymbol, funcname, params, ...)                                                                 \
     CUresult funcname params                                                                                                           \
     {                                                                                                                                  \
         CUresult res = CUDA_SUCCESS;                                                                                                   \
         unsigned long  Kbegin, burst;                                                                                                  \
         pthread_once(&init_done, initialize);                                                                                          \
-        if (hooksymbol == SYM_CU_MEM_H2D)                                                                                              \
-            std::cout << "H2D in intercept" << std::endl;                                                                              \
-        if (hooksymbol == SYM_CU_MEM_D2H)                                                                                              \
-            std::cout << "D2H in intercept" << std::endl;                                                                              \
-        if (hooks[hooksymbol]) {                                                                                                       \
-            res = ((CUresult (*)params)hooks[hooksymbol])(__VA_ARGS__);                                                                \
+        pf.bytes = 0;                                                                                                                  \
+        if (pre_hooks[hooksymbol]) {                                                                                                   \
+            res = ((CUresult (*)params)pre_hooks[hooksymbol])(__VA_ARGS__);                                                            \
         }                                                                                                                              \
         if(CUDA_SUCCESS != res) return res;                                                                                            \
         if(real_func[hooksymbol] == NULL)                                                                                              \
@@ -226,7 +270,7 @@ static void *real_dlsym(void *handle, const char *symbol)
             api_stats[hooksymbol][0]++;                                                                                                \
             api_stats[hooksymbol][1] += burst;                                                                                         \
             if(enable_timeline[hooksymbol][MET_TIMELINE]) {                                                                            \
-                pf_queue.push({hooksymbol, Kbegin, burst});                                                                            \
+                pf_queue.push({hooksymbol, Kbegin, burst, pf.bytes});                                                                  \
             }                                                                                                                          \
         }                                                                                                                              \
         if(CUDA_SUCCESS == res && post_hooks[hooksymbol]) {                                                                            \
@@ -236,7 +280,7 @@ static void *real_dlsym(void *handle, const char *symbol)
     }
 
 GENERATE_INTERCEPT_FUNCTION(SYM_CU_INIT, cuInit, (unsigned int Flags), Flags)
-GENERATE_INTERCEPT_FUNCTION(SYM_CU_MEM_ALLOC, cuMemAlloc, (CUdeviceptr* dptr, size_t bytesize), dptr, bytesize)
+GENERATE_INTERCEPT_FUNCTION(SYM_CU_MEM_ALLOC, cuMemAlloc, (CUdeviceptr* dptr, size_t ByteCount), dptr, ByteCount)
 GENERATE_INTERCEPT_FUNCTION(SYM_CU_MEM_FREE, cuMemFree, (CUdeviceptr dptr), dptr)
 GENERATE_INTERCEPT_FUNCTION(SYM_CU_MEM_H2D, cuMemcpyHtoD,( CUdeviceptr dstDevice, const void* srcHost, size_t ByteCount ), dstDevice, srcHost, ByteCount)
 GENERATE_INTERCEPT_FUNCTION(SYM_CU_MEM_D2H, cuMemcpyDtoH, (void *dstHost, CUdeviceptr srcDevice, size_t ByteCount), dstHost, srcDevice, ByteCount)
@@ -288,7 +332,8 @@ void* dlsym(void *handle, const char *symbol)
         if(real_func[SYM_CU_MEM_D2H] == NULL) {
             real_func[SYM_CU_MEM_D2H] = real_dlsym(handle, symbol);
         }        
-            std::cout << "D2H in dlsym" << std::endl;                                                                                
+        // std::cout << "D2H in dlsym" << std::endl;                                                                                
+        api_stats[SYM_CU_MEM_D2H][0]++;                                                                                                
 
         return (void *)(&cuMemcpyDtoH);
     }
@@ -297,7 +342,7 @@ void* dlsym(void *handle, const char *symbol)
         if(real_func[SYM_CU_MEM_H2D] == NULL) {
             real_func[SYM_CU_MEM_H2D] = real_dlsym(handle, symbol);
         }        
-            std::cout << "H2D in dlsym" << std::endl;                                                                                
+            // std::cout << "H2D in dlsym" << std::endl;                                                                                
         return (void *)(&cuMemcpyHtoD);
     }
 
@@ -328,6 +373,8 @@ CUresult CUDAAPI cuGetProcAddress(const char *symbol, void **pfn, int cudaVersio
 #undef cuMemAlloc
     } else if (strcmp(symbol, STRINGIFY_AUX(cuMemAlloc)) == 0) {
 #pragma pop_macro("cuMemAlloc")
+    std::cout << " getProc cuMemAlloc " << "cuda version: " << cudaVersion << " flags: " << flags << std::endl;
+
         if(real_func[SYM_CU_MEM_ALLOC] == NULL) {
             real_func[SYM_CU_MEM_ALLOC] = *pfn;
         }
@@ -355,7 +402,7 @@ CUresult CUDAAPI cuGetProcAddress(const char *symbol, void **pfn, int cudaVersio
         if(real_func[SYM_CU_MEM_H2D] == NULL) {
             real_func[SYM_CU_MEM_H2D] = *pfn;
         }        
-    std::cout << " getProc H2D" << "cuda version: " << cudaVersion << std::endl;
+    // std::cout << " getProc H2D" << "cuda version: " << cudaVersion << " flags: " << flags << std::endl;
         api_stats[SYM_CU_MEM_H2D][0]++;                                                                                                
 
         *pfn = (void *)(&cuMemcpyHtoD);
@@ -363,7 +410,7 @@ CUresult CUDAAPI cuGetProcAddress(const char *symbol, void **pfn, int cudaVersio
 #undef cuMemcpyDtoH
     } else if (strcmp(symbol, STRINGIFY(cuMemcpyDtoH)) == 0) {
 #pragma pop_macro("cuMemcpyDtoH")
-    std::cout << " getProc D2H " << "cuda version: " << cudaVersion << std::endl;
+    // std::cout << " getProc D2H " << "cuda version: " << cudaVersion << " flags: " << flags << std::endl;
         api_stats[SYM_CU_MEM_D2H][0]++;                                                                                                
 
         if(real_func[SYM_CU_MEM_D2H] == NULL) {
@@ -376,10 +423,42 @@ CUresult CUDAAPI cuGetProcAddress(const char *symbol, void **pfn, int cudaVersio
 #undef cuInit
     } else if (strcmp(symbol, STRINGIFY(cuInit)) == 0) {
 #pragma pop_macro("cuInit")
-    std::cout << " getProc cuInit " << "cuda version: " << cudaVersion << std::endl;
+    // std::cout << " getProc cuInit " << "cuda version: " << cudaVersion << " flags: " << flags << std::endl;
 
         *pfn = (void *)(&cuInit);
     } 
     
     return (result);
+}
+
+CUresult cuMemAlloc_prehook (CUdeviceptr* dptr, size_t bytesize)
+{
+    
+  allocation_map[*dptr] = bytesize;
+  pf.bytes = bytesize;
+  pf.mem_used += bytesize;
+  
+  return CUDA_SUCCESS;
+}
+
+
+CUresult cuMemFree_prehook (CUdeviceptr* dptre)
+{
+
+    update_memory_allocation(dptre);
+    return CUDA_SUCCESS;
+}
+
+CUresult cuMemcpyHtoD_prehook(CUdeviceptr dstDevice, const void* srcHost, size_t ByteCount) {
+  
+  pf.bytes = ByteCount;
+  
+  return CUDA_SUCCESS;
+}
+
+CUresult cuMemcpyDtoH_prehook(void *dstHost, CUdeviceptr srcDevice, size_t ByteCount) {
+
+  pf.bytes = ByteCount;
+  
+  return CUDA_SUCCESS;
 }

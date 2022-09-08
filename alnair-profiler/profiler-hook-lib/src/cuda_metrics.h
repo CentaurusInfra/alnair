@@ -38,12 +38,15 @@ typedef enum HookSymbolsEnum {
 typedef enum MetricsEnum {
     MET_STAT,
     MET_TIMELINE,
+    MET_BYTES,
     STAT_CNT
 } Metrics_ENU;
 
 typedef struct cuda_metrics {
     pthread_mutex_t mutex;
     unsigned int pid; 
+    unsigned long bytes;
+    unsigned long mem_used;
     struct timespec period;
 } cuda_metrics_t;
 
@@ -51,4 +54,5 @@ typedef struct pflog {
     unsigned int kernelid;
     unsigned long  begin;    
     unsigned long  burst;
+    unsigned long bytecount;
 } pflog_t;
