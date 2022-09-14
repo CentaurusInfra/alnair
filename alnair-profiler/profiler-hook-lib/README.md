@@ -23,12 +23,12 @@ drwxrwxr-x 5 xxxx xxxx   4096 Aug 31 21:15 ../
 -rwxrwxr-x 1 xxxx xxxx 109992 Sep 14 10:52 libpfinterpose.so*
 ```
 
-timeline log field 'kind' definition:
-0: Host -> Host
-1: Host -> Device
-2: Device -> Host
-3: Device -> Device
-4: Direction of the transfer is inferred from the pointer values. Requires unified virtual addressing
+timeline log field 'kind' definition:  
+0: Host -> Host  
+1: Host -> Device  
+2: Device -> Host  
+3: Device -> Device  
+4: Direction of the transfer is inferred from the pointer values. Requires unified virtual addressing  
 
 
 2. testing (pyt_test1.py)
