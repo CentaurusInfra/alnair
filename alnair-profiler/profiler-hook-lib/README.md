@@ -55,13 +55,15 @@ name:cuMemAlloc, start:1662678415958147512, burst:1595, bytes:2097152
 
 
 cat ./test/timeline.log
-name:mem_used,count:421527552
-name:cuInit,count:4,burst:6202325
-name:cuMemAlloc,count:124,burst:143212
-name:cuMemFree,count:14,burst:2
-name:cuLaunchKernel,count:537826,burst:4159812
-name:cuMemcpyH2D,count:4,burst:92
-name:cuMemcpyD2H,count:4,burst:0
-name:cuGetProcAddress,count:0,burst:0
+name:cuInit, start:1663174503143895116, burst:4336641, bytes:0, kind:-1
+name:cuMemAlloc, start:1663174512512732618, burst:1192, bytes:2097152, kind:-1
+name:cudaMemcpyAsync, start:1663174512513972203, burst:140285180914600, bytes:3456, kind:1
+name:cudaMemcpyAsync, start:1663174512514104262, burst:140285180914600, bytes:128, kind:1
+name:cudaMemcpyAsync, start:1663174512514132684, burst:140285180914600, bytes:128, kind:1
+name:cudaMemcpyAsync, start:1663174512514154613, burst:140285180914600, bytes:128, kind:1
+name:cudaMemcpyAsync, start:1663174512514172355, burst:140285180914600, bytes:128, kind:1
+name:cudaMemcpyAsync, start:1663174512514189929, burst:140285180914600, bytes:8, kind:1
+name:cudaMemcpyAsync, start:1663174512514216777, burst:140285180914600, bytes:36864, kind:1
+
 
 ...
