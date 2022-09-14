@@ -30,11 +30,11 @@ LD_PRELOAD=./build/lib/libpfinterpose.so python ./test/pyt_test1.py
 
 ls -l test
 total 36
-drwxrwxr-x 2 steven steven  4096 Aug 31 21:15 intercept-cuda-11.3-demo
--rw-rw-r-- 1 steven steven   258 Sep  6 13:46 metrics.log
--rw-rw-r-- 1 steven steven 19081 Aug 31 21:15 pyt-test1.py
--rw-rw-r-- 1 steven steven  1494 Aug 31 21:15 single_node_swin_trans.yaml
--rw-rw-r-- 1 steven steven  2751 Sep  6 13:46 timeline.log
+drwxrwxr-x 2 xxxx xxxx  4096 Aug 31 21:15 intercept-cuda-11.3-demo
+-rw-rw-r-- 1 xxxx xxxx   258 Sep  6 13:46 metrics.log
+-rw-rw-r-- 1 xxxx xxxx 19081 Aug 31 21:15 pyt-test1.py
+-rw-rw-r-- 1 xxxx xxxx  1494 Aug 31 21:15 single_node_swin_trans.yaml
+-rw-rw-r-- 1 xxxx xxxx  2751 Sep  6 13:46 timeline.log
 
 
 cat ./test/metrics.log
