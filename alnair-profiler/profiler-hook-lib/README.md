@@ -17,9 +17,19 @@ cd alnair/alnair-profiler/profiler-hook-lib
 make
 
 ls build/lib
+total 116
+drwxrwxr-x 2 xxxx xxxx   4096 Sep 14 10:52 ./
+drwxrwxr-x 5 xxxx xxxx   4096 Aug 31 21:15 ../
+-rwxrwxr-x 1 xxxx xxxx 109992 Sep 14 10:52 libpfinterpose.so*
 ```
 
-the output file (libpfinterpose.so) is in build/lib.
+timeline log field 'kind' definition:
+0: Host -> Host
+1: Host -> Device
+2: Device -> Host
+3: Device -> Device
+4: Direction of the transfer is inferred from the pointer values. Requires unified virtual addressing
+
 
 2. testing (pyt_test1.py)
 ```bash
@@ -67,3 +77,4 @@ name:cudaMemcpyAsync, start:1663174512514216777, burst:140285180914600, bytes:36
 
 
 ...
+
