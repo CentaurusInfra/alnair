@@ -338,9 +338,9 @@ cudaError_t cudaMemcpy ( void* dst, const void* src, size_t count, cudaMemcpyKin
     Kbegin = (std::chrono::system_clock::now().time_since_epoch()).count();                                                        
     res = lcudaMemcpy( dst, src, count, kind );
     api_stats[SYM_CU_MEMCPY][0]++;                                                                                                
-    pf_queue.push({SYM_CU_MEMCPY, Kbegin, 0, count, kind});                                                        
     burst = ((std::chrono::system_clock::now().time_since_epoch()).count() - Kbegin)/1000;                                     
     api_stats[SYM_CU_MEMCPY][1] += burst;                                                                                         
+    pf_queue.push({SYM_CU_MEMCPY, Kbegin, burst, count, kind});                                                        
     return res;
 
 }
@@ -353,10 +353,10 @@ cudaError_t cudaMemcpyAsync ( void* dst, const void* src, size_t count, cudaMemc
     cudaError_t (*lcudaMemcpyAsync) ( void*, const void*, size_t, cudaMemcpyKind, cudaStream_t) = (cudaError_t (*) ( void* , const void* , size_t , cudaMemcpyKind, cudaStream_t   ))real_dlsym(RTLD_NEXT, "cudaMemcpyAsync");
     Kbegin = (std::chrono::system_clock::now().time_since_epoch()).count();                                                        
     api_stats[SYM_CU_MEMCPY_ASYNC][0]++;                                                                                                
-    pf_queue.push({SYM_CU_MEMCPY_ASYNC, Kbegin, burst, count, kind});                                                        
     res = lcudaMemcpyAsync( dst, src, count, kind, str );
-    // burst = ((std::chrono::system_clock::now().time_since_epoch()).count() - Kbegin)/1000;                                     
-    // api_stats[SYM_CU_MEMCPY_ASYNC][1] += burst;                                                                                         
+    burst = ((std::chrono::system_clock::now().time_since_epoch()).count() - Kbegin)/1000;                                     
+    pf_queue.push({SYM_CU_MEMCPY_ASYNC, Kbegin, burst, count, kind});                                                        
+    api_stats[SYM_CU_MEMCPY_ASYNC][1] += burst;                                                                                         
 
     return res;
 }
