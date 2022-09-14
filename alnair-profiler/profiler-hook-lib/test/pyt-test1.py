@@ -39,6 +39,9 @@ def main():
 
 
 def train(args, gpu):
+    alnair_pf = os.getenv('PFLOG')
+    if (alnair_pf  is None):
+        alnair_pf= "./test"    
     model = inception_v3(pretrained=False)
     model.train()
     torch.manual_seed(0)
@@ -70,33 +73,37 @@ def train(args, gpu):
     total_step = min(len(trainloader), 240)
     train_start = datetime.now()
     trainload_time = datetime.now()
-    for epoch in range(args.epochs):
-        start = datetime.now()
-        for i, (images, labels) in enumerate(trainloader):
-            if i > total_step: 
-                break
-            images = images.cuda(non_blocking=True)
-            labels = labels.cuda(non_blocking=True)
-            # Forward pass
-            outputs = model(images)
-            loss = criterion(outputs, labels)
+    alnair_log = os.path.join(str(alnair_pf), "py_step.log")
+    with open(alnair_log, "w") as f:
+        for epoch in range(args.epochs):
+            start = datetime.now()
+            for i, (images, labels) in enumerate(trainloader):
+                start_step = datetime.now()
+                if i > total_step: 
+                    break
+                images = images.cuda(non_blocking=True)
+                labels = labels.cuda(non_blocking=True)
+                # Forward pass
+                outputs = model(images)
+                loss = criterion(outputs, labels)
 
-            # Backward and optimize
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-            if (i + 1) % 10 == 0 and gpu == 0:
-                print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}'.format(epoch + 1, args.epochs, i + 1, total_step,
-                                                                         loss.item()))
-                TIMES.append((datetime.now() - start).microseconds)
-                print("Training complete in: " + str(TIMES[-1]))
-                start = datetime.now()
+                # Backward and optimize
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+                if (i + 1) % 10 == 0 and gpu == 0:
+                    print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}'.format(epoch + 1, args.epochs, i + 1, total_step,
+                                                                            loss.item()))
+                    TIMES.append((datetime.now() - start).microseconds)
+                    print("Training complete in: " + str(TIMES[-1]))
+                    start = datetime.now()
                 #break
+                f.write("step:" + str(i+1) + ", start: " + str(start_step) + ", duation:" + str((datetime.now()-start_step).microseconds) + "\n")
 
-    print("Training done, total epoch {}, total time {}".format(args.epochs, datetime.now()-train_start))
-    print('===========================')
-    print(sum(TIMES) / len(TIMES))
-    print('===========================')
+        print("Training done, total epoch {}, total time {}".format(args.epochs, datetime.now()-train_start))
+        print('===========================')
+        print(sum(TIMES) / len(TIMES))
+        print('===========================')
 
 def inception_v3(pretrained: bool = False, progress: bool = True, **kwargs: Any) -> "Inception3":
     r"""Inception v3 model architecture from

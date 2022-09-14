@@ -29,6 +29,9 @@ typedef enum HookSymbolsEnum {
     SYM_CU_MEM_H2D,
     SYM_CU_MEM_D2H,
     SYM_CU_HOOK_GET_PROC_ADDRESS,
+    SYM_CU_HOOK_MEMCPY_HTOD_ASYNC,
+    SYM_CU_MEMCPY,
+    SYM_CU_MEMCPY_ASYNC,
     SYM_CU_SYMBOLS,
 } HookSymbols;
 
@@ -47,6 +50,7 @@ typedef struct cuda_metrics {
     unsigned int pid; 
     unsigned long bytes;
     unsigned long mem_used;
+    int kind;
     struct timespec period;
 } cuda_metrics_t;
 
@@ -55,4 +59,5 @@ typedef struct pflog {
     unsigned long  begin;    
     unsigned long  burst;
     unsigned long bytecount;
+    int kind;
 } pflog_t;

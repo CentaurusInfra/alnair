@@ -14,7 +14,7 @@ OBJ_FILES := $(addprefix $(OBJ_DIR)/, hooks.o cuda_metrics.o)
 
 .PHONY: lib
 lib: $(OBJ_DIR)/cuda_interpose.o
-	$(CXX) $^ -shared -fPIC $(LDFLAGS) -lcuda -lnvidia-ml -o $(LIB_DIR)/libpfinterpose.so
+	$(CXX) $^ -shared -fPIC $(LDFLAGS)  -o $(LIB_DIR)/libpfinterpose.so -L/usr/local/cuda/lib64 -lcudart -lcuda -lnvidia-ml
 
 $(OBJ_DIR)/%.o: src/%.c
 	$(CXX) $(CXXFLAGS) $(CPPFLAGS) -c -o $@ $<
