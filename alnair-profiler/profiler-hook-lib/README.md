@@ -48,20 +48,17 @@ drwxrwxr-x 2 xxxx xxxx  4096 Aug 31 21:15 intercept-cuda-11.3-demo
 
 
 cat ./test/metrics.log
-name:cuInit, start:1662678141402204280, burst:4270333, bytes:0
-name:cuInit, start:1662678145746315995, burst:1, bytes:0
-name:cuInit, start:1662678179159774310, burst:1, bytes:0
-name:cuInit, start:1662678179385822246, burst:2, bytes:0
-name:cuMemcpyH2D, start:1662678179542395214, burst:18, bytes:112
-name:cuMemcpyH2D, start:1662678179638013798, burst:32, bytes:112
-name:cuMemcpyH2D, start:1662678179645375933, burst:35, bytes:112
-name:cuMemcpyH2D, start:1662678179650053504, burst:21, bytes:112
-name:cuInit, start:1662678379333727700, burst:4304661, bytes:0
-name:cuInit, start:1662678383715128389, burst:1, bytes:0
-name:cuMemAlloc, start:1662678413097898406, burst:1878, bytes:2097152
-name:cuMemAlloc, start:1662678415949164683, burst:1723, bytes:2097152
-name:cuMemAlloc, start:1662678415954001022, burst:1714, bytes:20971520
-name:cuMemAlloc, start:1662678415958147512, burst:1595, bytes:2097152
+name:mem_used,count:452984832
+name:cuInit,count:3,burst:4349618
+name:cuMemAlloc,count:125,burst:176696
+name:cuMemFree,count:8,burst:4
+name:cuLaunchKernel,count:523848,burst:1436854
+name:cuMemcpyH2D,count:6,burst:0
+name:cuMemcpyD2H,count:6,burst:0
+name:cuGetProcAddress,count:0,burst:0
+name:cuMemcpyH2D_ASYNC,count:0,burst:0
+name:cudaMemcpy,count:0,burst:0
+name:cudaMemcpyAsync,count:1072,burst:803485
 
 
 cat ./test/timeline.log
