@@ -461,7 +461,7 @@ CUresult cuInit_hook (unsigned int Flags)
 {
     CUresult cures = CUDA_SUCCESS;
     int res = 0;
-    
+        
     // initialize for GPU memory monitoring
     res = pthread_once(&pre_cuinit_ctrl, pre_cuinit);
     if(res < 0) {
