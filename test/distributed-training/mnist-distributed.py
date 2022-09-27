@@ -14,17 +14,19 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-n', '--nodes', default=1, type=int, metavar='N',
                         help='number of data loading workers (default: 4)')
-    parser.add_argument('-g', '--gpus', default=1, type=int,
-                        help='number of gpus per node')
-    parser.add_argument('-nr', '--nr', default=0, type=int,
-                        help='ranking within the nodes')
+    parser.add_argument('-g', '--gpus', default="", type=str,
+                        help='gpu number list of workers (starting with the master worker). For example, if you have two machines one with 2 gpus and the other one with 8 gpus, the list should be 2, 8')
+    parser.add_argument('-i', '--id', default=0, type=int,
+                        help='id for each worker and this id should match with the gpu number list. For example, if the GPU list is 2, 8, the id of the machine with 2 gpus should be 0')                        
     parser.add_argument('--epochs', default=10, type=int, metavar='N',
                         help='number of total epochs to run')
     args = parser.parse_args()
-    args.world_size = args.gpus * args.nodes
+    gpu_list = [int(gpu) for gpu in args.gpus.split(',')]
+    args.world_size = sum(gpu_list)
+    # the current code only works if we assign the node with rank 0 as the master
     os.environ['MASTER_ADDR'] = '10.145.83.35'
-    os.environ['MASTER_PORT'] = '8765'
-    mp.spawn(train, nprocs=args.gpus, args=(args,))
+    os.environ['MASTER_PORT'] = '9004'
+    mp.spawn(train, nprocs=gpu_list[args.id], args=(args,))
 
 
 class ConvNet(nn.Module):
@@ -51,7 +53,8 @@ class ConvNet(nn.Module):
 
 
 def train(gpu, args):
-    rank = args.nr * args.gpus + gpu
+    gpu_list = [int(gpu) for gpu in args.gpus.split(',')]
+    rank = sum(gpu_list[:args.id]) + gpu
     dist.init_process_group(backend='nccl', init_method='env://', world_size=args.world_size, rank=rank)
     print("my process rank:{} on gpu {}\n".format(rank, gpu))
     torch.manual_seed(0)
@@ -93,7 +96,7 @@ def train(gpu, args):
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            if (i + 1) % 100 == 0:
+            if (i + 1) % 10 == 0:
                 print('Process {},Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}'.format(rank,epoch + 1, args.epochs, i + 1, total_step,
                                                                          loss.item()))
     if gpu == 0:
