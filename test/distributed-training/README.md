@@ -5,7 +5,7 @@ mnist-distributed.py is an pytorch DDP example.
 ### Launch
 ### 1. single node multiple GPUs
 ```
-python mnist-distributed.py -n 1 -g 8 -nr 0
+python mnist-distributed.py -n 1 -g 8 -i 0
 ```
 **NOTES**: After a couple of successful run with different gpu counts(>1), the program failed at  ```-g 1```. 
 
@@ -18,9 +18,11 @@ Complains about **some cuda functions before calling NumCudaDevices() that might
 ### 2. multiple(two) nodes multiple GPUs
 on each node launch separately 
 ```
-python mnist-distributed.py -n 2 -g 8 -nr 0
-python mnist-distributed.py -n 2 -g 8 -nr 1
+python mnist-distributed.py -n 2 -g 8,2 -i 0
+python mnist-distributed.py -n 2 -g 8,2 -i 1
 ```
+In the above code, the first worker (master node) has 8 GPUs and the second worker machine has 2 GPUs.
+
 ### Cross node network throughput measurement
 1. use tcp dump, assume use port 8765
 
