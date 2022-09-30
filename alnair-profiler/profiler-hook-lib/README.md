@@ -32,11 +32,12 @@ timeline log field 'kind' definition:
 
 
 2. testing (pyt_test1.py)
-```bash
-cd alnair/alnair-profiler/profiler-hook-lib
-PFLOG=./test
+This test requires to setup a kubernetes cluster.
 
-LD_PRELOAD=./build/lib/libpfinterpose.so python ./test/pyt_test1.py
+```bash
+git clone https://github.com/CentaurusInfra/alnair.git
+cd alnair/alnair-profiler/profiler-hook-lib
+kubeclt apply -f test/profiler-interpose-test.yaml
 
 ls -l test
 total 36
@@ -75,3 +76,52 @@ name:cudaMemcpyAsync, start:1663174512514216777, burst:140285180914600, bytes:36
 
 ...
 
+3. a sample yaml to test the interpose lib (profiler-interpose-test.yaml)
+
+...
+apiVersion: v1
+kind: Pod
+metadata:
+  name: interpose-test
+spec:
+  containers:
+  - name: pytorch
+    image: centaurusinfra/pytorch-testing
+    env:
+    - name: PFLOG
+      value: /log/pflog    
+    - name: LD_PRELOAD
+      value: /lib/interpose/libpfinterpose.so    
+    command: ["sh", "-c", "python /workspace/test/pyt-cf-rn50-pack.py"]
+    volumeMounts:
+    - mountPath: /dev/shm
+      name: dshm
+    - mountPath: /nfs_3/data/cityscapes/
+      name: dataset 
+    - mountPath: /lib/interpose/
+      name: intercept       
+    - mountPath: /workspace/test
+      name: test       
+    - name: pflog
+      mountPath: /log/pflog      
+  volumes:
+  - name: dshm  # this is to trick pytorch when large size of shared memory is needed
+    emptyDir:
+      medium: Memory
+  - name: dataset
+    hostPath:
+      path: /nfs_3/data/cityscapes/
+      type: Directory
+  - name: intercept
+    hostPath:
+      path: /home/xxx/dev/alnair/alnair-profiler/profiler-hook-lib/build/lib
+      type: Directory
+  - name: test
+    hostPath:
+      path: /home/xxx/dev/alnair/alnair-profiler/profiler-hook-lib/test
+      type: Directory      
+  - name: pflog
+    hostPath:
+      path: /var/lib/alnair/workspace/         
+  restartPolicy: OnFailure
+  ...
