@@ -31,8 +31,8 @@ timeline log field 'kind' definition:
 4: Direction of the transfer is inferred from the pointer values. Requires unified virtual addressing  
 
 
-2. testing (pyt_test1.py)
-This test requires to setup a kubernetes cluster.
+2. testing   
+This test requires to setup a kubernetes cluster.  
 
 ```bash
 git clone https://github.com/CentaurusInfra/alnair.git
