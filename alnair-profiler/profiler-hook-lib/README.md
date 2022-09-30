@@ -13,6 +13,7 @@ This library is used to profile AI applications' performance by tapping CUDA dri
 
 1. Build
 ```bash
+git clone https://github.com/CentaurusInfra/alnair.git
 cd alnair/alnair-profiler/profiler-hook-lib
 make
 
@@ -31,12 +32,10 @@ timeline log field 'kind' definition:
 4: Direction of the transfer is inferred from the pointer values. Requires unified virtual addressing  
 
 
-2. testing   
+2. testing  
 This test requires to setup a kubernetes cluster.  
 
 ```bash
-git clone https://github.com/CentaurusInfra/alnair.git
-cd alnair/alnair-profiler/profiler-hook-lib
 kubeclt apply -f test/profiler-interpose-test.yaml
 
 ls -l test

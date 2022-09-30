@@ -47,19 +47,25 @@ static void* pre_hooks[SYM_CU_SYMBOLS];
 
 static void* post_hooks[SYM_CU_SYMBOLS];
 
+//
+// the structure to store the logging configuration for each intercepted functions.
+//
 static bool enable_timeline[SYM_CU_SYMBOLS][STAT_CNT]; 
+const char PFLOG[] = "./test";
+const char metrices_file[] = "metrics.log";
+const char profiling_file[] = "timeline.log";
+static std::string metfile;
+static std::string tlfile;
+//
+// this queue is to store timeline data before the data are writen to the log.
+//
+std::queue<pflog_t> pf_queue;
 
 
 static void* real_func[SYM_CU_SYMBOLS];
 static void* real_omp_get_num_threads = NULL;
 static bool profiling_init = false;
 
-const char PFLOG[] = "./test";
-const char metrices_file[] = "metrics.log";
-const char profiling_file[] = "timeline.log";
-static std::string metfile;
-static std::string tlfile;
-std::queue<pflog_t> pf_queue;
 
 
 const std::string funcname[] ={
@@ -193,41 +199,22 @@ static void initialize(void)
     CUresult cures = CUDA_SUCCESS;
     CUdevice dev;
     int numSM, numThreadsPerSM, res;
-    // CUuuid_st uuid;
 
-    // Here we only support compute resource sharing within a single device.
-    // If multiple devices are visible, gpuComputeLimit would be 100, 
-    // and the previous statement would have already exited. 
     cures = cuDeviceGet(&dev, 0);
     if(CUDA_SUCCESS != cures) {
-        // fprintf(stderr, "cuDeviceGet failed: %d\n", cures);
     }
 
-    // cures = cuDeviceGetAttribute(&numSM, CU_DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT, dev);
-    // if(CUDA_SUCCESS != cures) {
-    //     fprintf(stderr, "# of SM query failed: %d\n", cures);
-    // }
-
-    // cures = cuDeviceGetAttribute(&numThreadsPerSM, CU_DEVICE_ATTRIBUTE_MAX_THREADS_PER_MULTIPROCESSOR, dev);
-    // if(CUDA_SUCCESS != cures) {
-    //     fprintf(stderr, "# of threads per SM query failed: %d\n", cures);
-    // }
-
-    // cures = cuDeviceGetUuid(&uuid, dev);
-    
-    // if(CUDA_SUCCESS != cures) {
-    //     fprintf(stderr, "ERROR: UUid failed, ERRNO %d\n", cures);
-    // }
-    // fprintf(stderr, "UUid %s\n", (char*) &(pf.UUID));
-
-    // initialize for profiler
     pthread_t pf_thread;
 
     res = pthread_create(&pf_thread, NULL, profiling_thread_func, NULL);
     if(res < 0) {
         fprintf(stderr,"profiler failed to start, errno=%d\n", errno);
     }
-   
+
+  //
+  // the log configuration settings must be set individually for each intercepted functions.
+  // this is designed for future improvement and expansion
+  // 
     enable_timeline[SYM_CU_INIT][MET_STAT] = true;                      enable_timeline[SYM_CU_INIT][MET_TIMELINE] = true;                  enable_timeline[SYM_CU_INIT][MET_BYTES] = false;
     enable_timeline[SYM_CU_MEM_ALLOC][MET_STAT] = true;                 enable_timeline[SYM_CU_MEM_ALLOC][MET_TIMELINE] = true;            enable_timeline[SYM_CU_MEM_ALLOC][MET_BYTES] = true;
     enable_timeline[SYM_CU_MEM_FREE][MET_STAT] = true;                  enable_timeline[SYM_CU_MEM_FREE][MET_TIMELINE] = true;             enable_timeline[SYM_CU_MEM_FREE][MET_BYTES] = true;
@@ -252,11 +239,6 @@ static void *real_dlsym(void *handle, const char *symbol)
     static fnDlsym internal_dlsym = (fnDlsym)__libc_dlsym(libdlHandle, "dlsym");
     return (*internal_dlsym)(handle, symbol);
 }
-
-        // if (hooksymbol == SYM_CU_MEM_H2D)                                                                                              \
-        //     std::cout << "H2D in intercept" << std::endl;                                                                              \
-        // if (hooksymbol == SYM_CU_MEM_D2H)                                                                                              \
-        //     std::cout << "D2H in intercept" << std::endl;                                                                              \
 
 #define GENERATE_INTERCEPT_FUNCTION(hooksymbol, funcname, params, ...)                                                                 \
     CUresult funcname params                                                                                                           \
@@ -301,33 +283,6 @@ GENERATE_INTERCEPT_FUNCTION(SYM_CU_LAUNCH_KERNEL, cuLaunchKernel,
                             sharedMemBytes, hStream, kernelParams, extra)
 
 
-#define GENERATE_INTERCEPT_RUNTIME_FUNCTION(hooksymbol, funcname, params, ...)                                                         \
-    cudaError_t funcname params                                                                                                        \
-    {                                                                                                                                  \
-        cudaError_t res = cudaSuccess;                                                                                                 \
-        unsigned long  Kbegin, burst;                                                                                                  \
-        pthread_once(&init_done, initialize);                                                                                          \
-        pf.bytes = 0;                                                                                                                  \
-        if (pre_hooks[hooksymbol]) {                                                                                                   \
-            res = ((cudaError_t (*)params)pre_hooks[hooksymbol])(__VA_ARGS__);                                                         \
-        }                                                                                                                              \
-        if(cudaSuccess != res) return res;                                                                                             \
-        if(real_func[hooksymbol] == NULL)                                                                                              \
-            real_func[hooksymbol] = real_dlsym(RTLD_NEXT, STRINGIFY(funcname));                                                     \
-        Kbegin = (std::chrono::system_clock::now().time_since_epoch()).count();                                                        \
-        res = ((cudaError_t (*)params)real_func[hooksymbol])(__VA_ARGS__);                                                             \
-            burst = ((std::chrono::system_clock::now().time_since_epoch()).count() - Kbegin)/1000;                                     \
-            api_stats[hooksymbol][0]++;                                                                                                \
-            api_stats[hooksymbol][1] += burst;                                                                                         \
-            pf_queue.push({hooksymbol, Kbegin, burst, pf.bytes, pf.kind});                                                             \
-        if(cudaSuccess == res && post_hooks[hooksymbol]) {                                                                             \
-            res = ((cudaError_t (*)params)post_hooks[hooksymbol])(__VA_ARGS__);                                                        \
-        }                                                                                                                              \
-        return res;                                                                                                                    \
-    }
-
-// GENERATE_INTERCEPT_RUNTIME_FUNCTION(SYM_CU_MEMCPY, cudaMemcpy, (void* dst, const void* src, size_t count, cudaMemcpyKind kind), dst, src, count, kind)
-// GENERATE_INTERCEPT_RUNTIME_FUNCTION(SYM_CU_MEMCPY_ASYNC, cudaMemcpyAsync, (void* dst, const void* src, size_t count, cudaMemcpyKind kind, cudaStream_t stream), dst, src, count, kind, stream)
 
 cudaError_t cudaMemcpy ( void* dst, const void* src, size_t count, cudaMemcpyKind kind )
 {
@@ -403,7 +358,6 @@ void* dlsym(void *handle, const char *symbol)
         if(real_func[SYM_CU_MEM_D2H] == NULL) {
             real_func[SYM_CU_MEM_D2H] = real_dlsym(handle, symbol);
         }        
-        // std::cout << "D2H in dlsym" << std::endl;                                                                                
         api_stats[SYM_CU_MEM_D2H][0]++;                                                                                                
 
         return (void *)(&cuMemcpyDtoH);
@@ -413,7 +367,6 @@ void* dlsym(void *handle, const char *symbol)
         if(real_func[SYM_CU_MEM_H2D] == NULL) {
             real_func[SYM_CU_MEM_H2D] = real_dlsym(handle, symbol);
         }        
-            // std::cout << "H2D in dlsym" << std::endl;                                                                                
         return (void *)(&cuMemcpyHtoD);
     }
 
@@ -421,7 +374,6 @@ void* dlsym(void *handle, const char *symbol)
         if(real_func[SYM_CU_MEMCPY] == NULL) {
             real_func[SYM_CU_MEMCPY] = real_dlsym(handle, symbol);
         }        
-        // std::cout << "cudaMemcpy in dlsym" << std::endl;                                                                                
 
         return (void *)(&cudaMemcpy);
     }    
@@ -430,7 +382,6 @@ void* dlsym(void *handle, const char *symbol)
         if(real_func[SYM_CU_MEMCPY_ASYNC] == NULL) {
             real_func[SYM_CU_MEMCPY_ASYNC] = real_dlsym(handle, symbol);
         }        
-        // std::cout << "cudaMemcpyAsync in dlsym" << std::endl;                                                                                
 
         return (void *)(&cudaMemcpyAsync);
     }    
@@ -440,20 +391,6 @@ void* dlsym(void *handle, const char *symbol)
     }
     return (real_dlsym(handle, symbol));
 }
-
-// cudaError_t cudaMemcpy ( void* dst, const void* src, size_t count, cudaMemcpyKind kind )
-// {
-// cudaError_t (*lcudaMemcpy) ( void*, const void*, size_t, cudaMemcpyKind) = (cudaError_t (*) ( void* , const void* , size_t , cudaMemcpyKind  ))real_dlsym(RTLD_NEXT, "cudaMemcpy");
-//     printf("cudaMemcpy hooked\n");
-//     return lcudaMemcpy( dst, src, count, kind );
-// }
-
-// cudaError_t cudaMemcpyAsync ( void* dst, const void* src, size_t count, cudaMemcpyKind kind, cudaStream_t str )
-// {
-// cudaError_t (*lcudaMemcpyAsync) ( void*, const void*, size_t, cudaMemcpyKind, cudaStream_t) = (cudaError_t (*) ( void* , const void* , size_t , cudaMemcpyKind, cudaStream_t   ))real_dlsym(RTLD_NEXT, "cudaMemcpyAsync");
-//     printf("cudaMemcpyAsync hooked, %p\n", lcudaMemcpyAsync);
-//     return lcudaMemcpyAsync( dst, src, count, kind, str );
-// }
 
 
 CUresult CUDAAPI cuGetProcAddress(const char *symbol, void **pfn, int cudaVersion, cuuint64_t flags) {
@@ -477,7 +414,6 @@ CUresult CUDAAPI cuGetProcAddress(const char *symbol, void **pfn, int cudaVersio
 #undef cuMemAlloc
     } else if (strcmp(symbol, STRINGIFY_AUX(cuMemAlloc)) == 0) {
 #pragma pop_macro("cuMemAlloc")
-    // std::cout << " getProc cuMemAlloc " << "cuda version: " << cudaVersion << " flags: " << flags << std::endl;
 
         if(real_func[SYM_CU_MEM_ALLOC] == NULL) {
             real_func[SYM_CU_MEM_ALLOC] = *pfn;
@@ -506,8 +442,6 @@ CUresult CUDAAPI cuGetProcAddress(const char *symbol, void **pfn, int cudaVersio
         if(real_func[SYM_CU_MEMCPY] == NULL) {
             real_func[SYM_CU_MEMCPY] = *pfn;
         }        
-    std::cout << " getProc H2D" << "cuda version: " << cudaVersion << " flags: " << flags << std::endl;
-        // api_stats[SYM_CU_MEM_H2D][0]++;                                                                                                
 
         *pfn = (void *)(&cudaMemcpy);
 #pragma push_macro("cudaMemcpyAsync")
@@ -517,8 +451,6 @@ CUresult CUDAAPI cuGetProcAddress(const char *symbol, void **pfn, int cudaVersio
         if(real_func[SYM_CU_MEMCPY_ASYNC] == NULL) {
             real_func[SYM_CU_MEMCPY_ASYNC] = *pfn;
         }        
-    // std::cout << " getProc H2D" << "cuda version: " << cudaVersion << " flags: " << flags << std::endl;
-        // api_stats[SYM_CU_MEM_H2D][0]++;                                                                                                
 
         *pfn = (void *)(&cudaMemcpyAsync);
 #pragma push_macro("cuMemcpyHtoD")
@@ -528,7 +460,6 @@ CUresult CUDAAPI cuGetProcAddress(const char *symbol, void **pfn, int cudaVersio
         if(real_func[SYM_CU_MEM_H2D] == NULL) {
             real_func[SYM_CU_MEM_H2D] = *pfn;
         }        
-    // std::cout << " getProc H2D" << "cuda version: " << cudaVersion << " flags: " << flags << std::endl;
         api_stats[SYM_CU_MEM_H2D][0]++;                                                                                                
 
         *pfn = (void *)(&cuMemcpyHtoD);
@@ -536,7 +467,6 @@ CUresult CUDAAPI cuGetProcAddress(const char *symbol, void **pfn, int cudaVersio
 #undef cuMemcpyDtoH
     } else if (strcmp(symbol, STRINGIFY(cuMemcpyDtoH)) == 0) {
 #pragma pop_macro("cuMemcpyDtoH")
-    // std::cout << " getProc D2H " << "cuda version: " << cudaVersion << " flags: " << flags << std::endl;
         api_stats[SYM_CU_MEM_D2H][0]++;                                                                                                
 
         if(real_func[SYM_CU_MEM_D2H] == NULL) {
@@ -549,7 +479,6 @@ CUresult CUDAAPI cuGetProcAddress(const char *symbol, void **pfn, int cudaVersio
 #undef cuInit
     } else if (strcmp(symbol, STRINGIFY(cuInit)) == 0) {
 #pragma pop_macro("cuInit")
-    // std::cout << " getProc cuInit " << "cuda version: " << cudaVersion << " flags: " << flags << std::endl;
 
         *pfn = (void *)(&cuInit);
     } 
