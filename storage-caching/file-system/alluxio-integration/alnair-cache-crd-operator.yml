@@ -1,0 +1,49 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alnair-datacache-operator
+  labels:
+    app: alnair-datacache-operator
+spec:
+  selector:
+    matchLabels:
+      app: alnair-datacache-operator
+  template:
+    metadata:
+      labels:
+        app: alnair-datacache-operator
+    spec:
+
+        #shareProcessNamespace: true
+
+      containers:
+
+      - name: alnair-datacache-k8s-operator-service
+        image: parekhnikunj/alnair-datacache-k8s-operator
+
+        ports:
+            - containerPort: 8002
+
+        env:
+          - name: res_namespace
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+#          - name: alluxio_master_host
+#            value: 10.244.1.77
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: alnair-datacache-crd-role
+rules:
+- apiGroups:
+    - centaurusinfra.com
+  resources:
+  - datacache
+  - datacache/finalizers
+  - services
+  verbs: [ get, list, create, update, delete, deletecollection, watch ]

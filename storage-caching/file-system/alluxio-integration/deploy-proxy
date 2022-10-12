@@ -1,0 +1,44 @@
+#!/bin/bash
+
+K8S_API_PORT=$1
+ALLUXIO_BASE_PATH=$2
+
+set -e
+
+# Set password-less ssh across Alluxio nodes
+
+WORKER_NODES=$(kubectl get nodes --selector='!node-role.kubernetes.io/control-plane' -o wide --no-headers | awk '{print $6}')
+
+ALL_NODES=$(kubectl get nodes  -o wide --no-headers | awk '{print $6}')
+
+for WORKER in ${ALL_NODES};
+do
+    echo -e " [`date \"+%F %H:%M:%S,%m\"`] | INFO\t|  Enabling ssh setup for Data Caching Worker ${WORKER}"
+    ssh-keygen -R ${WORKER}
+done
+
+echo "y" | ssh-keygen -b 2048 -t rsa -q -f ${HOME}/.ssh/id_rsa2 -N ""
+
+# This is to avoid the "yes/no" prompt for command below
+echo "StrictHostKeyChecking no" > ~/.ssh/config && sync
+
+for WORKER in ${ALL_NODES};
+do
+    echo -e " [`date \"+%F %H:%M:%S,%m\"`] | INFO\t|  Adding ssh id to Data Caching Worker ${WORKER}"
+    ssh-copy-id -f nikunj@${WORKER} 2>&1 > /dev/null
+done
+
+set +e # If a proxy was already running, its ok
+
+echo -e " [`date \"+%F %H:%M:%S,%m\"`] | INFO\t|  Starting Kubernetes Proxy on port ${K8S_API_PORT}..."
+kubectl proxy --port=${K8S_API_PORT} 2>&1 > /dev/null &
+
+sleep 2 # Let proxy fire up
+
+# If mkdir fails, its ok as well.
+
+kubectl exec alluxio-master-0 -c alluxio-master -- alluxio fs mkdir ${ALLUXIO_BASE_PATH} 2>&1 > /dev/null
+
+set -e
+
+sleep infinity # What have you got to lose...

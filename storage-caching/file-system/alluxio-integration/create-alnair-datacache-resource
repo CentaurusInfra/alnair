@@ -1,0 +1,56 @@
+#!/bin/bash
+
+set -e
+#set -x # Enable debug print of each line
+
+# Note: Do not create temporary files in /tmp because mounting of this volume within any docker container is usually unreliable (almost ephemeral).
+
+resource=$1
+deploy_name=$2
+extension=$3
+tmp_output_filename="tmp_datacache-custom-resource-${deploy_name}-${resource}.yml"
+output_filename="datacache-custom-resource-${deploy_name}-${resource}.yml"
+
+\rm -f ${tmp_output_filename}
+
+#echo -e "`date --rfc-3339=seconds`  Getting deployment details for ${resource} ${deploy_name}..."
+kubectl get ${resource} ${deploy_name} -o yaml 2>/dev/null 1>${tmp_output_filename}
+if [ "$?" != "0" ]; then
+    echo -e " [`date \"+%F %H:%M:%S,%m\"`] | INFO\t|  No active ${resource} '${deploy_name}' found. No new deployment is required"
+    exit 1
+fi
+
+#N if [ "${resource}" == "deployments" ]; then
+#N     sed -i -e 's/kind: Deployment/kind: AlnairDatacache/' ${tmp_output_filename}
+#N elif [ "${resource}" == "pods" ]; then
+#N     sed -i -e 's/kind: Pod/kind: AlnairDatacache/' ${tmp_output_filename}
+#N elif [ "${resource}" == "jobs" ]; then
+#N     sed -i -e 's/kind: Job/kind: AlnairDatacache/' ${tmp_output_filename}
+#N fi
+
+sed -i -e '/cacheDataset/d' ${tmp_output_filename}
+sed -i -e '/status:/Q' ${tmp_output_filename}
+#N sed -i -e 's/apiVersion: .*$/apiVersion: centaurusinfra.com\/v1/' ${tmp_output_filename}
+sed -i -e 's/type: Directory$/&OrCreate/' ${tmp_output_filename}
+sync
+sed -i -E "0,/name: .*/ s/name: (.*)/name: \1-${extension}/" ${tmp_output_filename}
+
+if [ -f ${output_filename} ]; then
+    set +e
+    cmp ${tmp_output_filename} ${output_filename} 2>&1 > /dev/null
+    ecode=$?
+    set -e
+
+    if [ "$ecode" == "0" ]; then
+        echo -e " [`date \"+%F %H:%M:%S,%m\"`] | INFO\t|  An AlnairDatacache deployment spec already exists. No new deployment is required."
+        exit 1
+    fi
+fi
+
+mv ${tmp_output_filename} ${output_filename}
+
+echo -e " [`date \"+%F %H:%M:%S,%m\"`] | INFO\t|  Deployment description created at ${output_filename} .."
+
+#ls -al ${output_filename}
+
+exit 0
