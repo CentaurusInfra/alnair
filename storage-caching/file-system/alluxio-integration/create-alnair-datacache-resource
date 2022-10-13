@@ -20,17 +20,19 @@ if [ "$?" != "0" ]; then
     exit 1
 fi
 
-#N if [ "${resource}" == "deployments" ]; then
-#N     sed -i -e 's/kind: Deployment/kind: AlnairDatacache/' ${tmp_output_filename}
-#N elif [ "${resource}" == "pods" ]; then
-#N     sed -i -e 's/kind: Pod/kind: AlnairDatacache/' ${tmp_output_filename}
-#N elif [ "${resource}" == "jobs" ]; then
-#N     sed -i -e 's/kind: Job/kind: AlnairDatacache/' ${tmp_output_filename}
-#N fi
+#Note: if [ "${resource}" == "deployments" ]; then
+#Note:     sed -i -e 's/kind: Deployment/kind: AlnairDatacache/' ${tmp_output_filename}
+#Note: elif [ "${resource}" == "pods" ]; then
+#Note:     sed -i -e 's/kind: Pod/kind: AlnairDatacache/' ${tmp_output_filename}
+#Note: elif [ "${resource}" == "jobs" ]; then
+#Note:     sed -i -e 's/kind: Job/kind: AlnairDatacache/' ${tmp_output_filename}
+#Note: fi
 
 sed -i -e '/cacheDataset/d' ${tmp_output_filename}
 sed -i -e '/status:/Q' ${tmp_output_filename}
-#N sed -i -e 's/apiVersion: .*$/apiVersion: centaurusinfra.com\/v1/' ${tmp_output_filename}
+
+#Note: sed -i -e 's/apiVersion: .*$/apiVersion: centaurusinfra.com\/v1/' ${tmp_output_filename}
+
 sed -i -e 's/type: Directory$/&OrCreate/' ${tmp_output_filename}
 sync
 sed -i -E "0,/name: .*/ s/name: (.*)/name: \1-${extension}/" ${tmp_output_filename}

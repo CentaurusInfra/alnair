@@ -33,7 +33,7 @@ set +e # If a proxy was already running, its ok
 echo -e " [`date \"+%F %H:%M:%S,%m\"`] | INFO\t|  Starting Kubernetes Proxy on port ${K8S_API_PORT}..."
 kubectl proxy --port=${K8S_API_PORT} 2>&1 > /dev/null &
 
-sleep 2 # Let proxy fire up
+sleep 2 # Let proxy boot up
 
 # If mkdir fails, its ok as well.
 

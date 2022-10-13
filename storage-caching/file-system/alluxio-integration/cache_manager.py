@@ -28,13 +28,17 @@ class ExecutorServiceABC(object):
     __metaclass__ = ABCMeta
 
     @abstractmethod
-    def _getSpaceNeededForDatasetInBytes(self):
+    def get_capacity_bytes(self):
         pass
 
     @abstractmethod
-    def _getCapacityBytes(self):
+    def get_used_bytes(self):
         pass
 
     @abstractmethod
-    def _getUsedBytes(self):
+    def get_capacity_and_used_bytes_onworker(self):
+        pass
+
+    @abstractmethod
+    def get_space_needed_for_dataset_in_bytes(self):
         pass
