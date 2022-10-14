@@ -65,53 +65,61 @@ func (collector *nvmlCollector) Collect(ch chan<- prometheus.Metric) {
 
 func GetGpuStat() []GPUStat {
 	var stats []GPUStat
+	//log.Printf("nvml collector got pulled.") //verify if collector function got called at the pulling frequency set up at the Prometheus Config
 	ret := nvml.Init()
 	if ret != nvml.SUCCESS {
-		log.Fatalf("Unable to initialize NVML: %v", nvml.ErrorString(ret))
+		log.Printf("Unable to initialize NVML: %v", nvml.ErrorString(ret))
+		return stats
 	}
 	defer func() {
 		ret := nvml.Shutdown()
 		if ret != nvml.SUCCESS {
-			log.Fatalf("Unable to shutdown NVML: %v", nvml.ErrorString(ret))
+			log.Printf("Unable to shutdown NVML: %v", nvml.ErrorString(ret))
 		}
 	}()
 
 	count, ret := nvml.DeviceGetCount()
 	if ret != nvml.SUCCESS {
-		log.Fatalf("Unable to get device count: %v", nvml.ErrorString(ret))
+		log.Printf("Unable to get device count: %v", nvml.ErrorString(ret))
+		return stats
 	}
 	for i := 0; i < count; i++ {
 		device, ret := nvml.DeviceGetHandleByIndex(i)
 		if ret != nvml.SUCCESS {
-			log.Fatalf("Unable to get device at index %d: %v", i, nvml.ErrorString(ret))
+			log.Printf("Unable to get device at index %d: %v", i, nvml.ErrorString(ret))
+			continue
 		}
 
 		uuid, ret := device.GetUUID()
 		if ret != nvml.SUCCESS {
-			log.Fatalf("Unable to get uuid of device at index %d: %v", i, nvml.ErrorString(ret))
+			log.Printf("Unable to get uuid of device at index %d: %v", i, nvml.ErrorString(ret))
+			continue
 		}
 
 		processInfos, ret := device.GetComputeRunningProcesses()
 		if ret != nvml.SUCCESS {
-			log.Fatalf("Unable to get process info for device %s: %v", uuid, nvml.ErrorString(ret))
+			log.Printf("Unable to get process info for device %s: %v", uuid, nvml.ErrorString(ret))
+			continue
 		}
 		if len(processInfos) > 0 {
-			fmt.Printf("Found %d processes on device %s\n", len(processInfos), uuid)
+			log.Printf("Found %d processes on device %s\n", len(processInfos), uuid)
 			for pi, processInfo := range processInfos {
-				fmt.Printf("\t[%2d] ProcessInfo: %+v\n", pi, processInfo)
+				log.Printf("\t[%2d] ProcessInfo: %+v\n", pi, processInfo)
 			}
 
 			var lastSeenTimeStamp uint64
 			lastSeenTimeStamp = uint64(time.Now().UnixMicro())
-			fmt.Printf("now timestamp %d\n", lastSeenTimeStamp)
 			lastSeenTimeStamp = lastSeenTimeStamp - 1e6
 			processUtilizationSample, ret := nvml.DeviceGetProcessUtilization(device, lastSeenTimeStamp)
 			if ret != nvml.SUCCESS {
-				log.Fatalf("Unable to get device %s's process utilization: %v", uuid, nvml.ErrorString(ret))
+				log.Printf("Unable to get device %s's process utilization: %v", uuid, nvml.ErrorString(ret))
+				continue
 			}
-			fmt.Printf("last seen timestamp %d, %v\n", lastSeenTimeStamp, processUtilizationSample)
+			log.Printf("last seen timestamp %d, %v\n", lastSeenTimeStamp, processUtilizationSample)
 			for _, sample := range processUtilizationSample {
-
+				if sample.Pid == 0 { // 0 means empty return
+					continue
+				}
 				stats = append(stats, GPUStat{Pid: sample.Pid,
 					MemUtil:   sample.MemUtil,
 					SmUtil:    sample.SmUtil,
@@ -119,7 +127,11 @@ func GetGpuStat() []GPUStat {
 					TimeStamp: sample.TimeStamp,
 				})
 			}
-
+			if len(stats) == 0 {
+				log.Printf("process level utilization is empty, GPU cards may not support function nvml.DeviceGetProcessUtilization")
+			} else {
+				log.Printf("Pulled process level GPU utils %v", stats)
+			}
 		}
 		//sample output
 		//Found 1 processes on device GPU-af943c68-b15d-be46-901e-187129cdc536

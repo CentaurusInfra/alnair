@@ -12,7 +12,7 @@ RUN mkdir -p "$GOPATH/src" "$GOPATH/bin" && chmod -R 777 "$GOPATH"
 # build locally
 WORKDIR /alnair/
 COPY . . 
-RUN go build -o /bin/alnair-exporter cmd/exporter/main.go
+RUN go build -o /bin/alnair-exporter main.go
 
 # build from alnair repo 
 #RUN git clone https://github.com/CentaurusInfra/alnair.git
