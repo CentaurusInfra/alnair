@@ -3,8 +3,6 @@
 K8S_API_PORT=$1
 ALLUXIO_BASE_PATH=$2
 
-#set -x
-
 # Create new user to execute remote commands on Alluxio cluster
 
 # Set password-less ssh across Alluxio nodes for new user
@@ -19,24 +17,17 @@ mkdir -p /root/.ssh && touch /root/.ssh/known_hosts && chmod 0644 /root/.ssh/kno
 
 for WORKER in ${ALL_NODES};
 do
-    set +e # If the alluxio-user already exists on this cluster, its ok. Will happen always except the first time Operator is deployed
-
     echo -e " [`date \"+%F %H:%M:%S,%m\"`] | INFO\t|  Setting up known_hosts for alluxio-user on ${WORKER}..."
-    set -e
-
     echo -e " [`date \"+%F %H:%M:%S,%m\"`] | INFO\t|  Enabling ssh setup for Data Caching Worker ${WORKER}"
     ssh-keygen -R alluxio-user@${WORKER}
 done
 
-set -e
-
 echo "y" | ssh-keygen -b 2048 -t rsa -q -f ${HOME}/.ssh/id_rsa2 -N ""
-
 
 for WORKER in ${ALL_NODES};
 do
     echo -e " [`date \"+%F %H:%M:%S,%m\"`] | INFO\t|  Adding ssh id to Data Caching Worker ${WORKER}"
-    sshpass -p alluxio ssh-copy-id -f alluxio-user@${WORKER} 2>&1 > /dev/null
+    sshpass -p alluxio ssh-copy-id -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -f alluxio-user@${WORKER} 2>&1 > /dev/null
 done
 
 set +e # If a proxy was already running, its ok
@@ -51,4 +42,7 @@ kubectl exec alluxio-master-0 -c alluxio-master -- alluxio fs mkdir ${ALLUXIO_BA
 
 set -e
 
-sleep infinity # What have you got to lose...
+#sleep infinity
+
+# Boot up the Operator
+/crd-operator

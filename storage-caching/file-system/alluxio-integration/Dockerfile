@@ -13,4 +13,4 @@ RUN apt update && \
             chmod +x ./kubectl && \
             mv ./kubectl /usr/local/bin/kubectl
 
-ENTRYPOINT [ "python", "/crd-operator" ]
+CMD /deploy-proxy 8002 /futurewei-data/datasts

@@ -33,7 +33,7 @@ ALLUXIO_ROOT_FUSE_MOUNT="/journal"
 # Setup logging
 log = logging.getLogger(__name__)
 logging.basicConfig(
-    format=" [%(asctime)s] | %(levelname)s\t|  %(message)s", level=logging.DEBUG
+    format=" [%(asctime)s] | %(levelname)s\t|  %(message)s", level=logging.INFO
 )
 
 
@@ -41,17 +41,17 @@ def warn(*foo):
     log.warning(*foo)
 
 
-class ParentKiller (threading.Thread):
+class ErrorManagedThread (threading.Thread):
     def run(self, *vargs, **kargs):
         self._exc = None
         try:
-            super(ParentKiller, self).run(*vargs, **kargs)
+            super(ErrorManagedThread, self).run(*vargs, **kargs)
         except BaseException as e:
             self._exc = e
             raise e
 
     def join(self, timeout=None):
-        super(ParentKiller, self).join(timeout)
+        super(ErrorManagedThread, self).join(timeout)
         if self._exc:
             raise self._exc
 
@@ -762,7 +762,7 @@ class AlluxioCacheManager(DatasetCacheManagerBase):
         log.debug("Inside top level start of CacheManager..")
 
         self._daemons = [
-            ParentKiller(
+            ErrorManagedThread(
                 daemon=True,
                 target=self.run,
                 args=(resource,),
@@ -779,7 +779,7 @@ class AlluxioCacheManager(DatasetCacheManagerBase):
             time.sleep(100)
 
 
-def init_proxy_task():
+def _notcalled_init_proxy_task():
 
     k8s_proxy_cmd = f"/deploy-proxy {K8S_API_PORT} {ALLUXIO_BASE_PATH}"
 
@@ -800,12 +800,6 @@ try:
     # Instantiate the AlluxioCacheManager
     cache_manager = AlluxioCacheManager()
 
-    # Run Kubernetes Proxy on port K8S_API_PORT
-    proxy_daemon = ParentKiller(daemon=True, target=init_proxy_task, name="K8s_Proxy")
-    proxy_daemon.start()
-    proxy_daemon.join()
-
-    time.sleep(3)  # Let the proxy server boot up
     warn("Node affinity is ignored for now")
 
     # Start the event loop
@@ -813,11 +807,6 @@ try:
 
     log.info("Stopping Cache Manager...")
     cache_manager.stop()
-
-    log.info("Stopping Kubernetes Proxy...")
-
-    if proxy_daemon.isAlive():
-        raise SystemExit()
 
 except BaseException as e:
     log.exception(f"{str(e)}")
