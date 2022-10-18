@@ -1,0 +1,5 @@
+apiVersion: alnair.com/v1alpha1
+kind: AlnairPod
+metadata:
+  name: alnairpod-sample
+spec:

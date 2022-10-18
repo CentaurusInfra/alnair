@@ -1,0 +1,24 @@
+# permissions for end users to edit alnairpods.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: alnairpod-editor-role
+rules:
+- apiGroups:
+  - alnair.com
+  resources:
+  - alnairpods
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - alnair.com
+  resources:
+  - alnairpods/status
+  verbs:
+  - get

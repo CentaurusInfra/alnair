@@ -1,0 +1,77 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-cluster
+spec:
+  ports:
+  - port: 6379
+    targetPort: 6379
+  selector:
+    app: redis-cluster
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis-cluster
+spec:
+  serviceName: redis-cluster
+  replicas: 3
+  selector:
+    matchLabels:
+      app: redis-cluster
+  template:
+    metadata:
+      labels:
+        app: redis-cluster
+      # annotations:
+      #   k8s.v1.cni.cncf.io/networks: macvlan-conf
+    spec:
+      nodeSelector:
+        alnair: CacheCluster
+      initContainers:
+      - name: config
+        image: redis:6.2.3-alpine
+        command: [ "sh", "-c" ]
+        args:
+          - |
+            cp /tmp/redis/redis.conf /etc/redis/redis.conf
+        volumeMounts:
+        - name: redis-config
+          mountPath: /etc/redis/
+        - name: config
+          mountPath: /tmp/redis/
+      containers:
+      - name: redis
+        image: redis:6.2.3-alpine
+        command: ["sh", "-c"]
+        args:
+          - |
+            redis-server /etc/redis/redis.conf --bind $(cat /etc/hosts | grep redis | awk '{ print $1 }') --requirepass $REDIS_PWD --masterauth $REDIS_PWD --appendonly no --save ""
+        ports:
+        - containerPort: 6379
+          protocol: TCP
+          name: redis
+        envFrom:
+        - secretRef:
+            name: redis-secret
+        volumeMounts:
+        - name: data
+          mountPath: /data
+        - name: redis-config
+          mountPath: /etc/redis/
+      volumes:
+      - name: redis-config
+        emptyDir: {}
+      - name: config
+        configMap:
+          name: redis-config
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: [ "ReadWriteMany" ]
+      storageClassName: "local-storage"
+      resources:
+        requests:
+          storage: 500Mi

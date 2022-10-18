@@ -1,0 +1,29 @@
+apiVersion: alnair.com/v1alpha1
+kind: AlnairPod
+metadata:
+  name: cifar10
+  namespace: default
+spec:
+  secret:
+    name: alnairpod-client-secret
+  jobs:
+  - name: job1
+    image: centaurusinfra/cifar10:latest
+    command: ["python3", "main.py"]
+    datasource:
+      name: CIFAR10
+      bucket: zhuangwei-bucket
+      keys:
+      - data_batch_1
+      - data_batch_2
+      - data_batch_3
+      - data_batch_4
+      - data_batch_5
+      - batches.meta
+      - test_batch
+    configurations:
+      usecache: true
+      maxmemory: 50
+      durabilityindisk: 1440
+    tty: true
+    stdin: true

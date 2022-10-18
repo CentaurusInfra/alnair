@@ -1,0 +1,110 @@
+{
+    "title" : "Job",
+    "bsonType": "object",
+    "required": [
+        "meta",
+        "QoS",
+        "policy"
+    ],
+    "properties": {
+        "meta": {
+            "bsonType": "object",
+            "required": [
+                "username",
+                "jobId",
+                "datasource",
+                "resourceInfo",
+                "createTime",
+                "token",
+                "tokenTimeout"
+            ],
+            "properties": {
+                "username": {"bsonType": "string"},
+                "jobId": {"bsonType": "string"},
+                "datasource": {
+                    "bsonType": "object",
+                    "required": [
+                        "name",
+                        "bucket"
+                    ],
+                    "properties": {
+                        "name": {"bsonType": "string"},
+                        "bucket": {"bsonType": "string"},
+                        "keys": {
+                            "bsonType": "array",
+                            "items": {"bsonType": "string"}
+                        }
+                    }
+                },
+                "resourceInfo": {
+                    "bsonType": "object",
+                    "title": "resourceInfo",
+                    "properties": {
+                        "CPUMemoryFree": {"bsonType": ["long", "int"]},
+                        "GPUMemoryFree": {"bsonType": ["long", "int"]}
+                    },
+                    "description": "GPU and CPU memory resource information"
+                },
+                "createTime": {"bsonType": "timestamp"},
+                "token": {"bsonType": "string"},
+                "tokenTimeout": {"bsonType": "timestamp"}
+            }
+        },
+        "QoS": {
+            "bsonType": "object",
+            "title": "qos",
+            "required": [
+                "UseCache",
+                "MaxMemory",
+                "DurabilityInDisk",
+                "LazyLoading"
+            ],
+            "properties": {
+                "UseCache": {"bsonType": "bool"},
+                "MaxMemory": {"bsonType": ["long", "int"]},
+                "DurabilityInDisk": {"bsonType": "int"},
+                "LazyLoading": {"bsonType": "bool"}
+            },
+            "description": "QoS configuration"
+        },
+        "policy": {
+            "bsonType": "object",
+            "title": "cachePolicy",
+            "required": [
+                "createTime",
+                "chunkSize",
+                "chunks"
+            ],
+            "properties": {
+                "createTime": {"bsonType": "timestamp"},
+                "chunkSize": {"bsonType": ["long", "int"]},
+                "chunks": {
+                    "bsonType": "array",
+                    "items": {
+                        "bsonType": "object",
+                        "title": "chunk",
+                        "required": [
+                            "name",
+                            "size",
+                            "lastModified",
+                            "totalAccessTime",
+                            "lastAccessTime",
+                            "location",
+                            "hasBackup"
+                        ],
+                        "properties": {
+                            "name": {"bsonType": "string"},
+                            "size": {"bsonType": ["long", "int"]},
+                            "lastModified": {"bsonType": "int"},
+                            "totalAccessTime": {"bsonType": "int"},
+                            "lastAccessTime": {"bsonType": "timestamp"},
+                            "location": {"bsonType": "string"},
+                            "hasBackup": {"bsonType": "bool"}
+                        }
+                    }
+                }
+            },
+            "description": "caching policy of the job"
+        }
+    }
+}

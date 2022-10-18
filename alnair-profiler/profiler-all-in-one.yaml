@@ -1,0 +1,388 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: alnair
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: admin-pod
+  namespace: alnair
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prometheus
+  namespace: alnair
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: prometheus
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  - services
+  - endpoints
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - extensions
+  resources:
+  - ingresses
+  verbs:
+  - get
+  - list
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: admin-pod
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: admin-pod
+  namespace: alnair
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: prometheus
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: prometheus
+subjects:
+- kind: ServiceAccount
+  name: prometheus
+  namespace: alnair
+---
+apiVersion: v1
+data:
+  prometheus.yml: "scrape_configs:\n  - job_name: cadvisor\n    scrape_interval: 5s\n
+    \   kubernetes_sd_configs:\n      - role: pod\n        namespaces:\n          names:\n
+    \           - alnair\n        selectors:\n          - role: pod\n            label:
+    \"name=cadvisor\"\n    relabel_configs:\n    - source_labels: [__address__]\n
+    \     regex: ^(.*):\\d+$\n      target_label: __address__\n      replacement:
+    $1:8080\n    - source_labels: [__meta_kubernetes_pod_node_name]\n      target_label:
+    instance\n    - source_labels: [__meta_kubernetes_host_ip]\n      target_label:
+    node_ip\n  - job_name: 'profiler-pods'\n    scrape_interval: 1s \n    metrics_path:
+    '/metrics' \n    kubernetes_sd_configs:\n      - role: pod\n        namespaces:\n
+    \         names:\n            - alnair\n        selectors:\n          - role:
+    pod\n            label: \"app=profiler\" \n    relabel_configs:\n    - source_labels:
+    [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]\n      action:
+    replace\n      regex: ([^:]+)(?::\\d+)?;(\\d+)\n      replacement: $1:$2\n      target_label:
+    __address__\n  - job_name: 'alnair-exporter'\n    scrape_interval: 1s\n    metrics_path:
+    '/metrics'\n    kubernetes_sd_configs:\n      - role: pod\n        namespaces:\n
+    \         names:\n            - alnair\n        selectors:\n          - role:
+    pod\n            label: \"app=alnair-exporter\"\n    relabel_configs:\n    - source_labels:
+    [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]\n      action:
+    replace\n      regex: ([^:]+)(?::\\d+)?;(\\d+)\n      replacement: $1:$2\n      target_label:
+    __address__\n"
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: alnair
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    name: mongo
+  name: mongo
+  namespace: alnair
+spec:
+  ports:
+  - port: 27017
+    targetPort: 27017
+  selector:
+    role: mongo
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  namespace: alnair
+spec:
+  ports:
+  - nodePort: 30909
+    port: 9090
+    protocol: TCP
+    targetPort: 9090
+  selector:
+    app: prometheus
+  type: NodePort
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: prometheus
+  name: prometheus
+  namespace: alnair
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus
+  template:
+    metadata:
+      labels:
+        app: prometheus
+    spec:
+      containers:
+      - args:
+        - --storage.tsdb.retention.time=120h
+        - --config.file=/etc/prometheus/prometheus.yml
+        - --storage.tsdb.path=/prometheus/
+        - --web.enable-lifecycle
+        image: prom/prometheus
+        name: prometheus
+        ports:
+        - containerPort: 9090
+          hostPort: 9090
+        resources:
+          limits:
+            cpu: 1
+            memory: 1Gi
+          requests:
+            cpu: 500m
+            memory: 500M
+        volumeMounts:
+        - mountPath: /etc/prometheus/
+          name: prometheus-config-volume
+        - mountPath: /prometheus/
+          name: prometheus-storage-volume
+      serviceAccountName: prometheus
+      volumes:
+      - configMap:
+          defaultMode: 420
+          name: prometheus-config
+        name: prometheus-config-volume
+      - emptyDir: {}
+        name: prometheus-storage-volume
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mongo
+  namespace: alnair
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      environment: test
+      role: mongo
+  serviceName: mongo
+  template:
+    metadata:
+      labels:
+        environment: test
+        role: mongo
+    spec:
+      containers:
+      - command:
+        - mongod
+        - --bind_ip
+        - 0.0.0.0
+        - --dbpath
+        - /data/db
+        image: mongo
+        name: mongo
+        ports:
+        - containerPort: 27017
+          hostPort: 27017
+        volumeMounts:
+        - mountPath: /data/db
+          name: mongo-temp-storage
+      terminationGracePeriodSeconds: 10
+      volumes:
+      - emptyDir: {}
+        name: mongo-temp-storage
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: alnair-exporter-daemonset
+  namespace: alnair
+spec:
+  selector:
+    matchLabels:
+      app: alnair-exporter
+  template:
+    metadata:
+      annotations:
+        prometheus.io/path: /metrics
+        prometheus.io/port: "9876"
+        prometheus.io/scrape: "true"
+      labels:
+        app: alnair-exporter
+    spec:
+      containers:
+      - env:
+        - name: MY_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        image: centaurusinfra/alnair-exporter:0.4.0
+        imagePullPolicy: Always
+        name: alnair-exporter
+        ports:
+        - containerPort: 9876
+        volumeMounts:
+        - mountPath: /var/lib/alnair/workspace
+          name: alnair-workspace
+          readOnly: true
+      volumes:
+      - hostPath:
+          path: /var/lib/alnair/workspace
+        name: alnair-workspace
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  annotations:
+    seccomp.security.alpha.kubernetes.io/pod: docker/default
+  name: cadvisor
+  namespace: alnair
+spec:
+  selector:
+    matchLabels:
+      name: cadvisor
+  template:
+    metadata:
+      labels:
+        name: cadvisor
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - image: gcr.io/cadvisor/cadvisor:latest
+        name: cadvisor
+        ports:
+        - containerPort: 8080
+          hostPort: 8080
+          name: http
+          protocol: TCP
+        resources:
+          limits:
+            cpu: 800m
+            memory: 2000Mi
+          requests:
+            cpu: 400m
+            memory: 400Mi
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - mountPath: /rootfs
+          name: rootfs
+          readOnly: true
+        - mountPath: /var/run
+          name: var-run
+          readOnly: true
+        - mountPath: /sys
+          name: sys
+          readOnly: true
+        - mountPath: /var/lib/docker
+          name: docker
+          readOnly: true
+        - mountPath: /dev/disk
+          name: disk
+          readOnly: true
+        - mountPath: /dev/kmsg
+          name: kmsg
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - hostPath:
+          path: /
+        name: rootfs
+      - hostPath:
+          path: /var/run
+        name: var-run
+      - hostPath:
+          path: /sys
+        name: sys
+      - hostPath:
+          path: /var/lib/docker
+        name: docker
+      - hostPath:
+          path: /dev/disk
+        name: disk
+      - hostPath:
+          path: /dev/kmsg
+        name: kmsg
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: profiler-daemonset
+  namespace: alnair
+spec:
+  selector:
+    matchLabels:
+      app: profiler
+  template:
+    metadata:
+      annotations:
+        prometheus.io/path: /metrics
+        prometheus.io/port: "9400"
+        prometheus.io/scrape: "true"
+      labels:
+        app: profiler
+    spec:
+      containers:
+      - env:
+        - name: PYTHONUNBUFFERED
+          value: "0"
+        - name: MY_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: MY_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: MY_POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: MY_HOST_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.hostIP
+        - name: MY_POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        image: centaurusinfra/profiler
+        name: profiler-container
+        resources:
+          limits:
+            cpu: "1"
+            memory: 2Gi
+          requests:
+            cpu: "0.5"
+            memory: 1Gi
+        securityContext:
+          privileged: true
+      - env:
+        - name: DCGM_EXPORTER_INTERVAL
+          value: "100"
+        image: nvidia/dcgm-exporter:2.0.13-2.1.1-ubuntu18.04
+        name: dcgm-container
+        ports:
+        - containerPort: 9400
+        securityContext:
+          capabilities:
+            add:
+            - SYS_ADMIN
+      hostPID: true
+      serviceAccountName: admin-pod

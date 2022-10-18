@@ -1,0 +1,38 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hazelcast-jet-configuration
+data:
+  hazelcast.yaml: |-
+    hazelcast:
+      cluster-name: Alnair
+      network:
+        join:
+          multicast:
+            enabled: false
+          kubernetes:
+            enabled: true
+            namespace: default
+            service-name: hazelcast-jet-service
+        rest-api:
+          enabled: true
+          endpoint-groups:
+            HEALTH_CHECK:
+              enabled: true
+      map:
+        default:
+          read-backup-data: true
+          backup-count: 0
+          in-memory-format: OBJECT
+          time-to-live-seconds: 0
+          max-idle-seconds: 0
+          eviction:
+            eviction-policy: LRU
+            max-size-policy: PER_NODE
+            size: 0
+        statistics-enabled: false
+      metrics:
+        enabled: false
+        collection-frequency-seconds: 5
+        jmx:
+          enabled: false

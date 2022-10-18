@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: redis-benchmark
+  namespace: default
+spec:
+  nodeSelector:
+    alnair: Client
+  containers:
+  - name: job
+    image: clue/redis-benchmark
+    command: ["bash"]
+    tty: true
+    stdin: true

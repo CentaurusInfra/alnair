@@ -1,0 +1,5 @@
+numpy
+redis
+pickle-mixin
+pillow
+boto3

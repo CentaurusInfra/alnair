@@ -1,0 +1,17 @@
+#intercept lib can intercept pytorch 1.8 version
+#nerf-demo requires about 7GB memory, if limits < 7GB, oom error shows in logs
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nerf-demo
+spec:
+  containers:
+  - name: pytorch-1-8
+    image: centaurusinfra/nerf-demo
+    command: ["python", "run_nerf.py", "--config", "configs/lego.txt"]
+    #command: ["sh", "-c", "sleep infinity"]
+    resources:
+      limits:
+        alnair/vgpu-memory: 8
+        alnair/vgpu-compute: 50
+  restartPolicy: OnFailure

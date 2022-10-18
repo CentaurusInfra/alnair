@@ -1,0 +1,55 @@
+---
+# Envoy-Redis-Proxy NodePort
+apiVersion: v1
+kind: Service
+metadata:
+  name: envoy-redis-proxy
+  namespace: default
+spec:
+  type: NodePort # 对K8S外部提供服务
+  ports:
+  - name: envoy-redis-proxy
+    nodePort: 30079   # 对外提供的端口
+    port: 6379
+    protocol: TCP
+    targetPort: 6379
+  selector:
+    app: envoy-redis-proxy
+---
+# Envoy-Redis-Proxy Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: envoy-redis-proxy
+  namespace: default
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: envoy-redis-proxy
+  template:
+    metadata:
+      labels:
+        app: envoy-redis-proxy
+    spec:
+      containers:
+        - name: envoy-redis-proxy
+          image:  centaurusinfra/alnair-envoy-redisproxy:latest
+          imagePullPolicy: Always
+          envFrom:
+          - secretRef:
+              name: redis-secret
+          volumeMounts:
+          - name: envoy-redis-proxy
+            mountPath: /tmp/envoy/
+          ports:
+            - name: envoy-6379
+              containerPort: 6379
+              protocol: TCP
+            - name: envoy-8001
+              containerPort: 8001
+              protocol: TCP
+      volumes:   # 挂载proxy配置文件
+        - name: envoy-redis-proxy
+          configMap:
+            name: envoy-redis-proxy-conf

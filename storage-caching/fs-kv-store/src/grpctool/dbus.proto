@@ -1,0 +1,125 @@
+syntax = "proto2";
+package dbus;
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+enum RC {
+    CONNECTED = 0;
+    NO_USER = 1;
+    WRONG_PASSWORD = 2;
+    DISCONNECTED = 3;
+    FAILED = 4;
+    REGISTERED = 5;
+}
+
+message Credential {
+    required string username = 1;
+    required string password = 2;
+}
+message S3Auth {
+    required string aws_access_key_id = 1;
+    required string aws_secret_access_key = 2;
+    required string region_name = 3;
+}
+
+// set up connection between user and GM
+service Connection {
+    rpc connect (ConnectRequest) returns (ConnectResponse) {}
+}
+message ConnectRequest {
+    required Credential cred = 1;
+    required S3Auth s3auth = 2;
+    optional bool createUser = 3 [default = true];
+}
+message ConnectResponse {
+    required RC rc = 1;
+    required string resp = 2;
+}
+
+// register a DLT Client (DLTC) to the Global Manager (GM)
+service Registration {
+    rpc register (RegisterRequest) returns (RegisterResponse) {}
+    rpc deregister (DeregisterRequest) returns (DeregisterResponse) {}
+}
+message ResourceInfo { // Pod resource info, load from proc file system
+    optional int64 CPUMemoryFree = 1;
+    optional int64 GPUMemoryFree = 2;
+}
+message DataSource {
+    required string name = 1;
+    required string bucket = 2;
+    repeated string keys = 3;
+}
+message QoS {
+    optional bool UseCache = 1 [default = true];
+    optional bool LazyLoading = 2 [default = true];
+}
+message RegisterRequest {
+    required Credential cred = 1;
+    required string nodeIP = 2;
+    required DataSource datasource = 3;
+    repeated string nodePriority = 4;
+    optional QoS qos = 5;
+    optional ResourceInfo resource = 6;
+}
+
+message RegisterResponse {
+    required RC rc = 1;
+    oneof response {
+        RegisterSuccess regsucc = 2;
+        RegisterError regerr = 3;
+    }
+}
+
+message Policy {
+    repeated string snapshot = 1;
+}
+message JobInfo {
+    required string jobId = 1;
+    optional google.protobuf.Timestamp createTime = 2;
+}
+message RegisterSuccess {
+    required JobInfo jinfo = 1;
+    required Policy policy = 2;
+}
+message RegisterError {
+    optional string error = 1;
+}
+// actively evict memory when DLT job deregister
+message DeregisterRequest {
+    required Credential cred = 1;
+    required JobInfo jinfo = 2;
+    optional bool deleteDataset = 3;
+}
+message DeregisterResponse {
+    optional string response = 1;
+}
+
+// When key is not available, CC request GM to update policy
+service DataMiss {
+    rpc call (DataMissRequest) returns (DataMissResponse) {}
+}
+message DataMissRequest {
+    required Credential cred = 1;
+    required string key = 2;
+}
+message DataMissResponse {
+    optional bool response = 1;
+}
+
+// CC periodically sends log messages tO GM
+service Logger {
+    rpc call (stream LogItem) returns (google.protobuf.Empty) {}
+}
+enum LogLevel {
+    INFO = 0;
+    DEBUG = 1;
+    ERROR = 2;
+}
+message LogItem {
+    required google.protobuf.Timestamp time = 1;
+    required string jobId = 2;
+    required LogLevel level = 3;
+    required int32 epoch = 4;
+    optional string details = 5;
+}

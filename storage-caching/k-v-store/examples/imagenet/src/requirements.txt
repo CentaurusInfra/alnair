@@ -1,0 +1,5 @@
+torch
+torchvision
+redis
+boto3
+alnairjob

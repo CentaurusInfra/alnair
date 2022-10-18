@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: giraffe-demo
+spec:
+  containers:
+  - name: pytorch
+    image: centaurusinfra/giraffe-demo
+    #command: ["sh", "-c", "sleep infinity"]
+    resources:
+      limits:
+        alnair/vgpu-memory: 8
+        alnair/vgpu-compute: 100
+    volumeMounts:
+    - name: output
+      mountPath: /Demo_Giraffe/out
+  volumes:
+  - name: output
+    hostPath:
+      path: /tmp/giraffe-demo-output
+  restartPolicy: OnFailure
+

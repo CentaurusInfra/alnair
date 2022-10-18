@@ -1,0 +1,10 @@
+torch
+torchvision
+matplotlib
+numpy
+hazelcast-python-client==5.1
+redis
+grpcio
+grpcio-tools
+pymongo
+nvidia_smi

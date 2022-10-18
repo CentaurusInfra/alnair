@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alnairpod-manager-config
+  namespace: default
+data:
+  manager.conf: |
+    [manager]
+    bind=[::]
+    port=50051
+    enable_proxy=false
+    token_life=600
+    backup_dir=/data/
+    flush_frequency=10
+    flush_amount=10
+
+    [mongodb]
+    username=alnair
+    password=alnair
+    host=mongo
+    port=27017
+    db=Cacher
+  
+    [redis_proxy]
+    hosts=192.168.41.32,192.168.41.33
+    port=30079
+
+    [hazelcast]
+    cluster=10.244.1.124:5701,10.244.1.126:5701

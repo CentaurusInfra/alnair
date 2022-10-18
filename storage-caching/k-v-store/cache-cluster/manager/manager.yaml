@@ -1,0 +1,64 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: alnairpod-manager
+spec:
+  type: NodePort
+  ports:
+  - port: 50051
+    targetPort: 50051
+    nodePort: 32200
+  selector:
+    app: manager
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alnairpod-manager
+  labels:
+    app: manager
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: manager
+  template:
+    metadata:
+      labels:
+        app: manager
+      # annotations:
+      #   k8s.v1.cni.cncf.io/networks: macvlan-conf
+    spec:
+      nodeSelector:
+        alnair: CacheCluster
+      containers:
+      - name: alnairpod-manager
+        image: centaurusinfra/alnairpod:manager
+        imagePullPolicy: Always
+        envFrom:
+        - secretRef:
+            name: redis-secret
+        ports:
+        - name: listen-port
+          containerPort: 50051
+        volumeMounts:
+        - name: configuration
+          mountPath: /configs/manager
+        - name: redisconfig
+          mountPath: /configs/redis
+        - mountPath: /data
+          name: nfs-volume
+        stdin: true
+        tty: true
+      restartPolicy: Always
+      volumes:
+        - name: configuration
+          configMap:
+            name: alnairpod-manager-config
+        - name: redisconfig
+          configMap:
+            name: redis-config
+        - name: nfs-volume
+          persistentVolumeClaim:
+            claimName: nfs-pvc

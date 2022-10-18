@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: imagenet-base
+  namespace: default
+spec:
+  nodeSelector:
+    alnair: Client
+  containers:
+  - name: job
+    image: centaurusinfra/imagenet-base:latest
+    command: ["bash"]
+    tty: true
+    stdin: true
+    volumeMounts: 
+    - name: imagenet-mini
+      mountPath: /app/imagenet
+    - name: shmem
+      mountPath: /dev/shm
+  volumes:
+  - name: imagenet-mini
+    hostPath:
+      path: /home/zhuangwei/Imagenet-Mini-Obj
+      type: Directory
+  - name: shmem
+    hostPath:
+      path: /dev/shm
+      type: Directory
+    

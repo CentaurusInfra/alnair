@@ -1,0 +1,7 @@
+Experiment 1: 
+Include the computing time.
+python3 main.py -j 32 --pretrained -e
+
+Experiment 2:
+Exclude the computing time:
+python3 main.py -j 40 --pretrained -e
