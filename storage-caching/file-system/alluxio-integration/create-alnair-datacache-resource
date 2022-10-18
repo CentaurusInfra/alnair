@@ -51,7 +51,7 @@ fi
 
 mv ${tmp_output_filename} ${output_filename}
 
-echo -e " [`date \"+%F %H:%M:%S,%m\"`] | INFO\t|  Deployment description created at ${output_filename} .."
+echo -e " [`date \"+%F %H:%M:%S,%m\"`] | INFO\t|  Deployment description created at ${output_filename}"
 
 #ls -al ${output_filename}
 

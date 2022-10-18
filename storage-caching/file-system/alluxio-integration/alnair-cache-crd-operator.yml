@@ -22,6 +22,10 @@ spec:
       - name: alnair-datacache-k8s-operator-service
         image: parekhnikunj/alnair-datacache-k8s-operator
 
+        envFrom:
+            - secretRef:
+                name: alnair-cache-operator-secret
+
         ports:
             - containerPort: 8002
 
