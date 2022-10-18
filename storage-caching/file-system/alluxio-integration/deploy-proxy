@@ -21,13 +21,9 @@ for WORKER in ${ALL_NODES};
 do
     set +e # If the alluxio-user already exists on this cluster, its ok. Will happen always except the first time Operator is deployed
 
-    #echo -e " [`date \"+%F %H:%M:%S,%m\"`] | INFO\t|  Adding alluxio-user on ${WORKER}"
-    #useradd -s /bin/bash -U -m -b /home alluxio-user
-
     echo -e " [`date \"+%F %H:%M:%S,%m\"`] | INFO\t|  Setting up known_hosts for alluxio-user on ${WORKER}..."
-    #sshpass -p alluxio ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no alluxio-user@${WORKER} "mkdir -p /home/alluxio-user/.ssh && touch /home/alluxio-user/.ssh/known_hosts && chmod 0644 /home/alluxio-user/.ssh/known_hosts"
-
     set -e
+
     echo -e " [`date \"+%F %H:%M:%S,%m\"`] | INFO\t|  Enabling ssh setup for Data Caching Worker ${WORKER}"
     ssh-keygen -R alluxio-user@${WORKER}
 done
