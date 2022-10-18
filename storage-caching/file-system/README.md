@@ -30,6 +30,18 @@ sudo chown -R $USER.$USER /mnt/fuse3/futurewei-data/{datasets,experiments} /mnt/
 sudo chmod -R 0777 /mnt/fuse3/futurewei-data/{datasets,experiments} /mnt/fuse3/alluxio-journal
 ```
 ### Below steps will deploy Alluxio cluster
+#### First, create alluxio-user on all workers for current ssh based approach used for K8s based Alluxio deployments -
+```
+ALL_NODES=$(kubectl get nodes  -o wide --no-headers | awk '{print $6}')
+for WORKER in ${ALL_NODES};
+do
+    ssh $WORKER
+    # Simply pasting this loop wont work because sudo needs tty to enter password, which ssh doesn't extend
+    sudo useradd -s /bin/bash -U -m -b /home alluxio-user  # Don't use adduser; use useradd as shown
+done
+```
+
+#### Next, checkout Caching code
 ```
 ssh <kubernetes master node, which is also going to be alluxio master, hopefully a GPU with a fast 10g+ network>
 
@@ -39,8 +51,12 @@ git clone https://github.com/CentaurusInfra/alnair.git
 cd alnair
 git checkout alluxio-data-orchestration
 ```
+
 This is the directory that contains tools to work with data orchestration
-Next, deploy cluster as explained in Install Alluxio using Helm now:](#3--install-alluxio-using-helm-now-)
+
+#### Next, create Role Based Access Control (RBAC) ClusterRole, ClusterRoleBinding
+This lets the "default" Kubernetes account used by our CRD Operator and Alluxio Master to use operations to query, get, list, create, update, patch, delete, deletecollection, watch all the pods, deployments and jobs across all namespaces.
+We can finetune this later such that the resource deployments are only observed within certain namespace instead of at cluster level, by creating Role and RoleBinding instead. However, querying workers / k8s nodes will continue to require Cluster level RBAC.
 
 ### The `dataorch-host-data` program will allow you to host the data. Below is how that program works:
 ```
