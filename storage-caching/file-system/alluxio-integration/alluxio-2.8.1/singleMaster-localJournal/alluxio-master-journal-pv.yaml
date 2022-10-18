@@ -1,0 +1,37 @@
+# Name the file alluxio-master-journal-pv.yaml
+kind: PersistentVolume
+apiVersion: v1
+metadata:
+  name: alluxio-journal-0
+  labels:
+    type: local
+spec:
+  storageClassName: standard
+  capacity:
+    storage: 100Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /mnt/fuse3/alluxio-journal
+  claimRef:
+    name: alluxio-journal-alluxio-master-0
+    namespace: default
+
+---
+kind: PersistentVolume
+apiVersion: v1
+metadata:
+  name: alluxio-fuse3  #worker-0
+  labels:
+    type: local
+spec:
+  storageClassName: standard
+  capacity:
+    storage: 100Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /mnt/fuse3/domain-socket
+  claimRef:
+    name: alluxio-worker-domain-socket
+    namespace: default

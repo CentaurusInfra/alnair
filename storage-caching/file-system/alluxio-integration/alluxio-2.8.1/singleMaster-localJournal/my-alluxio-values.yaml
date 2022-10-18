@@ -1,0 +1,321 @@
+fullnameOverride: alluxio
+image: alluxio/alluxio
+imageTag: 2.8.1
+imagePullPolicy: IfNotPresent
+user: 1000
+group: 1000
+fsGroup: 1000
+properties:
+  alluxio.user.metrics.collection.enabled: 'true'
+  alluxio.security.stale.channel.purge.interval: 365d
+  # alluxio.hub.manager.rpc.hostname: m1
+master:
+  enabled: true
+  count: 1 # Controls the number of StatefulSets. For multiMaster mode increase this to >1.
+  replicas: 1 # Controls #replicas in a StatefulSet and should not be modified in the usual case.
+  env:
+    # Extra environment variables for the master pod
+    # Example:
+    # JAVA_HOME: /opt/java
+  args: # Arguments to Docker entrypoint
+    - master-only
+    - --no-format
+  # Properties for the master component
+  properties:
+    # Example: use ROCKS DB instead of Heap
+    # alluxio.master.metastore: ROCKS
+    # alluxio.master.metastore.dir: /metastore
+  resources:
+    # The default xmx is 8G
+    limits:
+      cpu: "4"
+
+      memory: "80G"  #Nikunj
+
+    requests:
+      cpu: "1"
+
+      memory: "10G"  #Nikunj
+
+  ports:
+    embedded: 19200
+    rpc: 19998
+    web: 19999
+  hostPID: false
+  hostNetwork: false
+  # dnsPolicy will be ClusterFirstWithHostNet if hostNetwork: true
+  # and ClusterFirst if hostNetwork: false
+  # You can specify dnsPolicy here to override this inference
+  # dnsPolicy: ClusterFirst
+  # JVM options specific to the master container
+  jvmOptions:
+  nodeSelector: {}
+  # When using HA Alluxio masters, the expected startup time
+  # can take over 2-3 minutes (depending on leader elections,
+  # journal catch-up, etc). In that case it is recommended
+  # to allow for up to at least 3 minutes with the readinessProbe,
+  # though higher values may be desired for some leniancy.
+  # - Note that the livenessProbe does not wait for the
+  #   readinessProbe to succeed first
+  #
+  # eg: 3 minute startupProbe and readinessProbe
+  # readinessProbe:
+  #   initialDelaySeconds: 30
+  #   periodSeconds: 10
+  #   timeoutSeconds: 1
+  #   failureThreshold: 15
+  #   successThreshold: 3
+  # startupProbe:
+  #   initialDelaySeconds: 60
+  #   periodSeconds: 30
+  #   timeoutSeconds: 5
+  #   failureThreshold: 4
+  readinessProbe:
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 1
+    failureThreshold: 3
+    successThreshold: 1
+  livenessProbe:
+    initialDelaySeconds: 15
+    periodSeconds: 30
+    timeoutSeconds: 5
+    failureThreshold: 2
+  # If you are using Kubernetes 1.18+ or have the feature gate
+  # for it enabled, use startupProbe to prevent the livenessProbe
+  # from running until the startupProbe has succeeded
+  # startupProbe:
+  #   initialDelaySeconds: 15
+  #   periodSeconds: 30
+  #   timeoutSeconds: 5
+  #   failureThreshold: 2
+  tolerations: []
+  podAnnotations: {}
+  # The ServiceAccount provided here will have precedence over
+  # the global `serviceAccount`
+  serviceAccount:
+journal:
+  # [ Required values ]
+  type: "UFS" # One of "UFS" or "EMBEDDED"
+
+  folder: "/futurewei-data" # Master journal directory or equivalent storage path
+  # Nikunj
+
+  #
+  # [ Conditionally required values ]
+  #
+  ## [ UFS-backed journal options ]
+  ## - required when using a UFS-type journal (journal.type="UFS")
+  ##
+  ## ufsType is one of "local" or "HDFS"
+  ## - "local" results in a PV being allocated to each Master Pod as the journal
+  ## - "HDFS" results in no PV allocation, it is up to you to ensure you have
+  ##   properly configured the required Alluxio properties for Alluxio to access
+  ##   the HDFS URI designated as the journal folder
+  ufsType: "local"
+  #
+  ## [ K8s volume options ]
+  ## - required when using an EMBEDDED journal (journal.type="EMBEDDED")
+  ## - required when using a local UFS journal (journal.type="UFS" and journal.ufsType="local")
+  ##
+  ## volumeType controls the type of journal volume.
+  volumeType: persistentVolumeClaim # One of "persistentVolumeClaim" or "emptyDir"
+  ## size sets the requested storage capacity for a persistentVolumeClaim,
+  ## or the sizeLimit on an emptyDir PV.
+  size: 10Gi
+  ### Unique attributes to use when the journal is persistentVolumeClaim
+  storageClass: "standard"
+  accessModes:
+    - ReadWriteOnce
+  ### Unique attributes to use when the journal is emptyDir
+  medium: ""
+  #
+  # [ Optional values ]
+  format: # Configuration for journal formatting job
+    runFormat: false # Change to true to format journal
+worker:
+  enabled: true
+  env:
+    # Extra environment variables for the worker pod
+    # Example:
+    # JAVA_HOME: /opt/java
+  args:
+    - worker-only
+    - --no-format
+  # Properties for the worker component
+  properties:
+  resources:
+    limits:
+      cpu: "4"
+
+      memory: "40G" #Nikunj
+
+    requests:
+      cpu: "1"
+
+      memory: "10G" #Nikunj
+
+  ports:
+    rpc: 29999
+    web: 30000
+  # hostPID requires escalated privileges
+  hostPID: false
+  hostNetwork: false
+  # dnsPolicy will be ClusterFirstWithHostNet if hostNetwork: true
+  # and ClusterFirst if hostNetwork: false
+  # You can specify dnsPolicy here to override this inference
+  # dnsPolicy: ClusterFirst
+  # JVM options specific to the worker container
+  jvmOptions:
+  nodeSelector: {}
+  readinessProbe:
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 1
+    failureThreshold: 3
+    successThreshold: 1
+  livenessProbe:
+    initialDelaySeconds: 15
+    periodSeconds: 30
+    timeoutSeconds: 5
+    failureThreshold: 2
+  # If you are using Kubernetes 1.18+ or have the feature gate
+  # for it enabled, use startupProbe to prevent the livenessProbe
+  # from running until the startupProbe has succeeded
+  # startupProbe:
+  #   initialDelaySeconds: 15
+  #   periodSeconds: 30
+  #   timeoutSeconds: 5
+  #   failureThreshold: 2
+  tolerations: []
+  podAnnotations: {}
+  # The ServiceAccount provided here will have precedence over
+  # the global `serviceAccount`
+  serviceAccount:
+  # Setting fuseEnabled to true will embed Fuse in worker process. The worker pods will
+  # launch the Alluxio workers using privileged containers with `SYS_ADMIN` capability.
+  # Be sure to give root access to the pod by setting the global user/group/fsGroup
+  # values to `0` to turn on Fuse in worker.
+  fuseEnabled: false
+jobWorker:
+  args:
+    - job-worker
+  # Properties for the jobWorker component
+  properties:
+  resources:
+    limits:
+      cpu: "4"
+      memory: "40G"
+    requests:
+      cpu: "1"
+
+      memory: "10G" #Nikunj
+
+  ports:
+    rpc: 30001
+    data: 30002
+    web: 30003
+  # JVM options specific to the jobWorker container
+  jvmOptions:
+  readinessProbe:
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 1
+    failureThreshold: 3
+    successThreshold: 1
+  livenessProbe:
+    initialDelaySeconds: 15
+    periodSeconds: 30
+    timeoutSeconds: 5
+    failureThreshold: 2
+  # If you are using Kubernetes 1.18+ or have the feature gate
+  # for it enabled, use startupProbe to prevent the livenessProbe
+  # from running until the startupProbe has succeeded
+  # startupProbe:
+  #   initialDelaySeconds: 15
+  #   periodSeconds: 30
+  #   timeoutSeconds: 5
+  #   failureThreshold: 2
+tieredstore:
+  levels:
+  - level: 0
+    alias: MEM
+    mediumtype: MEM
+    path: /dev/shm
+    type: emptyDir
+
+    quota: 50G #Nikunj
+
+    high: 0.95
+    low: 0.7
+shortCircuit:
+  enabled: true
+  # The policy for short circuit can be "local" or "uuid",
+  # local means the cache directory is in the same mount namespace,
+  # uuid means interact with domain socket
+  policy: uuid
+  # volumeType controls the type of shortCircuit volume.
+  # It can be "persistentVolumeClaim" or "hostPath"
+  volumeType: persistentVolumeClaim
+
+  size: 10G
+
+  # Attributes to use if the domain socket volume is PVC
+  pvcName: alluxio-worker-domain-socket
+  accessModes:
+    - ReadWriteOnce
+  storageClass: standard
+  # Attributes to use if the domain socket volume is hostPath
+  hostPath: "/tmp/alluxio-domain" # The hostPath directory to use
+
+
+## FUSE ## Nikunj
+
+fuse:
+  env:
+    # Extra environment variables for the fuse pod
+    # Example:
+    # JAVA_HOME: /opt/java
+  image: alluxio/alluxio-fuse
+  imageTag: 2.4.0-SNAPSHOT
+  imagePullPolicy: IfNotPresent
+
+  # Change both to true to deploy FUSE
+  enabled: true
+  clientEnabled: true
+
+  # Change global to true to enable fuse client deploy in global mode, which will deploy fuse client in all the nodes
+  # not consider the the worker and fuse  affinity
+  global: true # false
+
+  nodeSelector: {}
+
+  # Properties for the jobWorker component
+  properties:
+  # Customize the MaxDirectMemorySize
+  # These options are specific to the FUSE daemon
+  #jvmOptions:
+  #  - "-XX:MaxDirectMemorySize=2g"
+
+  hostNetwork: true
+
+  # hostPID requires escalated privileges
+  hostPID: true
+  dnsPolicy: ClusterFirstWithHostNet
+  user: 1000
+  group: 1000
+  fsGroup: 1000
+  args:
+    - fuse
+    - --fuse-opts=allow_other
+
+  # Mount path in the host
+  mountPath: /mnt/alluxio-fuse
+  resources:
+    requests:
+#      cpu: "0.5"
+#      memory: "1G"
+    limits:
+#      cpu: "4"
+#      memory: "4G"
+
