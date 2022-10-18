@@ -2,7 +2,7 @@ FROM python:3
 RUN pip3 install requests
 
 COPY __init__.py /__init__.py
-COPY crd-operator /crd-operator
+COPY crd-operator.py /crd-operator
 COPY cache_manager.py /cache_manager.py
 COPY create-alnair-datacache-resource /create-alnair-datacache-resource
 COPY deploy-proxy /deploy-proxy
