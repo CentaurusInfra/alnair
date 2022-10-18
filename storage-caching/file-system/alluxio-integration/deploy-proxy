@@ -17,7 +17,6 @@ echo "StrictHostKeyChecking no" > /root/.ssh/config && sync
 
 for WORKER in ${ALL_NODES};
 do
-    echo -e " [`date \"+%F %H:%M:%S,%m\"`] | INFO\t|  Setting up known_hosts for alluxio-user on ${WORKER}..."
     echo -e " [`date \"+%F %H:%M:%S,%m\"`] | INFO\t|  Enabling ssh setup for Data Caching Worker ${WORKER}"
     ssh-keygen -R alluxio-user@${WORKER} 2>&1>/dev/null
 done
@@ -39,9 +38,12 @@ kubectl proxy --port=${K8S_API_PORT} 2>&1>/dev/null &
 sleep 2 # Let proxy boot up
 
 # If mkdir fails, its ok as well.
-kubectl exec alluxio-master-0 -c alluxio-master -- alluxio fs mkdir ${ALLUXIO_BASE_PATH} 2>&1>/dev/null || true
+echo -e " [`date \"+%F %H:%M:%S,%m\"`] | INFO\t|  Create Data cache mount point (ignore error 255 if mount point existed)"
+kubectl exec alluxio-master-0 -c alluxio-master -- alluxio fs mkdir ${ALLUXIO_BASE_PATH} 2>&1>/dev/null
 
 set -e
 
 # Boot up the Operator
+echo -e " [`date \"+%F %H:%M:%S,%m\"`] | INFO\t|  Starting CRD Operator.."
+echo
 /crd-operator
