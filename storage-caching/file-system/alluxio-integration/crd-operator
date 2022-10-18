@@ -33,12 +33,27 @@ ALLUXIO_ROOT_FUSE_MOUNT="/journal"
 # Setup logging
 log = logging.getLogger(__name__)
 logging.basicConfig(
-    format=" [%(asctime)s] | %(levelname)s\t|  %(message)s", level=logging.INFO
+    format=" [%(asctime)s] | %(levelname)s\t|  %(message)s", level=logging.DEBUG
 )
 
 
 def warn(*foo):
     log.warning(*foo)
+
+
+class ParentKiller (threading.Thread):
+    def run(self, *vargs, **kargs):
+        self._exc = None
+        try:
+            super(ParentKiller, self).run(*vargs, **kargs)
+        except BaseException as e:
+            self._exc = e
+            raise e
+
+    def join(self, timeout=None):
+        super(ParentKiller, self).join(timeout)
+        if self._exc:
+            raise self._exc
 
 
 # Class definitions
@@ -122,7 +137,7 @@ class MasterNodeTaskExecutor(ExecutorServiceABC):
         try:
             val = (
                 sp.run(
-                    ("ssh nikunj@" + host_name + " du -s " + dataset_path).split(),
+                    ("ssh alluxio-user@" + host_name + " du -s " + dataset_path).split(),
                     stdout=sp.PIPE,
                     check=True,
                 )
@@ -220,7 +235,7 @@ class WorkerNodeTaskExecutor(ExecutorServiceABC):
         try:
             val = (
                 sp.run(
-                    ("ssh nikunj@" + self._nodename + " du -s " + dataset_path).split(),
+                    ("ssh alluxio-user@" + self._nodename + " du -s " + dataset_path).split(),
                     stdout=sp.PIPE,
                     check=True,
                 )
@@ -262,7 +277,7 @@ class WorkerNodeTaskExecutor(ExecutorServiceABC):
             )
             return capacity, used
 
-        except Exception as e:
+        except BaseException as e:
             log.error("Unable to get total capacity and used capacity on worker node:")
             log.error(f"  {str(e)}")
 
@@ -319,7 +334,7 @@ class AlluxioCacheManager(DatasetCacheManagerBase):
                 f"Data hydration completed for {self._deploy_name}, mount {datasetdir_basename}, path {dataset_path}, rev: {resource_rev})"
             )
 
-        except Exception as e:  # Also captures CalledProcessError when actual cmd fails
+        except BaseException as e:  # Also captures CalledProcessError when actual cmd fails
             warn(
                 f"Data hydration request may have been already satisfied. Check if data is already cached by browsing to the dashboard of Dataset Cache master."
             )
@@ -371,7 +386,7 @@ class AlluxioCacheManager(DatasetCacheManagerBase):
                 sp.run(create_cr_cmd.split(), stderr=None, timeout=60).returncode == 0
             )
 
-        except Exception as e:
+        except BaseException as e:
             log.error(
                 f"Deployment creation program failed to create AlnairDatacache deployment:"
             )
@@ -622,7 +637,7 @@ class AlluxioCacheManager(DatasetCacheManagerBase):
                 else:
                     self._mark_done()
 
-        except Exception as e:
+        except BaseException as e:
             log.error(
                 f"Data hydration is not possible for resource {self._deploy_name} due to errors:"
             )
@@ -635,7 +650,8 @@ class AlluxioCacheManager(DatasetCacheManagerBase):
 
     def _stop_daemons(self):
         for d in self._daemons:
-            d.join()
+            if d:
+                d.join()
         self._daemons = []
 
 
@@ -705,15 +721,17 @@ class AlluxioCacheManager(DatasetCacheManagerBase):
                 else:
                     log.debug("response != ok")
                     log.error(f"HTTP ERROR {response.status_code}: {response.text}")
-                    response.raise_for_status()
+                    try:
+                        response.raise_for_status()
+                    except BaseException as e:
+                        self._exc = e
+                        raise e
+
 
             except DatasetCacheError as e:
                 warn(
                     f"Unrecognized deployment object '{response}' is ignored: {str(e)}, {type(e)}"
                 )
-
-            except Exception as e:
-                log.exception(f"ERROR: {str(e)}  OF TYPE {type(e)}")
 
             time.sleep(2)
 
@@ -744,7 +762,7 @@ class AlluxioCacheManager(DatasetCacheManagerBase):
         log.debug("Inside top level start of CacheManager..")
 
         self._daemons = [
-            threading.Thread(
+            ParentKiller(
                 daemon=True,
                 target=self.run,
                 args=(resource,),
@@ -765,13 +783,16 @@ def init_proxy_task():
 
     k8s_proxy_cmd = f"/deploy-proxy {K8S_API_PORT} {ALLUXIO_BASE_PATH}"
 
+    out = None
     try:
-        sp.run(k8s_proxy_cmd.split(),
-            stdout=sp.PIPE, stderr=sp.PIPE, check=True, timeout=None
+        out = sp.run(k8s_proxy_cmd.split(),
+            stdout=sp.PIPE, stderr=sp.PIPE, timeout=None
         )
 
     except sp.CalledProcessError as e:
-        log.exception("Proxy deployment failed")
+        log.exception(f"Proxy deployment failed: {str(e)}")
+        log.exception(f"ERROR: {out.stderr}")
+        log.exception(f"The Operator pod instance will now abort")
         raise
 
 
@@ -780,8 +801,9 @@ try:
     cache_manager = AlluxioCacheManager()
 
     # Run Kubernetes Proxy on port K8S_API_PORT
-    proxy_daemon = threading.Thread(daemon=True, target=init_proxy_task, name="K8s_Proxy")
+    proxy_daemon = ParentKiller(daemon=True, target=init_proxy_task, name="K8s_Proxy")
     proxy_daemon.start()
+    proxy_daemon.join()
 
     time.sleep(3)  # Let the proxy server boot up
     warn("Node affinity is ignored for now")
@@ -794,11 +816,10 @@ try:
 
     log.info("Stopping Kubernetes Proxy...")
 
-    proxy_daemon.join()
     if proxy_daemon.isAlive():
         raise SystemExit()
 
-except Exception as e:
+except BaseException as e:
     log.exception(f"{str(e)}")
     cache_manager.abort()
     raise SystemExit()

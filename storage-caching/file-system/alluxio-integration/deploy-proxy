@@ -5,10 +5,15 @@ ALLUXIO_BASE_PATH=$2
 
 set -e
 
-# Set password-less ssh across Alluxio nodes
+# Create new user to execute remote commands on Alluxio cluster
+echo -e " [`date \"+%F %H:%M:%S,%m\"`] | INFO\t|  Adding alluxio-user..."
+useradd -s /bin/bash -U  -u 1002 -p alluxio -m -b /home alluxio-user
+
+# Set password-less ssh across Alluxio nodes for new user
+echo -e " [`date \"+%F %H:%M:%S,%m\"`] | INFO\t|  Setting up known_hosts for root..."
+mkdir -p /root/.ssh && touch /root/.ssh/known_hosts && chmod 0644 /root/.ssh/known_hosts
 
 WORKER_NODES=$(kubectl get nodes --selector='!node-role.kubernetes.io/control-plane' -o wide --no-headers | awk '{print $6}')
-
 ALL_NODES=$(kubectl get nodes  -o wide --no-headers | awk '{print $6}')
 
 for WORKER in ${ALL_NODES};
@@ -25,7 +30,7 @@ echo "StrictHostKeyChecking no" > ~/.ssh/config && sync
 for WORKER in ${ALL_NODES};
 do
     echo -e " [`date \"+%F %H:%M:%S,%m\"`] | INFO\t|  Adding ssh id to Data Caching Worker ${WORKER}"
-    ssh-copy-id -f nikunj@${WORKER} 2>&1 > /dev/null
+    sshpass -p alluxio ssh-copy-id -f alluxio-user@${WORKER} 2>&1 > /dev/null
 done
 
 set +e # If a proxy was already running, its ok
@@ -36,7 +41,6 @@ kubectl proxy --port=${K8S_API_PORT} 2>&1 > /dev/null &
 sleep 2 # Let proxy boot up
 
 # If mkdir fails, its ok as well.
-
 kubectl exec alluxio-master-0 -c alluxio-master -- alluxio fs mkdir ${ALLUXIO_BASE_PATH} 2>&1 > /dev/null
 
 set -e
