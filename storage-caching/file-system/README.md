@@ -1,19 +1,4 @@
 
-  * [Steps to start Alluxio Cluster](#steps-to-start-alluxio-cluster)
-- [Argument 0 is the program name](#argument-0-is-the-program-name)
-- [Argument 1, fw0013512 is the node / machine name where data is currently available, needs to be an Alluxio worker](#argument-1--fw0013512-is-the-node---machine-name-where-data-is-currently-available--needs-to-be-an-alluxio-worker)
-- [Argument 2, ~/alluxio-2.7.4/webui/master/build/, is the origin / source path to the file or directory of your data](#argument-2----alluxio-274-webui-master-build---is-the-origin---source-path-to-the-file-or-directory-of-your-data)
-- [Argument 3, "datasets", is the type of data. It can be either "datasets" or "deployment". This type is used to organize data correctly in the orchestration.](#argument-3---datasets---is-the-type-of-data-it-can-be-either--datasets--or--deployment--this-type-is-used-to-organize-data-correctly-in-the-orchestration)
-- [The datasets are cached under /futurewei-data/datasets/ and the experiments / programs under /futurewei-data/experiments.](#the-datasets-are-cached-under--futurewei-data-datasets--and-the-experiments---programs-under--futurewei-data-experiments)
-- [Arvument 4, default in our example is an OPTIONAL namespace name. The default value is namespace=default. Please specify correct namespace where Alluxio was deployed.](#arvument-4--default-in-our-example-is-an-optional-namespace-name-the-default-value-is-namespace-default-please-specify-correct-namespace-where-alluxio-was-deployed)
-- [Argu,ent 5, the "1", enables debug logs on screen, any other value will skip on screen logging.](#argu-ent-5--the--1---enables-debug-logs-on-screen--any-other-value-will-skip-on-screen-logging)
-- [For Alluxio](#for-alluxio)
-- [Name the file alluxio-master-journal-pv.yaml](#name-the-file-alluxio-master-journal-pvyaml)
-- [Name the file alluxio-master-journal-pv.yaml](#name-the-file-alluxio-master-journal-pvyaml-1)
-
-<small><i><a href='http://ecotrust-canada.github.io/markdown-toc/'>Table of contents generated with markdown-toc</a></i></small>
-
-
 ## Steps to start Alluxio Cluster
 
 To get Alluxio Data Orchestration Cluster started from scratch, just follow below commands / steps:
