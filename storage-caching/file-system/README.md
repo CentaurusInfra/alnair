@@ -6,7 +6,9 @@ To get Alluxio Data Orchestration Cluster started from scratch, just follow belo
 1) [One-time step] Create alluxio-user on all workers for ssh commands.
    Since k8s CRD API doesn't fully work, this is the custom user to execute certain commands
 
-	`sudo useradd -s /bin/bash -U -m -b /home alluxio-user # On all alluxio workers`
+	```
+	sudo useradd -s /bin/bash -U -m -b /home alluxio-user # On all alluxio workers
+	```
 
 *All below steps are automated*
 
