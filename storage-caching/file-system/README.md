@@ -36,7 +36,8 @@ Clone code and checkout my branch (or keep in the main branch once code is relea
 Delete any existing Alluxio deployment and volume
 
 	```
-	helm uninstall alluxio && cd <alnair-clone-dir>/alnair/storage-caching/file-system/alluxio-integration/alluxio-2.8.1/singleMaster-localJournal
+	helm uninstall alluxio
+	cd <alnair-clone-dir>/alnair/storage-caching/file-system/alluxio-integration/alluxio-2.8.1/singleMaster-localJournal
 	kubectl delete alluxio-master-journal-pv.yaml
 	```
 
