@@ -5,8 +5,7 @@ To get Alluxio Data Orchestration Cluster started from scratch, just follow belo
 
 0) (One-time step) Create new Kubernetes cluster ....
 
-1) (One-time step) Create alluxio-user on all workers for ssh commands.
-   Since k8s CRD API doesn't fully work, this is the custom user to execute certain commands
+1) (One-time step) Create alluxio-user on all workers for ssh commands. Since k8s CRD API doesn't fully work, this is the custom user to execute certain commands
 
 	```
 	WORKER_NODES=$(kubectl get nodes --selector='!node-role.kubernetes.io/control-plane' -o wide --no-headers | awk '{print $6}')
@@ -24,7 +23,7 @@ To get Alluxio Data Orchestration Cluster started from scratch, just follow belo
 	done
 	```
 
-${ALLUXIO_PASS} is the environment variable that stores clear-text password of the `alluxio-user`. In real deployment the code uses Kubernetes secret `alnair-cache-operator-secret` from file `alnair-cache-crd-operator-secret.yml`. If you want to manually set this password in an experimental deployment, please ping nparekh@futurewei.com (Nikunj Parekh).
+	${ALLUXIO_PASS} is the environment variable that stores clear-text password of the `alluxio-user`. In real deployment the code uses Kubernetes secret `alnair-cache-operator-secret` from file `alnair-cache-crd-operator-secret.yml`. If you want to manually set this password in an experimental deployment, please ping nparekh@futurewei.com (Nikunj Parekh).
 
 3) (One-time step) Create journal dirs on all workers and masters and specify correct ownerships and permissions for them
 
@@ -39,16 +38,16 @@ ${ALLUXIO_PASS} is the environment variable that stores clear-text password of t
 
 4) (One-time step) Clone file-system caching code
 
-Create or go to the dir whenever you want the code to live, such as ${HONME}/code/. Let's call it <alnair-clone-dir>.
-Clone code and checkout my branch (or keep in the main branch once code is released).
-	
+	Create or go to the dir whenever you want the code to live, such as ${HONME}/code/. Let's call it <alnair-clone-dir>.
+	Clone code and checkout my branch (or keep in the main branch once code is released).
+
 	```
 	mkdir -p <alnair-clone-dir>
 	cd <alnair-clone-dir>
 	git clone https://github.com/CentaurusInfra/alnair/
 	git checkout alluxio-data-orchestration
 	```
-	
+
 5) Delete any existing Alluxio deployment and volume
 	
 	```
@@ -56,7 +55,9 @@ Clone code and checkout my branch (or keep in the main branch once code is relea
 	cd <alnair-clone-dir>/alnair/storage-caching/file-system/alluxio-integration/alluxio-2.8.1/singleMaster-localJournal
 	kubectl delete -f alluxio-master-journal-pv.yaml
 	```
-Wait several minutes for PV and PVC to be deleted. A brute-force way, not strongly recommended, is to use below command if thsi deletion takes an inordinate amount of time --
+
+	Wait several minutes for PV and PVC to be deleted. A brute-force way, not strongly recommended, is to use below command if thsi deletion takes an inordinate amount of time --
+
 	```
 	# Not strongly recommended:
 	kubectl delete --grace-period=0 --wait=false  pv/alluxio-journal-0 pv/alluxio-fuse3 pvc/alluxio-journal-alluxio-master-0
