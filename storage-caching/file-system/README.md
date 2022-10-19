@@ -3,31 +3,42 @@
 
 To get Alluxio Data Orchestration Cluster started from scratch, just follow below commands / steps:
 
-1) [One-time step] Create alluxio-user on all workers for ssh commands.
+0) (One-time step) Create new Kubernetes cluster ....
+
+1) (One-time step) Create alluxio-user on all workers for ssh commands.
    Since k8s CRD API doesn't fully work, this is the custom user to execute certain commands
 
 	```
-	sudo useradd -s /bin/bash -U -m -b /home alluxio-user # On all alluxio workers
+	WORKER_NODES=$(kubectl get nodes --selector='!node-role.kubernetes.io/control-plane' -o wide --no-headers | awk '{print $6}')
+	for WORKER in ${WORKER_NODES}; do
+		sudo useradd -s /bin/bash -U -m -b /home alluxio-user
+			# Since `sudo` is used, you'd have to ssh to the node; loop won't work as-is
+	done
 	```
 
-*All below steps are automated*
-
-2) Enable password-less ssh for alluxio-user on all k8s workers
+2) (One-time step) Enable password-less ssh for alluxio-user on all k8s workers
 
 	```
-	sshpass -p ${ALLUXIO_PASS} ssh-copy-id -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -f alluxio-user@${WORKER}
+	for WORKER in ${WORKER_NODES}; do
+		sshpass -p ${ALLUXIO_PASS} ssh-copy-id -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -f alluxio-user@${WORKER}
+	done
 	```
 
 ${ALLUXIO_PASS} is the environment variable that stores clear-text password of the `alluxio-user`. In real deployment the code uses Kubernetes secret `alnair-cache-operator-secret` from file `alnair-cache-crd-operator-secret.yml`. If you want to manually set this password in an experimental deployment, please ping nparekh@futurewei.com (Nikunj Parekh).
 
-3) Create journal dirs on all workers and masters and specify correct ownerships and permissions for them
+3) (One-time step) Create journal dirs on all workers and masters and specify correct ownerships and permissions for them
 
 	```
-	mkdir -p /mnt/fuse/{alluxio-journal/datasets,domain-socket}
-	chmod -R 0777 /mnt/fuse
+	for WORKER in ${WORKER_NODES}; do
+		ssh ${WORKER} sudo mkdir -p /mnt/fuse/{alluxio-journal/datasets,domain-socket}
+			# Since `sudo` is used, you'd have to ssh to the node; loop won't work as-is
+		ssh ${WORKER} sudo chown -R alluxio-user.alluxio-user /mnt/fuse
+		ssh ${WORKER} chmod -R 0777 /mnt/fuse
+	done
 	```
 
-4) Clone file-system caching code and Create Persistent Volume that'd work with Alluxio
+4) (One-time step) Clone file-system caching code
+
 Create or go to the dir whenever you want the code to live, such as ${HONME}/code/. Let's call it <alnair-clone-dir>.
 Clone code and checkout my branch (or keep in the main branch once code is released).
 	
@@ -43,26 +54,48 @@ Clone code and checkout my branch (or keep in the main branch once code is relea
 	```
 	helm uninstall alluxio
 	cd <alnair-clone-dir>/alnair/storage-caching/file-system/alluxio-integration/alluxio-2.8.1/singleMaster-localJournal
-	kubectl delete alluxio-master-journal-pv.yaml
+	kubectl delete -f alluxio-master-journal-pv.yaml
+	```
+Wait several minutes for PV and PVC to be deleted. A brute-force way, not strongly recommended, is to use below command if thsi deletion takes an inordinate amount of time --
+	```
+	# Not strongly recommended:
+	kubectl delete --grace-period=0 --wait=false  pv/alluxio-journal-0 pv/alluxio-fuse3 pvc/alluxio-journal-alluxio-master-0
 	```
 
 6) Add new Alluxio Helm Chart
 
 	```
 	helm repo remove alluxio-charts
-	helm repo add alluxio-charts https://alluxio-charts.storage.googleapis.com/openSource/2.8.1
+	helm repo add alluxio-charts https://alluxio-charts.storage.googleapis.com/openSource/2.8.1  # Or a later version you want to try
 	```
 
-7) Create ClusterRole, ClusterRoleBinding to let Operator, Master etc all use operations to query, delete, create, list pods, deployments, jobs, nodes
+7) Create ClusterRole, ClusterRoleBinding and the Kubernetes Secret, `alnair-cache-operator-secret` to let Operator, Master etc all use operations to query, delete, create, list pods, deployments, jobs, nodes
 
 	```
+	cd <alnair-clone-dir>/alnair/storage-caching/file-system/alluxio-integration
+	# Create RBAC Role and Binding
 	kubectl create -f alnair-cache-crd-operator-rbac.yml
+	
+	# Create Kubernetes secret that provisions the password of alluxio-user
+	kubectl create -f alnair-cache-crd-operator-secret.yml
+	
+	# Now start operator
+	kubectl create -f alnair-cache-crd-operator.yml
+	```
+
+	(We can just do `kubectl create -f .` instead of all three commands above.)
+
+8) Deploy Persistent Volume that'd work with Alluxio for data journal and Worker Domain Socket
+	
+	```
+	cd <alnair-clone-dir>/alnair/storage-caching/file-system/alluxio-integration/alluxio-2.8.1/singleMaster-localJournal
 	kubectl create -f alluxio-master-journal-pv.yaml
 	```
 
-8) Deploy Alluxio
+9) Deploy Alluxio
 
 	```
+	cd <alnair-clone-dir>/alnair/storage-caching/file-system/alluxio-integration/alluxio-2.8.1/singleMaster-localJournal
 	helm upgrade --install alluxio --debug --values my-alluxio-values.yaml -f config.yaml -f alluxio-configmap.yaml  --set fuse.enabled=true --set fuse.clientEnabled=true --set alluxio.master.hostname=\`hostname\` --set alluxio.worker.ramdisk.size=100G --set alluxio.worker.ramdisk.size=50Gi --set alluxio.worker.tieredstore.level0.dirs.quota=50Gi   alluxio-charts/alluxio  2>&1>helm.out
 	```
 
