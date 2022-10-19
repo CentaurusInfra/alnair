@@ -10,7 +10,7 @@
 - [Build Open MPI](#OMPI)
 - [Build Pytorch](#pytorch)
 - [Build TorchVision](#torchvision)
-- [References)(#references)
+- [References](#references)
 
 
 
@@ -111,12 +111,6 @@ https://docs.nvidia.com/networking/display/MLNXOFEDv461000/Installing+Mellanox+O
 #### rdma-core (user space tools)
 This should be included in OFED installation package, in case missing, `rdma-core` can be built separately. 
 
-# Libraries
-## pytorch (binary)
-https://pytorch.org/get-started/locally/
-```
-conda install pytorch torchvision torchaudio cudatoolkit=10.2 -c pytorch
-```
 
 ## openmpi <a name="OMPI"></a>
 ### apt install (cli ref)
@@ -157,6 +151,9 @@ sudo make install
 mkdir build && cd build && ../configure --prefix=/usr/local --with-cuda --enable-mpi-thread-multiple --enable-debug --enable-mem-debug --enable-event-debug  && make -j 32 all && sudo make install 
 ```
 ## pytorch with openmpi (build ompi first)  <a name="pytorch"></a>
+### ref:
+https://pytorch.org/get-started/locally/
+
 if runing in conda, suggest to create a new env with `conda create --name targetEnv python=3.8` 
 
 ```
@@ -184,7 +181,7 @@ git submodule update --init --recursive --jobs 0
 python setup.py install 
 ```
 
-### torchvision <a name="torchvision"></a>
+## torchvision <a name="torchvision"></a>
 ```
 git clone github.com:pytorch/vision.git
 cd vision
@@ -210,12 +207,12 @@ some potential packages may need:
 ```
 apt install python3.9-distutil
 ```
-# References <a name="references"></a>
-## Driver
+## References <a name="references"></a>
+### Driver
 https://github.com/mjiUST/driver_cuda_cudnn
 https://github.com/CentaurusInfra/alnair/wiki/GPU-node-preparation#gpu-node-preparation
 
-## dependencies reference:
+### dependencies reference:
 ```
 python >= 3.8 
 pytorch==1.7.1+cu101
@@ -225,8 +222,8 @@ numpy == 1.21.0
 opencv-python == 4.6.0
 pillow==9.2.0
 ```
-## know issues in `setuptools`
-### setuptools has no 'version' attribute
+### known issues in `setuptools`
+#### setuptools has no 'version' attribute
 ```
 AttributeError: module 'setuptools._distutils' has no attribute 'version'
 ```
@@ -235,7 +232,7 @@ soltuion:
 either use the nightly-release of PyTorch, or otherwise downgrade setup tools to setuptools version 59.5.0.
 I install even smaller version.
 ```
-### ninja build stoped: submodule failed
+#### ninja build stoped: submodule failed
 big hole here, took me some time . 
 ```
 git clean -xdf
