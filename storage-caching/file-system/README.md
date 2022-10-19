@@ -77,13 +77,13 @@ Suppose you want to host into Alluxio in-memory cache, the dataset from some fol
 
 ```
 ./dataorch-host-data fw0013512 ~/my-awesome-datasets/some_smaller_coco_dataset_dir datasets default 1
-# Argument 0 is the program name
-# Argument 1, fw0013512 is the node / machine name where data is currently available, needs to be an Alluxio worker
-# Argument 2, ~/alluxio-2.7.4/webui/master/build/, is the origin / source path to the file or directory of your data
-# Argument 3, "datasets", is the type of data. It can be either "datasets" or "deployment". This type is used to organize data correctly in the orchestration.
-#   The datasets are cached under /futurewei-data/datasets/ and the experiments / programs under /futurewei-data/experiments.
-# Arvument 4, default in our example is an OPTIONAL namespace name. The default value is namespace=default. Please specify correct namespace where Alluxio was deployed.
-# Argu,ent 5, the "1", enables debug logs on screen, any other value will skip on screen logging.
+Argument 0 is the program name
+Argument 1, fw0013512 is the node / machine name where data is currently available, needs to be an Alluxio worker
+Argument 2, ~/alluxio-2.7.4/webui/master/build/, is the origin / source path to the file or directory of your data
+Argument 3, "datasets", is the type of data. It can be either "datasets" or "deployment". This type is used to organize data correctly in the orchestration.
+   The datasets are cached under /futurewei-data/datasets/ and the experiments / programs under /futurewei-data/experiments.
+Argument 4, default in our example is an OPTIONAL namespace name. The default value is namespace=default. Please specify correct namespace where Alluxio was deployed.
+Argument 5, the "1", enables debug logs on screen, any other value will skip on screen logging.
 ```
 
 If necessary, we can enhance the program argument handling etc later. The prioriy rightnow is to experiment with the orchestration v1.0.
