@@ -1,13 +1,22 @@
 
-# rdma-over-container
-
+# rdma-on-baremetal
 # TOC
-1. [conda](#conda)
-2. [python3.9](#python3.9 )
-3. [](#)
-4. [](#)
+- [conda](#conda)
+  - [creat conda env](#CreateCondaEnv)
+- [python3.9 on host](#python3.9)
+- [CUDA](#CUDA)
+- [cudnn](#cudnn)
+- [RDMA OFED](#OFED)
+- [Build Open MPI](#OMPI)
+- [Build Pytorch](#pytorch)
+- [Build TorchVision](#torchvision)
+- [References)(#references)
 
 
+
+
+
+# Brief
 * draft project so far.
 * Before enable FreeFlow, the current job is to have RDMA/Pytroch enabled iamge for "distributed" AI training tasks.
 
@@ -37,13 +46,13 @@ if [ -d "$CUDAPATH/bin" ] ; then
 fi
 ```
 
-###  creat conda env
+###  creat conda env <a name="CreateCondaEnv"></a>
 ```
 conda activate base
 conda create --name targetEnv python=3.8
 ```
 
-## python3.9 on host
+## python3.9 on host <a name="python3.9"></a>
 
 ### apt installation
 ```
@@ -52,7 +61,7 @@ sudo apt update
 sudo apt install python3.9 
 ```
 
-## CUDA
+## CUDA <a name="CUDA"></a>
 ### locla mode
 ```
 wget https://developer.download.nvidia.com/compute/cuda/11.4.0/local_installers/cuda_11.4.0_470.42.01_linux.run
@@ -66,11 +75,7 @@ follow the README.md
 ```
 
 
-# Driver prepareation
-## other
-https://github.com/CentaurusInfra/alnair/wiki/GPU-node-preparation#gpu-node-preparation
-
-## cudnn
+## cudnn <a name="cudnn"></a>
 If you hit GPG keyring problem and can solve it smoothly, here's a workaround to install tarball directly:
 
 cudnn download web: https://developer.nvidia.com/cudnn You need an account before download.
@@ -89,7 +94,7 @@ $ cat /usr/local/cuda/include/cudnn_version.h | grep CUDNN_MAJOR -A 2
 
 ```
 
-## RDMA OFED  
+## RDMA OFED <a name="OFED"></a> 
 Kernel modules and RDMA tools included. 
 #### driver download
 https://network.nvidia.com/products/infiniband-drivers/linux/mlnx_ofed/
@@ -113,7 +118,7 @@ https://pytorch.org/get-started/locally/
 conda install pytorch torchvision torchaudio cudatoolkit=10.2 -c pytorch
 ```
 
-## openmpi
+## openmpi <a name="OMPI"></a>
 ### apt install (cli ref)
 ```
 sudo apt install openmpi-bin openmpi-common
@@ -151,7 +156,7 @@ sudo make install
 ```
 mkdir build && cd build && ../configure --prefix=/usr/local --with-cuda --enable-mpi-thread-multiple --enable-debug --enable-mem-debug --enable-event-debug  && make -j 32 all && sudo make install 
 ```
-## pytorch with openmpi (build ompi first)
+## pytorch with openmpi (build ompi first)  <a name="pytorch"></a>
 if runing in conda, suggest to create a new env with `conda create --name targetEnv python=3.8` 
 
 ```
@@ -179,7 +184,7 @@ git submodule update --init --recursive --jobs 0
 python setup.py install 
 ```
 
-### torchvision
+### torchvision <a name="torchvision"></a>
 ```
 git clone github.com:pytorch/vision.git
 cd vision
@@ -205,9 +210,10 @@ some potential packages may need:
 ```
 apt install python3.9-distutil
 ```
-# References
+# References <a name="references"></a>
 ## Driver
 https://github.com/mjiUST/driver_cuda_cudnn
+https://github.com/CentaurusInfra/alnair/wiki/GPU-node-preparation#gpu-node-preparation
 
 ## dependencies reference:
 ```
