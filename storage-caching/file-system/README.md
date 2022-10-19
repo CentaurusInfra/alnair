@@ -1,5 +1,5 @@
 
-## Steps to Start Alluxio Cluster
+# Steps to Start Alluxio Cluster
 
 To get Alluxio Data Orchestration Cluster started from scratch, just follow below commands / steps:
 
@@ -12,32 +12,59 @@ To get Alluxio Data Orchestration Cluster started from scratch, just follow belo
 
 2) Enable password-less ssh for alluxio-user on all k8s workers
 
-	`sshpass -p ${ALLUXIO_PASS} ssh-copy-id -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -f alluxio-user@${WORKER} 2>&1>/dev/null`
+	`sshpass -p ${ALLUXIO_PASS} ssh-copy-id -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -f alluxio-user@${WORKER}`
+
+${ALLUXIO_PASS} is the environment variable that stores clear-text password of the `alluxio-user`. In real deployment the code uses Kubernetes secret `alnair-cache-operator-secret` from file `alnair-cache-crd-operator-secret.yml`. If you want to manually set this password in an experimental deployment, please ping nparekh@futurewei.com (Nikunj Parekh).
 
 3) Create journal dirs on all workers and masters and specify correct ownerships and permissions for them
 
-	```mkdir -p /mnt/fuse/{alluxio-journal/datasets,domain-socket} && chmod -R 0777 /mnt/fuse```
+	```
+	mkdir -p /mnt/fuse/{alluxio-journal/datasets,domain-socket}
+	chmod -R 0777 /mnt/fuse
+	```
 
-4) Delete any existing Alluxio depliyment and volume
+4) Clone file-system caching code and Create Persistent Volume that'd work with Alluxio
+Create or go to the dir whenever you want the code to live, such as ${HONME}/code/. Let's call it <alnair-clone-dir>.
+Clone code and checkout my branch (or keep in the main branch once code is released).
+	```
+	mkdir -p <alnair-clone-dir>
+	cd <alnair-clone-dir>
+	git clone https://github.com/CentaurusInfra/alnair/
+	git checkout alluxio-data-orchestration
+	```
+	
+Delete any existing Alluxio deployment and volume
 
-	```helm uninstall alluxio && cd /home/nikunj/caching/alnair-datacache-operator/alnair/storage-caching/file-system/alluxio-integration/alluxio-2.8.1/singleMaster-localJournal && kubectl delete alluxio-master-journal-pv.yaml```
+	```
+	helm uninstall alluxio && cd <alnair-clone-dir>/alnair/storage-caching/file-system/alluxio-integration/alluxio-2.8.1/singleMaster-localJournal
+	kubectl delete alluxio-master-journal-pv.yaml
+	```
 
 6) Add new Alluxio Helm Chart
 
-	```helm repo remove alluxio-charts && helm repo add alluxio-charts https://alluxio-charts.storage.googleapis.com/openSource/2.8.1```
+	```
+	helm repo remove alluxio-charts
+	helm repo add alluxio-charts https://alluxio-charts.storage.googleapis.com/openSource/2.8.1
+	```
 
 7) Create ClusterRole, ClusterRoleBinding to let Operator, Master etc all use operations to query, delete, create, list pods, deployments, jobs, nodes
 
-	```kubectl create -f alnair-cache-crd-operator-rbac.yml && kubectl create -f alluxio-master-journal-pv.yaml```
+	```
+	kubectl create -f alnair-cache-crd-operator-rbac.yml
+	kubectl create -f alluxio-master-journal-pv.yaml
+	```
 
 8) Deploy Alluxio
 
-	```helm upgrade --install alluxio --debug --values my-alluxio-values.yaml -f config.yaml -f alluxio-configmap.yaml  --set fuse.enabled=true --set fuse.clientEnabled=true --set alluxio.master.hostname=`hostname` --set alluxio.worker.ramdisk.size=100G --set alluxio.worker.ramdisk.size=50Gi --set alluxio.worker.tieredstore.level0.dirs.quota=50Gi   alluxio-charts/alluxio  2>&1>helm.out```
+	```
+	helm upgrade --install alluxio --debug --values my-alluxio-values.yaml -f config.yaml -f alluxio-configmap.yaml  --set fuse.enabled=true --set fuse.clientEnabled=true --set alluxio.master.hostname=\`hostname\` --set alluxio.worker.ramdisk.size=100G --set alluxio.worker.ramdisk.size=50Gi --set alluxio.worker.tieredstore.level0.dirs.quota=50Gi   alluxio-charts/alluxio  2>&1>helm.out
+	```
 
 Note that we can finetune this later such that the resource deployments are only observed within certain namespace instead of at cluster level, by creating Role and RoleBinding instead. However, querying workers / k8s nodes will continue to require Cluster level RBAC.
 
 
-## Helpful Utilities to work with your datasets
+# (Older instructions)
+## New helpful Utilities to work with your datasets
 
 ### The `dataorch-host-data` program will allow you to host the data. Below is how that program works:
 ```
