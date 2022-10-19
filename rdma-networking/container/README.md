@@ -18,3 +18,10 @@ docker exec -it <container> /bin/bash
 # python mnist-distribured.py -n 1 -g 4 -i 0
 
 ```
+
+## Target Images
+To use the image for running tasks:
+
+
+[image(ofed-cuda102-cudnn8-torch1.8-ompi5.0rc-vision0.9)](http://sclinux1:8082/ui/repos/tree/General/repo_rdma/rdma/ofed-cuda102-cudnn8-torch1.8-ompi5.0rc-vision0.9)
+
