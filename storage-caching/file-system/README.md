@@ -1,5 +1,5 @@
 
-## Steps to start Alluxio Cluster
+## Steps to Start Alluxio Cluster
 
 To get Alluxio Data Orchestration Cluster started from scratch, just follow below commands / steps:
 
@@ -16,8 +16,7 @@ To get Alluxio Data Orchestration Cluster started from scratch, just follow belo
 
 3) Create journal dirs on all workers and masters and specify correct ownerships and permissions for them
 
-	```mkdir -p /mnt/fuse/{alluxio-journal/datasets,domain-socket} &&
-	chmod -R 0777 /mnt/fuse```
+	```mkdir -p /mnt/fuse/{alluxio-journal/datasets,domain-socket} && chmod -R 0777 /mnt/fuse```
 
 4) Delete any existing Alluxio depliyment and volume
 
@@ -27,13 +26,11 @@ To get Alluxio Data Orchestration Cluster started from scratch, just follow belo
 
 6) Add new Alluxio Helm Chart
 
-	```helm repo remove alluxio-charts &&
-	helm repo add alluxio-charts https://alluxio-charts.storage.googleapis.com/openSource/2.8.1```
+	```helm repo remove alluxio-charts && helm repo add alluxio-charts https://alluxio-charts.storage.googleapis.com/openSource/2.8.1```
 
 7) Create ClusterRole, ClusterRoleBinding to let Operator, Master etc all use operations to query, delete, create, list pods, deployments, jobs, nodes
 
-```kubectl create -f alnair-cache-crd-operator-rbac.yml
-	kubectl create -f alluxio-master-journal-pv.yaml```
+```kubectl create -f alnair-cache-crd-operator-rbac.yml && kubectl create -f alluxio-master-journal-pv.yaml```
 
 8) Deploy Alluxio
 	```helm upgrade --install alluxio --debug --values my-alluxio-values.yaml -f config.yaml -f alluxio-configmap.yaml  --set fuse.enabled=true --set fuse.clientEnabled=true --set alluxio.master.hostname=`hostname` --set alluxio.worker.ramdisk.size=100G --set alluxio.worker.ramdisk.size=50Gi --set alluxio.worker.tieredstore.level0.dirs.quota=50Gi   alluxio-charts/alluxio  2>&1>helm.out```
