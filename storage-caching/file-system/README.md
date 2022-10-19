@@ -20,9 +20,7 @@ To get Alluxio Data Orchestration Cluster started from scratch, just follow belo
 
 4) Delete any existing Alluxio depliyment and volume
 
-```helm uninstall alluxio &&
-	cd /home/nikunj/caching/alnair-datacache-operator/alnair/storage-caching/file-system/alluxio-integration/alluxio-2.8.1/singleMaster-localJournal &&
-	kubectl delete alluxio-master-journal-pv.yaml```
+	```helm uninstall alluxio && cd /home/nikunj/caching/alnair-datacache-operator/alnair/storage-caching/file-system/alluxio-integration/alluxio-2.8.1/singleMaster-localJournal && kubectl delete alluxio-master-journal-pv.yaml```
 
 6) Add new Alluxio Helm Chart
 
@@ -30,7 +28,7 @@ To get Alluxio Data Orchestration Cluster started from scratch, just follow belo
 
 7) Create ClusterRole, ClusterRoleBinding to let Operator, Master etc all use operations to query, delete, create, list pods, deployments, jobs, nodes
 
-```kubectl create -f alnair-cache-crd-operator-rbac.yml && kubectl create -f alluxio-master-journal-pv.yaml```
+	```kubectl create -f alnair-cache-crd-operator-rbac.yml && kubectl create -f alluxio-master-journal-pv.yaml```
 
 8) Deploy Alluxio
 	```helm upgrade --install alluxio --debug --values my-alluxio-values.yaml -f config.yaml -f alluxio-configmap.yaml  --set fuse.enabled=true --set fuse.clientEnabled=true --set alluxio.master.hostname=`hostname` --set alluxio.worker.ramdisk.size=100G --set alluxio.worker.ramdisk.size=50Gi --set alluxio.worker.tieredstore.level0.dirs.quota=50Gi   alluxio-charts/alluxio  2>&1>helm.out```
