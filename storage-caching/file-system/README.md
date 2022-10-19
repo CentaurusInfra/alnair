@@ -12,7 +12,9 @@ To get Alluxio Data Orchestration Cluster started from scratch, just follow belo
 
 2) Enable password-less ssh for alluxio-user on all k8s workers
 
-	`sshpass -p ${ALLUXIO_PASS} ssh-copy-id -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -f alluxio-user@${WORKER}`
+	```
+	sshpass -p ${ALLUXIO_PASS} ssh-copy-id -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -f alluxio-user@${WORKER}
+	```
 
 ${ALLUXIO_PASS} is the environment variable that stores clear-text password of the `alluxio-user`. In real deployment the code uses Kubernetes secret `alnair-cache-operator-secret` from file `alnair-cache-crd-operator-secret.yml`. If you want to manually set this password in an experimental deployment, please ping nparekh@futurewei.com (Nikunj Parekh).
 
@@ -26,6 +28,7 @@ ${ALLUXIO_PASS} is the environment variable that stores clear-text password of t
 4) Clone file-system caching code and Create Persistent Volume that'd work with Alluxio
 Create or go to the dir whenever you want the code to live, such as ${HONME}/code/. Let's call it <alnair-clone-dir>.
 Clone code and checkout my branch (or keep in the main branch once code is released).
+	
 	```
 	mkdir -p <alnair-clone-dir>
 	cd <alnair-clone-dir>
@@ -33,8 +36,8 @@ Clone code and checkout my branch (or keep in the main branch once code is relea
 	git checkout alluxio-data-orchestration
 	```
 	
-Delete any existing Alluxio deployment and volume
-
+5) Delete any existing Alluxio deployment and volume
+	
 	```
 	helm uninstall alluxio
 	cd <alnair-clone-dir>/alnair/storage-caching/file-system/alluxio-integration/alluxio-2.8.1/singleMaster-localJournal
