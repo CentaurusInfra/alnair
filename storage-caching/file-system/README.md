@@ -102,6 +102,18 @@ To get Alluxio Data Orchestration Cluster started from scratch, just follow belo
 
 Note that we can finetune this later such that the Operator watches for the resource deployments only within certain namespace, instead of at cluster level, by creating Role and RoleBinding instead of ClusterRole and ClusterRoleBinding. However, querying the Kubernetes worker nodes, to iterate over them will continue to require Cluster level RBAC.
 
+10) (Optional) View Alluxio dashboard (no authentication):
+	Step 1) setup port forwarding using below command on your Unix workstation
+	```
+	kubectl port-forward --address 0.0.0.0 pods/alluxio-master-0 8080:19999 &
+	```
+
+	Step 2) browse to
+	```
+	http://<master node IP address>:8080/
+	```
+	
+	For example, [My Current Alluxio Cluster on CPU32](http://10.145.41.32:8080/). Additional details are in the sections below.
 
 ---
 
