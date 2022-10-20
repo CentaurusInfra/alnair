@@ -29,7 +29,7 @@ PODS_URI          = f"api/v1/namespaces/{NAMESPACE}"
 DEPLOYMENTS_URI   = f"apis/apps/v1/namespaces/{NAMESPACE}"
 JOBS_URI          = f"apis/batch/v1/namespaces/{NAMESPACE}"
 RESOURCE_URI_MAP  = dict(deployments=DEPLOYMENTS_URI, pods=PODS_URI, jobs=JOBS_URI)
-ALLUXIO_ROOT_FUSE_MOUNT="/journal"
+ALLUXIO_ROOT_FUSE_MOUNT="/journal/"
 
 # Setup logging
 log = logging.getLogger(__name__)
@@ -272,6 +272,8 @@ class WorkerNodeTaskExecutor(ExecutorServiceABC):
 
             _TMP_NUM_WORKERS_ = 2 # TODO: future work
 
+            log.info(f"Computing space requirement on worker {self._nodename} (HACK: Currently estimating as (size on master)/2.0, due to failed Alluxio API)...")
+
             capacity = MasterNodeTaskExecutor.get_capacity_bytes() / _TMP_NUM_WORKERS_
             used = MasterNodeTaskExecutor.get_used_bytes() / _TMP_NUM_WORKERS_
 
@@ -309,14 +311,50 @@ class AlluxioCacheManager(DatasetCacheManagerBase):
     def _print_banner(self):
         super()._print_banner()
 
+
+    def _get_worker_for_affinity_node(self, scheduled_nodeName):
+
+        node_list_cmd = "kubectl get pods -o jsonpath={$.items[*].spec.nodeName}"
+
+        node_names = sp.run(
+            node_list_cmd.split(), stdout=sp.PIPE, check=True
+        ).stdout.decode("utf-8")
+
+        pod_list_cmd = "kubectl get pods -o jsonpath={$.items[*].metadata.name}"
+
+        pod_names = sp.run(
+            pod_list_cmd.split(), stdout=sp.PIPE, check=True
+        ).stdout.decode("utf-8")
+
+        node2pod = dict(zip([p for p in pod_names.split()],[n for n in node_names.split()]))
+
+        for p,n in node2pod.items():
+            if p.startswith("alluxio-worker-"):
+                log.info(f"Worker {p} is on affinity node {n}, and will be used to hydrate the Cache")
+                if n == scheduled_nodeName:
+                    return p
+
+        return
+
+
     # This method returns the total capacity of in-memory Alluxio cache cluster
-    def copy_data_to_datasetcache(self, datasetdir_basename, dataset_path, resource_rev):
+    def copy_data_to_datasetcache(self, scheduled_nodeName, datasetdir_basename, dataset_path, resource_rev):
 
         """Tha main method that copies the data into the Alluxio in-memory distributed cache cluster
         This method assumes that all checks and validations are already done."""
 
+        worker_pod_name = self._get_worker_for_affinity_node(scheduled_nodeName)
+
+        cmd_prefix = (
+            f"kubectl exec -i {worker_pod_name} -c alluxio-worker -n "
+            if scheduled_nodeName
+            else "kubectl exec -i alluxio-master-0 -c alluxio-master -n "
+        )
+
+        log.debug(f"Hydration command prefix (node affinity: {scheduled_nodeName}): {cmd_prefix}")
+
         cp_cmd = (
-            "kubectl exec -i alluxio-master-0 -c alluxio-master -n "
+            cmd_prefix
             + NAMESPACE
             + " -- alluxio fs copyFromLocal --thread 64 "
             + ALLUXIO_ROOT_FUSE_MOUNT
@@ -324,6 +362,8 @@ class AlluxioCacheManager(DatasetCacheManagerBase):
             + " "
             + dataset_path
         )
+
+        log.debug(f"The final data hydration command: {cp_cmd}")
 
         try:
             out = sp.run(
@@ -341,6 +381,7 @@ class AlluxioCacheManager(DatasetCacheManagerBase):
             warn(
                 f"Data hydration request may have been already satisfied. Check if data is already cached by browsing to the dashboard of Dataset Cache master."
             )
+            log.debug(f"ERROR: {str(e)}")
 
             return False
 
@@ -436,7 +477,7 @@ class AlluxioCacheManager(DatasetCacheManagerBase):
             # Get unused size and capacity of Dataset Cache
             if scheduled_nodeName:
                 log.info(
-                    f"Node affinity is identified for in-progress deployment {self._deploy_name} with node {scheduled_nodeName}"
+                    f"Node affinity is identified for in-progress deployment {self._deploy_name} for node '{scheduled_nodeName}'"
                 )
 
                 capacity, used = worker_executor.get_capacity_and_used_bytes_onworker()
@@ -478,7 +519,7 @@ class AlluxioCacheManager(DatasetCacheManagerBase):
                 # /mnt/fuse part gets removed, gets rest of path
                 datasetdir_basename = "/".join(host_path.split("/")[4:])
 
-                success = self.copy_data_to_datasetcache(
+                success = self.copy_data_to_datasetcache(scheduled_nodeName,
                     datasetdir_basename, dataset_path_in_cache, resource_rev
                 )
 
@@ -501,10 +542,10 @@ class AlluxioCacheManager(DatasetCacheManagerBase):
         )
 
         # Create / Replace the deployment
-        # deploy_cmd = f"kubectl create -f {self._output_filename} --validate=false"
-        deploy_cmd = (
-            f"kubectl replace --force -f {self._output_filename} --validate=false"
-        )
+        deploy_cmd = f"kubectl create -f {self._output_filename} --validate=false"
+        #deploy_cmd = (
+        #    f"kubectl replace --force -f {self._output_filename} --validate=false"
+        #)
 
         try:
             sp.run(
@@ -521,7 +562,7 @@ class AlluxioCacheManager(DatasetCacheManagerBase):
             warn("Deployment failed for AlnairDatacache resource:")
             warn(f"  Command: {deploy_cmd}")
             warn(
-                "  Please check if the corresponding AlnairDatacache deployment is already running"
+                "  Please check if the corresponding AlnairDatacache deployment is already running or in 'Completed' state"
             )
 
     def _mark_done(self):
@@ -604,7 +645,7 @@ class AlluxioCacheManager(DatasetCacheManagerBase):
             if not spec or not self.check_caching_required(spec):
                 return False
 
-            scheduled_nodeName = None  # spec.get("nodeName")
+            scheduled_nodeName = spec.get("nodeName")
 
             worker_executor = (
                 WorkerNodeTaskExecutor(scheduled_nodeName)
@@ -789,15 +830,13 @@ def _notcalled_init_proxy_task():
 
     k8s_proxy_cmd = f"/deploy-proxy {K8S_API_PORT} {ALLUXIO_BASE_PATH}"
 
-    out = None
     try:
-        out = sp.run(k8s_proxy_cmd.split(),
+        sp.run(k8s_proxy_cmd.split(),
             stdout=sp.PIPE, stderr=sp.PIPE, timeout=None
         )
 
     except sp.CalledProcessError as e:
         log.exception(f"Proxy deployment failed: {str(e)}")
-        log.exception(f"ERROR: {out.stderr}")
         log.exception(f"The Operator pod instance will now abort")
         raise
 
@@ -805,8 +844,6 @@ def _notcalled_init_proxy_task():
 try:
     # Instantiate the AlluxioCacheManager
     cache_manager = AlluxioCacheManager()
-
-    warn("Node affinity is ignored for now")
 
     # Start the event loop
     cache_manager.start()
