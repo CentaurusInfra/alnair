@@ -100,7 +100,8 @@ To get Alluxio Data Orchestration Cluster started from scratch, just follow belo
 	helm upgrade --install alluxio --debug --values my-alluxio-values.yaml -f config.yaml -f alluxio-configmap.yaml  --set fuse.enabled=true --set fuse.clientEnabled=true --set alluxio.master.hostname=`hostname` --set alluxio.worker.ramdisk.size=50Gi --set alluxio.worker.tieredstore.level0.dirs.quota=50Gi   alluxio-charts/alluxio  2>&1>helm.out
 	```
 
-Note that we can finetune this later such that the resource deployments are only observed within certain namespace instead of at cluster level, by creating Role and RoleBinding instead. However, querying workers / k8s nodes will continue to require Cluster level RBAC.
+Note that we can finetune this later such that the Operator watches for the resource deployments only within certain namespace, instead of at cluster level, by creating Role and RoleBinding instead of ClusterRole and ClusterRoleBinding. However, querying the Kubernetes worker nodes, to iterate over them will continue to require Cluster level RBAC.
+
 
 ---
 
