@@ -56,10 +56,10 @@ To get Alluxio Data Orchestration Cluster started from scratch, just follow belo
 	kubectl delete -f alluxio-master-journal-pv.yaml
 	```
 
-	Wait several minutes for PV and PVC to be deleted. A brute-force way, not strongly recommended, is to use below command if thsi deletion takes an inordinate amount of time --
+	Wait several minutes for PV and PVC to be deleted. A brute-force way, not strongly recommended, is to use below command if this deletion takes an inordinate amount of time --
 
 	```
-	# Not strongly recommended:
+	# _Weakly_ recommended:
 	kubectl delete --grace-period=0 --wait=false  pv/alluxio-journal-0 pv/alluxio-fuse3 pvc/alluxio-journal-alluxio-master-0
 	```
 
@@ -93,15 +93,16 @@ To get Alluxio Data Orchestration Cluster started from scratch, just follow belo
 	kubectl create -f alluxio-master-journal-pv.yaml
 	```
 
-9) Deploy Alluxio
+9) Deploy Alluxio with Cache (ramdisk) = 50G, and quota = 50G, FuSE filesystem enabled, current node as Master
 
 	```
 	cd <alnair-clone-dir>/alnair/storage-caching/file-system/alluxio-integration/alluxio-2.8.1/singleMaster-localJournal
-	helm upgrade --install alluxio --debug --values my-alluxio-values.yaml -f config.yaml -f alluxio-configmap.yaml  --set fuse.enabled=true --set fuse.clientEnabled=true --set alluxio.master.hostname=\`hostname\` --set alluxio.worker.ramdisk.size=100G --set alluxio.worker.ramdisk.size=50Gi --set alluxio.worker.tieredstore.level0.dirs.quota=50Gi   alluxio-charts/alluxio  2>&1>helm.out
+	helm upgrade --install alluxio --debug --values my-alluxio-values.yaml -f config.yaml -f alluxio-configmap.yaml  --set fuse.enabled=true --set fuse.clientEnabled=true --set alluxio.master.hostname=`hostname` --set alluxio.worker.ramdisk.size=50Gi --set alluxio.worker.tieredstore.level0.dirs.quota=50Gi   alluxio-charts/alluxio  2>&1>helm.out
 	```
 
 Note that we can finetune this later such that the resource deployments are only observed within certain namespace instead of at cluster level, by creating Role and RoleBinding instead. However, querying workers / k8s nodes will continue to require Cluster level RBAC.
 
+---
 
 # (Older instructions)
 ## New helpful Utilities to work with your datasets
