@@ -1,0 +1,58 @@
+#!/bin/bash
+###############################################
+# Futurewei Technologies, Inc
+# All Rights Reserved
+# Copyright 2022+
+# Author: Nikunj J Parekh
+# Email: nparekh@futurewei.com
+# Date of original commit: 8th July, 2022
+###############################################
+
+
+set -e
+
+e="echo -e \t"
+
+product_name_ver="Futurewei Data Orchestrator v0.1"
+actual_mount_point=/opt/domain
+printed_mount_point=/mnt/fuse3/datasets # This is the domain socket. Please check path provided in the PV
+
+$e "${product_name_ver}\n"
+
+# Validate inputs and print usage
+
+[ $# -lt 1 ] && $e "Usage:\t$0 <orchestration path> [namespace] [debug: 0 | 1]" && $e &&
+    $e "\tNode is one of the Data Orcheatration worker nodes and should allow ssh without password" &&
+    $e "\tPath is the directory or file to be downloaded from Data Orchestration" && exit 1
+
+# Setup input parameters
+
+orchestrated_data=$1
+base=`basename ${orchestrated_data}`
+new_data_location=${actual_mount_point}/$(basename `dirname ${orchestrated_data}`)/$base
+
+[ $2 ] && namespace=$2 && $e "Namespace = $namespace" && $e || namespace="default"
+[ $3 ] && debug=$3 && $e "Debug = $debug" && $e || debug=yea
+
+orch_worker_pod=($(kubectl get pods -o wide | grep "alluxio-worker" | head -1 | awk '{print $1}'))
+orch_worker_node=($(kubectl get pods -o wide | grep ${orch_worker_pod} | awk '{print $(NF-2)}'))
+
+# Now initiate download
+
+$e && $e "Now downloading data from ${orchestrated_data} into ${printed_mount_point}/$base on node $orch_worker_node..."
+
+[ "$debug" != "0" ] && $e "\\kubectl exec -n ${namespace} -i ${orch_worker_pod} -c alluxio-worker -- alluxio fs copyToLocal ${orchestrated_data} ${new_data_location}"
+
+\kubectl exec -n ${namespace} -i ${orch_worker_pod} -c alluxio-worker -- alluxio fs copyToLocal ${orchestrated_data} ${new_data_location}
+
+[ "$debug" != "0" ] && $e Checking data in the pod:
+[ "$debug" != "0" ] && $e "\kubectl exec -n ${namespace} -i ${orch_worker_pod} -c alluxio-worker -- ls -l ${new_data_location}"
+[ "$debug" != "0" ] && \kubectl exec -n ${namespace} -i ${orch_worker_pod} -c alluxio-worker -- ls -l ${new_data_location}
+
+[ "$debug" != "0" ] && $e Also, checking data on the node $orch_worker_node:
+[ "$debug" != "0" ] && $e "ssh $orch_worker_node ls -l ${printed_mount_point}/$base"
+ssh $orch_worker_node ls -l ${printed_mount_point}/$base
+
+exitcode=$?
+$e "Return code: $exitcode"
+return $exitcode

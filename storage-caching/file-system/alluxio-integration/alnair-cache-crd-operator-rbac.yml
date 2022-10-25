@@ -1,0 +1,39 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: alnair-datacache-resource-reader-role
+  namespace: default
+rules:
+- apiGroups: [ "" ]
+  resources:
+  - pods
+  - pods/exec
+  - nodes
+  verbs: [ get, list, create, update, patch, delete, deletecollection, watch ]
+
+- apiGroups: [ "apps" ]
+  resources:
+  - deployments
+  verbs: [ get, list, create, update, patch, delete, deletecollection, watch ]
+
+- apiGroups: [ "batch" ]
+  resources:
+  - jobs
+  verbs: [ get, list, create, update, patch, delete, deletecollection, watch ]
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: alnair-datacache-resource-reader-binding
+  namespace: default
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: alnair-datacache-resource-reader-role
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: default

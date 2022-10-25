@@ -1,0 +1,15 @@
+master:
+  count: 1 # For multiMaster mode increase this to >1
+
+journal:
+  type: "UFS"
+  ufsType: "local"
+  folder: "/journal"
+
+  volumeType: persistentVolumeClaim # One of "persistentVolumeClaim" or "emptyDir"
+  size: 10Gi
+
+  ### Unique attributes to use when the journal is persistentVolumeClaim
+  storageClass: "standard"
+  accessModes:
+    - ReadWriteOnce

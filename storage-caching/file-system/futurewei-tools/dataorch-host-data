@@ -1,0 +1,97 @@
+#!/bin/bash
+###############################################
+# Futurewei Technologies, Inc
+# All Rights Reserved
+# Copyright 2022+
+# Author: Nikunj J Parekh
+# Email: nparekh@futurewei.com
+# Date of original commit: 8th July, 2022
+###############################################
+
+
+set -e
+
+e="echo -e \t"
+
+product_name_ver="Futurewei Data Orchestrator v0.1"
+mount_point=/mnt/fuse3
+rootfs=/futurewei-data
+
+$e "${product_name_ver}\n"
+
+# Validate inputs and print usage
+
+[ $# -lt 2 ] && $e "Usage:\t$0 <node> <path> [data_type: datasets | deployment] [namespace] [debug: 0 | 1]" && $e &&
+    $e "\tNode is one of the Data Orcheatration worker nodes and should allow ssh without password" &&
+    $e "\tPath is the directory or file to be copied into Data Orchestration" &&
+    $e "\tdata_type is the type of data that helps decide storage location in the Data Orchestration system" &&
+    $e "\t  Two data_types are currently supported: datasets or deployment" && exit 1
+
+# Setup input parameters
+
+node=$1
+orchestrated_data=$2
+
+[ $3 ] && data_type=$3 && $e "Data type = $data_type" || data_type="datasets"
+[ $4 ] && namespace=$4 && $e "Namespace = $namespace" || namespace="default"
+[ $5 ] && debug=$5 && $e "Debug = $debug" && $e || debug=0
+
+orch_masters_pods=($(kubectl get pods -n ${namespace} | grep "alluxio-master" | awk '{print $1}')) # or | sed 1d or awk 'NR>0'
+orch_workers_pods=($(kubectl get pods -n ${namespace} | grep "alluxio-worker" | awk '{print $1}'))
+kub_nodes=($(kubectl get nodes -n ${namespace} | grep -v NAME | awk '{print $1}'))
+
+# Print important info
+
+[ -d ${orchestrated_data} ] && [ ! -L ${orchestrated_data} ] && $e "Directory / file to be copied  : `ls -dl ${orchestrated_data}`" || \
+    $e "Linked data to be copied:  `ls -l $(readlink -f ${orchestrated_data})`\n"
+
+[ "$debug" != "0" ] && $e "Node this data is hosted on    : $node"
+[ "$debug" != "0" ] && $e "Kubernetes cluster nodes       : ${kub_nodes[*]}"
+[ "$debug" != "0" ] && $e "Data Orchestration Master Pods : ${orch_masters_pods[*]}"
+[ "$debug" != "0" ] && $e "Data Orchestration Worker Pods : ${orch_workers_pods[*]}"
+$e
+
+# Initialize all the paths
+
+orchestrated_data=$(readlink -f ${orchestrated_data})
+all_worker_nodes=($(kubectl get pods -n ${namespace} -o wide | grep "alluxio-worker" | awk '{print $(NF-2)}'))
+orch_worker_pod_on_node=($(kubectl get pods -n ${namespace} -o wide | grep "alluxio-worker" | grep $node | awk '{print $1}'))
+new_data_location=${mount_point}/${data_type}/`basename ${orchestrated_data}`
+    ## CORRECT: worker_data_location=/opt/domain/${data_type}/`basename ${orchestrated_data}`
+    ## TEMP ->
+    worker_data_location=/opt/domain/`basename ${orchestrated_data}`
+final_hosted_location=${rootfs}/${data_type}/`basename ${orchestrated_data}`
+
+# Validate the specified node is an Orchestration worker node
+
+[[ ! " ${kub_nodes[@]} " =~ " $node " ]] && $e "ERROR: Node $node is not a ${product_name_ver} node!" && exit 1
+
+[ ! ${orch_worker_pod_on_node} ] && $e "ERROR: No ${product_name_ver} worker is running on node $node." && \
+    $e "\tPlease specify one of the worker nodes from: ${all_worker_nodes[*]}" && exit 1
+
+# Now initiate copy
+
+$e "STEP 1 of 2: For speed, *MOVING*, not copying the data into filesystem volume mount ${mount_point} on node $node:" && $e
+
+# $e "ssh ${node} mv -i ${orchestrated_data} ${mount_point}/${data_type}"
+
+ssh ${node} mv -i ${orchestrated_data} ${mount_point}/${data_type}
+
+[ "$debug" != "0" ] && $e "New data is located at ${new_data_location} on $node:"
+[ "$debug" != "0" ] && ssh $node ls -l ${new_data_location} && $e
+
+$e "STEP 2 of 2: Now hosting data at ${new_data_location} on node $node into ${product_name_ver} if it wasn't already hosted..."
+
+$e "\\kubectl exec -n ${namespace} -i ${orch_worker_pod_on_node} -c alluxio-worker -- alluxio fs copyFromLocal --thread 64 ${worker_data_location}  ${final_hosted_location}"
+
+[ "$debug" != "0" ] && $e "\kubectl exec -n ${namespace} -i ${orch_worker_pod_on_node} -c alluxio-worker -- ls -l ${worker_data_location}"
+
+\kubectl exec -n ${namespace} -i ${orch_worker_pod_on_node} -c alluxio-worker -- alluxio fs copyFromLocal --thread 64 ${worker_data_location}  ${final_hosted_location}
+
+$e "Data hosting completed with below final lcoation"
+
+\kubectl exec -n ${namespace} -i ${orch_worker_pod_on_node} -c alluxio-worker -- alluxio fs ls ${final_hosted_location}
+
+exitcode=$?
+$e "Return code: $exitcode"
+return $exitcode
