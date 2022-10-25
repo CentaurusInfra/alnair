@@ -1,27 +1,21 @@
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: profiler-daemonset
+  name: alnair-profiler-daemonset
   namespace: alnair
 spec:
   selector:
     matchLabels:
-      app: profiler
+      app: alnair-profiler
   template:
     metadata:
       labels:
-        app: profiler
-      annotations: # add annotation for prometheus scraping
-        prometheus.io/scrape: 'true'
-        prometheus.io/port: '9400'
-        prometheus.io/path: '/metrics' #default is /metrics
-
+        app: alnair-profiler
     spec:
-      hostPID: true
       serviceAccountName: admin-pod
       containers:
         - name: profiler-container
-          image: centaurusinfra/profiler  
+          image: centaurusinfra/profiler:0.5.0  
           # command: ["bash", "-c", "while true; do sleep 10; done;"] # for debug purpose 
           resources:
               limits:
@@ -55,20 +49,6 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: status.podIP 
-        - name: dcgm-container
-          image: nvidia/dcgm-exporter:2.0.13-2.1.1-ubuntu18.04
-          # switch default metrics to additional profiling metrics, not all gpu supported. if not support, container fatal error
-          #args:
-          #  - "-f=/etc/dcgm-exporter/dcp-metrics-included.csv"
-          ports:
-            - containerPort: 9400
-          env:
-            - name: DCGM_EXPORTER_INTERVAL
-              value: "100"
-          securityContext:
-            capabilities:
-              add:
-                - SYS_ADMIN
 ---
 #give the profiler pod admin rights to update cluster node annotation
 apiVersion: v1

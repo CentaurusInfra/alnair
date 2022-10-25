@@ -71,7 +71,7 @@ data:
           target_label: instance
         - source_labels: [__meta_kubernetes_host_ip]
           target_label: node_ip
-      - job_name: 'profiler-pods'
+      - job_name: 'dcgm'
         scrape_interval: 1s 
         metrics_path: '/metrics' 
         kubernetes_sd_configs:
@@ -81,7 +81,7 @@ data:
                 - alnair
             selectors:
               - role: pod
-                label: "app=profiler" 
+                label: "app=dcgm" 
         relabel_configs:
         - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
           action: replace

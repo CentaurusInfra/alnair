@@ -7,5 +7,6 @@ resources:
   - prometheus-complete.yaml
   - mongo.yaml
   - cadvisor-daemonset.yaml
-  - profiler-dcgm-daemonset.yaml
+  - dcgm-daemonset.yaml
+  - alnair-profiler-daemonset.yaml
   - alnair-exporter/manifests/alnair-exporter.yaml
