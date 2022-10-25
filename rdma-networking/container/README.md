@@ -1,8 +1,14 @@
 # Dockerfile
 
 ## The way to trigger the container:
+### with RDMA support
 ```
-docker run -v /sys/class/:/sys/class/ -e "LD_LIBRARY_PATH=/usr/lib;/root/anaconda3/envs/p38/lib:/root/anaconda3/lib" -v /dev/:/dev/ --privileged --device=/dev/infiniband/uverbs0 --device=/dev/infiniband/rdma_cm -it -d <img:tag>  /bin/bash
+docker run --net host -v /sys/class/:/sys/class/ -e "LD_LIBRARY_PATH=/usr/lib;/root/anaconda3/envs/p38/lib:/root/anaconda3/lib" -v /dev/:/dev/ --privileged --device=/dev/infiniband/uverbs0 --device=/dev/infiniband/rdma_cm -it -d <img:tag>  /bin/bash
+```
+
+### without RDMA support
+```
+docker run --net host -v /sys/class/:/sys/class/ -e "LD_LIBRARY_PATH=/usr/lib;/root/anaconda3/envs/p38/lib:/root/anaconda3/lib" -v /dev/:/dev/ --privileged --device=/dev/infiniband/uverbs0  -it  sclinux1:443/repo_rdma/pytorch:mpi-nordma-v0.1 /bin/bash
 ```
 
 
