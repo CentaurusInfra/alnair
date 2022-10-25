@@ -14,7 +14,7 @@ import (
 )
 
 //start a http server and respond to /metrics<port> end point
-func Start(nodeName string, port string) {
+func Start(nodeName string, podIP string, port string) {
 	//remove two default metrics collector
 	prometheus.Unregister(prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}))
 	prometheus.Unregister(prometheus.NewGoCollector())
@@ -36,6 +36,7 @@ func Start(nodeName string, port string) {
 	mux.Handle("/", http.HandlerFunc(mainPage))
 	mux.Handle("/metrics", promhttp.Handler())
 	log.Printf("Alnair exporter beginning to serve on port %s", port)
+	log.Printf("see available metrics with: wget http://%s%s/metrics", podIP, port)
 	err := http.ListenAndServe(port, mux)
 	if err != nil {
 		log.Fatalf("cannot start exporter: %s", err)
