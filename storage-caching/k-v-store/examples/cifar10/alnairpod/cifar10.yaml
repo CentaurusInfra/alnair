@@ -8,7 +8,7 @@ spec:
     name: alnairpod-client-secret
   jobs:
   - name: job1
-    image: zhuangweikang/cifar10:latest
+    image: centaurusinfra/cifar10:latest
     command: ["python3", "main.py"]
     datasource:
       name: CIFAR10

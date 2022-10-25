@@ -10,7 +10,7 @@ This project aims to develop a K8s-based storage caching system for speeding up 
     - performs data persistence by periodically flushing data into NFS storage
 - AlnairPod: is a [CRD](./alnairpod-operator) resource associated with a ConfigMap and a Pod, in which the latter hosts a Client container and a DLJob container.
     - Client Container: communicates with GM and share data location in Redis with DLJob. This container is automatically created when deploying an AlnairPod, and act as a daemon process of bridging DLJobs and Cache Cluster.
-    - DLJob Container: is the container where DL training or inference jobs are running. Users are required to subclass our [AlnairJobDataset](./examples/lib/AlnairJobDataset.py) class and initialize the [AlnairJobDataLoader](./examples/lib/AlnairJobDataLoader.py) class, as what they do when defining Pytorch custom Dataset.
+    - DLJob Container: is the container where DL training or inference jobs are running. Users are required to subclass our AlnairJobDataset class and initialize the AlnairJobDataLoader, as what they do when defining Pytorch custom Dataset.
 - Redis Cluster: is a key-value caching system deployed as a K8s StatefulSet.
     - Content hashing is executed when generating keys. 
     - When data eviction is enabled, GM automatically dumps data that are likely to be evicted into NFS. 
@@ -20,17 +20,40 @@ This project aims to develop a K8s-based storage caching system for speeding up 
 ![arch](./docs/images/arch.png)
 
 ## Cache Cluster Setup
-### Step 1. Redis Statefulset (3 replicas)
-Redis configurations are saved in [config.yaml](./cache-cluster/cacher/Redis/cluster/config.yaml). Please change and remember the `masterauth` and `requirepass` fields and uncomment the `bind=0.0.0.0`. For data eviction, consider to configure `maxmemory-policy`, `maxmemory` and `maxmemory-samples`. To run more instances, change the `replicas` field in the [cluster.yaml]((./cache-cluster/cacher/Redis/cluster/cluster.yaml)) file.
+### Prerequisites:
+- 2+ Ubuntu machines
+- A Kubernetes cluster with kubeadm,kubectl,kubelet (v1.18.0-00) installed
+- AWS S3 Credential
 
-Edit the [secret.yaml](cache-cluster/cacher/Redis/cluster/secret.yaml) to set passwords. Then execute:
+In the below example, we'll run the Cache Cluster on Worker nodes and AlnairPods on the Master node.
+```bash
+kubectl taint nodes $(hostname | awk '{print tolower($0)}') node-role.kubernetes.io/master-
+
+kubectl label node --overwrite $(hostname) alnair=Client
+workers=$(kubectl get nodes --no-headers=true --selector=kubernetes.io/hostname!=$(hostname) | awk '{print $1}')
+kubectl label node --overwrite $workers alnair=CacheCluster
+```
+Clone the repository
+```bash
+mkdir alnair-k-v-store
+cd alnair-k-v-store
+git init
+git remote add -f origin https://github.com/CentaurusInfra/alnair.git
+git config core.sparsecheckout true
+echo "storage-caching/k-v-store" >> .git/info/sparse-checkout
+git pull origin main
+cd alnair-k-v-store/storage-caching/k-v-store
+```
+
+### Step 1. Redis Statefulset
+Redis configurations are saved in [config.yaml](./cache-cluster/cacher/Redis/cluster/config.yaml). To run more servers (default to 3), change the `replicas` field in the [cluster.yaml]((./cache-cluster/cacher/Redis/cluster/cluster.yaml)) file.
 
 ```bash
 cd cache-cluster/cacher/Redis/cluster
 sh setup.sh init # enter `yes` when you see the prompt
 ```
 
-If clients are from a different K8s cluster than the Cache Cluster, please set the `enable_proxy` knob to true in the [config.yaml](./cache-cluster/manager/configmap.yaml). This will enable the envoy-proxy mode. Then, execute:
+(Optional) If clients are from a different K8s cluster than the Cache Cluster, please set the `enable_proxy` knob to true in the [config.yaml](./cache-cluster/manager/configmap.yaml). This will enable the envoy-proxy mode. Then, execute:
 ```bash
 kubectl apply -f envoy-proxy-config.yaml
 kubectl apply -f envoy-proxy-deploy.yaml
@@ -45,111 +68,135 @@ kubectl get pods -o wide | grep envoy-proxy | awk '{ print $7 }'
 # please ensure you create diectory /mnt/data on all nodes
 cd cache-cluster/mongodb
 sh setup.sh init
-
-# execute the follwing commands in the mongodb console:
-rs.initiate()
-var cfg = rs.conf()
-cfg.members[0].host="mongo-0.mongo:27017"
-rs.reconfig(cfg)
-rs.add("mongo-1.mongo:27017")
-rs.status()
-db.createUser(
-{
-    user: "alnair",
-    pwd: "alnair",
-    roles: [
-            { role: "userAdminAnyDatabase", db: "admin" },
-            { role: "readWriteAnyDatabase", db: "admin" },
-            { role: "dbAdminAnyDatabase", db: "admin" },
-            { role: "clusterAdmin", db: "admin" }
-        ]
-})
-exit()
-
-# get the Cluser-IP and targetPort of mongodb service
-kubectl get svc mongo
 ```
 
 ### Step 3. Global Manager (GM) Deployment
-Edit the [configmap.yaml](cache-cluster/manager/configmap.yaml) to define configurations of the manager, mongodb, and redis_proxy. To enable data persistence, execute [nfs.sh](cache-cluster/manager/nfs.sh) to set up NFS server on all worker nodes. Then execute:
+Edit the [configmap.yaml](cache-cluster/manager/configmap.yaml) to define configurations of the manager and mongodb. To enable data persistence, execute [nfs.sh](cache-cluster/manager/nfs.sh) to set up NFS server on all worker nodes.
 ```bash
 cd cache-cluster/manager/
+sh nfs.sh <CIDR> # example: sh nfs.sh 192.168.41.0/24
+
+# deploy GM
 kubectl apply -f .
 ```
-### Step 4. Deploy AlnairPod CRD
-Follow the [README](./alnairpod-operator/README.md) file to deploy AlnairPod operator and run its controller in your cluster.
 
 ## AlnairPod Development and Deployment
-### Step 1. Write Deep Learning Job
+### Step 1. Create CRD 
+```bash
+cd alnairpod-operator
+make install run
+```
+
+### Step 2. Write Deep Learning Job
+Install the [alnairjob](https://pypi.org/project/alnairjob/) library using pip.
+```bash
+pip3 install alnairjob
+```
 All datasets that represent a map from keys to data samples should subclass
-the [AlnairJobDataset](./examples/lib/AlnairJobDataset.py) class. All subclasses should overwrite:
-- meth:`__preprocess__`: supporting pre-processing loaded data. Data are saved as key-value map before calling this method. You are responsible for reshaping the dict to desired format.
-- meth:`__getitem__`: supporting fetching a data sample for a given index. Subclasses could also optionally overwrite
+the AlnairJobDataset class. All subclasses should overwrite:
+- meth:`__convert__`: supporting pre-processing loaded data. Data are saved as key-value map before calling this method. You are responsible for reshaping the dict to desired array.
+- meth:`__getitem__`: supporting fetching a data sample for a given index.
 - meth:`__len__`: returning the size of the dataset
 
-To traverse the created dataset, initialize an object of [AlnairJobDataLoader](./examples/lib/AlnairJobDataLoader.py) as the normal way of creating a PyTorch Dataloader. 
+To traverse the created dataset, initialize an object of AlnairJobDataLoader as the normal way of creating a PyTorch Dataloader. 
 
-More examples can be found [here](./examples/). Please create a Docker image for the application before moving to the next step.
-### Step 2. Create the AlnirPod
-The below shows an example of the definition of an ImageNet AlnairPod.
+### Step 3. Example: Create an Imagenet AlnirPod
+The Imagenet-Mini dataset is availabel on [Kaggle](https://www.kaggle.com/datasets/ifigotin/imagenetmini-1000).
+
+Please refer [ImageNetMiniDataset](./examples/imagenet/src/ImageNetMiniDataset.py) for Dataset implementation. Then, in your main program:
+```python
+from AlnairJob import AlnairJobDataset, AlnairJobDataLoader
+
+val_dataset = ImageNetDataset(keys=['imagenet-mini/val'], transform=transform)
+...
+val_loader = AlnairJobDataLoader(val_dataset, batch_size=args.batch_size, shuffle=False num_workers=args.workers, pin_memory=True, sampler=val_sampler)
+...
+```
+
+The below shows an example alnairpod secret and ImageNet AlnairPod. Make sure you have wrapped your DL Job in a Docker image.
+
 ```yaml
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: client-secret
+  namespace: default
+type: Opaque
+stringData:
+  client.conf: |
+    [aws_s3]
+    aws_access_key_id=<your key id>
+    aws_secret_access_key=<your key>
+    region_name=<your region name>
+---
 apiVersion: alnair.com/v1alpha1
 kind: AlnairPod
 metadata:
   name: imagenet
   namespace: default
 spec:
-  secret:  # ensure you have created the Secret
-    name: alnairpod-client-secret
+  secret:  # ensure you have created the Secret that contains 
+    name: client-secret
   jobs: # all fields supported by a regular Pod container are supported here.
   - name: job
-    image: <your repository>/imagenet:latest
+    image: centaurusinfra/imagenet:latest
     command: ["python3", "main.py"]
     datasource: # required field
       name: ImageNet-Mini
       bucket: <your s3 bucket name>
-      keys: # prefix is supported
+      keys: # prefix is supported, must be valid object keys/prefix in S3
       - imagenet-mini/train
       - imagenet-mini/val
-    configurations: # optional
-      usecache: true
-      maxmemory: 0  # unlimited memory
+    configurations:
+      usecache: true # use Cache Cluster(true) or S3(false)
+      maxmemory: 0 # unlimited
       durabilityindisk: 1440
+      lazyloading: true # lazy loading mode saves memory
     tty: true
     stdin: true
 ```
-Once the AlnairPod is deployed, you will see resources similar to:
-```shell
-zhuangwei@fw0015254:~/alnair/storage-caching$ kubectl get all
-NAME                                     READY   STATUS    RESTARTS     AGE
-pod/alnairpod-manager-6fc86ccfdd-2j8km   1/1     Running   0            25h
-pod/alnairpod-manager-6fc86ccfdd-bt8xt   1/1     Running   0            25h
-pod/alnairpod-manager-6fc86ccfdd-dvksg   1/1     Running   0            25h
-pod/envoy-redis-proxy-7ff5cb5996-5ljf9   1/1     Running   0            8d
-pod/envoy-redis-proxy-7ff5cb5996-xzxms   1/1     Running   0            8d
-pod/imagenet                             2/2     Running   0            16h
-pod/mongo-0                              1/1     Running   0            14d
-pod/mongo-1                              1/1     Running   1 (8d ago)   14d
-pod/redis-cluster-0                      1/1     Running   0            8d
-pod/redis-cluster-1                      1/1     Running   0            8d
-pod/redis-cluster-2                      1/1     Running   0            8d
+You should see the following resources after execution:
+```text
+NAME                                     READY   STATUS    RESTARTS   AGE
+pod/alnairpod-manager-75b69c6d44-dxbcq   1/1     Running   0          4m28s
+pod/alnairpod-manager-75b69c6d44-m9jhv   1/1     Running   0          4m28s
+pod/alnairpod-manager-75b69c6d44-w76d6   1/1     Running   0          4m28s
+pod/imagenet-mini0                       2/2     Running   0          58s
+pod/mongo-0                              1/1     Running   0          7m42s
+pod/mongo-1                              1/1     Running   0          7m40s
+pod/redis-cluster-0                      1/1     Running   0          20m
+pod/redis-cluster-1                      1/1     Running   0          20m
+pod/redis-cluster-2                      1/1     Running   0          20m
 
 NAME                        TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)           AGE
-service/alnairpod-manager   NodePort    10.104.1.114     <none>        50051:32200/TCP   25h
-service/envoy-redis-proxy   NodePort    10.97.232.136    <none>        6379:30079/TCP    8d
-service/kubernetes          ClusterIP   10.96.0.1        <none>        443/TCP           24d
-service/mongo               NodePort    10.110.131.82    <none>        27017:30017/TCP   14d
-service/redis-cluster       ClusterIP   10.108.234.231   <none>        6379/TCP          8d
+service/alnairpod-manager   NodePort    10.97.125.143    <none>        50051:32200/TCP   4m28s
+service/kubernetes          ClusterIP   10.96.0.1        <none>        443/TCP           33m
+service/mongo               NodePort    10.96.65.198     <none>        27017:30017/TCP   7m42s
+service/redis-cluster       ClusterIP   10.111.134.223   <none>        6379/TCP          20m
 
 NAME                                READY   UP-TO-DATE   AVAILABLE   AGE
-deployment.apps/alnairpod-manager   3/3     3            3           25h
-deployment.apps/envoy-redis-proxy   2/2     2            2           8d
+deployment.apps/alnairpod-manager   3/3     3            3           4m28s
 
 NAME                                           DESIRED   CURRENT   READY   AGE
-replicaset.apps/alnairpod-manager-6fc86ccfdd   3         3         3       25h
-replicaset.apps/envoy-redis-proxy-7ff5cb5996   2         2         2       8d
+replicaset.apps/alnairpod-manager-75b69c6d44   3         3         3       4m28s
 
 NAME                             READY   AGE
-statefulset.apps/mongo           2/2     14d
-statefulset.apps/redis-cluster   3/3     8d
+statefulset.apps/mongo           2/2     7m42s
+statefulset.apps/redis-cluster   3/3     20m
 ```
+The Imagenet job is ready to execute once data are loaded from S3 to Redis. You should see Client starts sending Heartbeat message to GM:
+```bash
+$ kubectl logs -f imagenet-mini0 --container client
+2022-07-15 23:53:44,578 - __main__ - INFO - connect to server
+2022-07-15 23:53:44,590 - __main__ - INFO - waiting for data preparation
+2022-07-15 23:57:08,081 - __main__ - INFO - receiving registration response stream
+2022-07-15 23:57:08,081 - __main__ - INFO - registered job job, assigned jobId is alnair-client/ImageNet-Mini
+2022-07-15 23:57:08,082 - __main__ - INFO - send heartbeat
+```
+Note that the GM checks and copies data only if they are unavailable in the Cache Cluster or modified since last use. Therefore, the time in the first execution includes the time of downloading data.
+
+Experiment results:
+![](./docs/images/exp1.png)
+
+Experiment results indicate Alnair significantly outperforms S3.

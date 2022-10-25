@@ -1,7 +1,7 @@
 import torch
 import torchvision.transforms as transforms
 import argparse
-from lib.AlnairJobDataLoader import AlnairJobDataLoader as AJLoader
+from AlnairJob import AlnairJobDataLoader
 from CIFAR10Dataset import *
 from model import *
 
@@ -20,7 +20,7 @@ PATH = './cifar_net.pth'
 
 def train(epochs, batch_size, lr):
     trainset = CIFAR10Datset(train_list, transform)
-    trainloader = AJLoader(trainset, batch_size=batch_size, shuffle=False, num_workers=2)
+    trainloader = AlnairJobDataLoader(trainset, batch_size=batch_size, shuffle=False, num_workers=2)
     
     net = Net()
     criterion = nn.CrossEntropyLoss()
@@ -50,7 +50,7 @@ def train(epochs, batch_size, lr):
 
 def test(batch_size):
     testset = CIFAR10Datset(test_list, transform)
-    testloader = AJLoader(testset, batch_size=batch_size, shuffle=False, num_workers=2)
+    testloader = AlnairJobDataLoader(testset, batch_size=batch_size, shuffle=False, num_workers=2)
 
     net = Net()
     net.load_state_dict(torch.load(PATH))

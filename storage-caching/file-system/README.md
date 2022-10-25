@@ -115,10 +115,33 @@ Note that we can finetune this later such that the Operator watches for the reso
 	
 	For example, [My Current Alluxio Cluster on CPU32](http://10.145.41.32:8080/). Additional details are in the sections below.
 
----
 
 # (Older instructions)
 ## New helpful Utilities to work with your datasets
+
+## First, Quick Notes To Get Started
+
+To get yourself an Alluxio Data Orchestration Cluster started from scratch, just follow below commands / steps:
+
+### First, create a mounted volume on all "worker" nodes (can also optionally create on master nodes, if data is easier to facilitate on the master), as below:
+```
+sudo mkdir -p /mnt/fuse3/futurewei-data/{datasets,experiments} /mnt/fuse3/alluxio-journal # I am using `fuse3`, you can use `fuse`
+# Allow permissions
+sudo chown -R $USER.$USER /mnt/fuse3/futurewei-data/{datasets,experiments} /mnt/fuse3/alluxio-journal
+sudo chmod -R 0777 /mnt/fuse3/futurewei-data/{datasets,experiments} /mnt/fuse3/alluxio-journal
+```
+### Below steps will deploy Alluxio cluster
+```
+ssh <kubernetes master node, which is also going to be alluxio master, hopefully a GPU with a fast 10g+ network>
+
+mkdir -p ~/data-orchestration
+cd ~/data-orchestration
+git clone https://github.com/CentaurusInfra/alnair.git
+cd alnair
+git checkout alluxio-data-orchestration
+```
+This is the directory that contains tools to work with data orchestration
+Next, deploy cluster as explained in Install Alluxio using Helm now:](#3--install-alluxio-using-helm-now-)
 
 ### The `dataorch-host-data` program will allow you to host the data. Below is how that program works:
 ```

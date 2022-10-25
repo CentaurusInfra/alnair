@@ -88,6 +88,23 @@ data:
           regex: ([^:]+)(?::\d+)?;(\d+)
           replacement: $1:$2
           target_label: __address__
+      - job_name: 'alnair-exporter'
+        scrape_interval: 1s
+        metrics_path: '/metrics'
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names:
+                - alnair
+            selectors:
+              - role: pod
+                label: "app=alnair-exporter"
+        relabel_configs:
+        - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+          action: replace
+          regex: ([^:]+)(?::\d+)?;(\d+)
+          replacement: $1:$2
+          target_label: __address__
 ---
 apiVersion: apps/v1
 kind: Deployment

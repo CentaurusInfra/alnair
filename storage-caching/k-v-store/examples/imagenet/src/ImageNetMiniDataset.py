@@ -1,7 +1,8 @@
+import pickle
 from typing import Callable, Optional
-from PIL import Image
+from AlnairJob import AlnairJobDataset
 import io
-from lib.AlnairJobDataset import *
+from PIL import Image
 
 
 class ImageNetDataset(AlnairJobDataset):
@@ -40,12 +41,14 @@ class ImageNetDataset(AlnairJobDataset):
     
     def __getitem__(self, index: int):
         img, target = self.get_data(index), self.get_target(index)
-        img = Image.open(io.BytesIO(img))
-        img = img.convert("RGB")
-        if self.transform is not None:
-            img = self.transform(img)
-        if self.target_transform is not None:
-            target = self.target_transform(target)
+        # with io.BytesIO(img) as stream:
+        #     img = Image.open(stream)
+        # img = img.convert("RGB")
+        # if self.transform is not None:
+        #     img = self.transform(img)
+        # if self.target_transform is not None:
+        #     target = self.target_transform(target)
+        img = pickle.loads(img)
         return img, target
 
     def __len__(self) -> int:

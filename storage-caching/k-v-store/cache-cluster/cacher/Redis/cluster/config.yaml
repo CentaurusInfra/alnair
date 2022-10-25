@@ -11,8 +11,8 @@ data:
     #
     # ./redis-server /path/to/redis.conf
     #slaveof redis-master-0.redis-master.redis.svc.cluster.local 6379
-    # masterauth redispwd
-    # requirepass redispwd
+    masterauth redispwd
+    requirepass redispwd
     # Note on units: when memory size is needed, it is possible to specify
     # it in the usual form of 1k 5GB 4M and so forth:
     #
@@ -309,9 +309,9 @@ data:
     #
     #   save ""
 
-    save 900 1
-    save 300 10
-    save 60 10000
+    # save 900 1
+    # save 300 10
+    # save 60 10000
 
     # By default Redis will stop accepting writes if RDB snapshots are enabled
     # (at least one save point) and the latest background save failed.
@@ -405,7 +405,7 @@ data:
     # better to configure a special user to use with replication, and specify the
     # masteruser configuration as such:
     #
-    #masteruser master
+    # masteruser master
     #
     # When masteruser is specified, the replica will authenticate against its
     # master using the new AUTH form: AUTH <username> <password>.
@@ -1022,7 +1022,7 @@ data:
     # threads, if you have a 8 cores, try to use 6 threads. In order to
     # enable I/O threads use the following configuration directive:
     #
-    # io-threads 4
+    # io-threads 0
     #
     # Setting io-threads to 1 will just use the main thread as usually.
     # When I/O threads are enabled, we only use threads for writes, that is
@@ -1064,7 +1064,7 @@ data:
     #
     # Please check http://redis.io/topics/persistence for more information.
 
-    appendonly yes
+    appendonly no
 
     # The name of the append only file (default: "appendonly.aof")
 
@@ -1211,7 +1211,7 @@ data:
     # for it to be considered in failure state.
     # Most other internal time limits are multiple of the node timeout.
     #
-    cluster-node-timeout 15000
+    # cluster-node-timeout 15000
 
     # A replica of a failing master will avoid to start a failover if its data
     # looks too old.

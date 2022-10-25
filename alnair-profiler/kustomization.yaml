@@ -8,3 +8,4 @@ resources:
   - mongo.yaml
   - cadvisor-daemonset.yaml
   - profiler-dcgm-daemonset.yaml
+  - alnair-exporter/manifests/alnair-exporter.yaml
