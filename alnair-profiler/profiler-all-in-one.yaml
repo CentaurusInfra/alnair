@@ -101,10 +101,12 @@ metadata:
   namespace: alnair
 spec:
   ports:
-  - port: 27017
+  - nodePort: 30917
+    port: 27017
     targetPort: 27017
   selector:
     role: mongo
+  type: NodePort
 ---
 apiVersion: v1
 kind: Service
