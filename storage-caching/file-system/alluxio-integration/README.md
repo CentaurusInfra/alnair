@@ -389,7 +389,7 @@ spec:
 
 ### Older Results (in July, 2022)
 
-![image](https://user-images.githubusercontent.com/105383186/177635080-237cae64-22c2-4716-8587-1c42e3e910b9.png)
+<img src=https://user-images.githubusercontent.com/105383186/177635080-237cae64-22c2-4716-8587-1c42e3e910b9.png width=60% height=60%>
 
 ## Project Completion Milestones and Status (August to October, 2022)
 
@@ -397,17 +397,18 @@ spec:
 
 ## Concepts & Implementation Details: Kubernetes Operators & Custom Resource Descriptor (CRD)
 
-![image](https://user-images.githubusercontent.com/105383186/198134720-2aa02070-65c9-44f6-9294-9f40b424e960.png)
+<img src=https://user-images.githubusercontent.com/105383186/198134720-2aa02070-65c9-44f6-9294-9f40b424e960.png width=60% height=60%>
 
-![image](https://user-images.githubusercontent.com/105383186/198134803-5d1c6529-7e01-4665-a068-bf8d3a8ff482.png)
+<img src=https://user-images.githubusercontent.com/105383186/198134803-5d1c6529-7e01-4665-a068-bf8d3a8ff482.png width=60% height=60%>
+
+## S3 Integreation of Alluxio Data Orchestration
 
 We also have direct S3 integration with CSI S3 plugin.
 This uses the custom Filesystem in User Space (FUSE)
 1. Mount S3 bucket on all GPU workers using Daemonset
 1. FUSE is slightly unstable, but much convenient for Alnair user
 
-![image](https://user-images.githubusercontent.com/105383186/198135167-b494a955-7c0b-4132-9231-b3ce81a8c85d.png)
-
+<img src=https://user-images.githubusercontent.com/105383186/198135167-b494a955-7c0b-4132-9231-b3ce81a8c85d.png width=60% height=60%>
 
 ## Other Topics
 1. User Data/Path Isolation - How To Isolate And Possibly Also Share Hosted Data Between Users
