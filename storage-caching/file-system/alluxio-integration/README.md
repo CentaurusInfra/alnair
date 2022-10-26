@@ -391,10 +391,25 @@ spec:
 
 ![image](https://user-images.githubusercontent.com/105383186/177635080-237cae64-22c2-4716-8587-1c42e3e910b9.png)
 
-
 ## Project Completion Milestones and Status (August to October, 2022)
 
 ![image](https://user-images.githubusercontent.com/105383186/198131069-72702950-7496-4517-93cb-60c8fb8a6dd5.png)
+
+## Concepts & Implementation Details: Kubernetes Operators & Custom Resource Descriptor (CRD)
+
+![image](https://user-images.githubusercontent.com/105383186/198134720-2aa02070-65c9-44f6-9294-9f40b424e960.png)
+
+![image](https://user-images.githubusercontent.com/105383186/198134803-5d1c6529-7e01-4665-a068-bf8d3a8ff482.png)
+
+We also have direct S3 integration with CSI S3 plugin.
+This uses the custom Filesystem in User Space (FUSE)
+1. Mount S3 bucket on all GPU workers using Daemonset
+1. FUSE is slightly unstable, but much convenient for Alnair user
+
+![image](https://user-images.githubusercontent.com/105383186/198135167-b494a955-7c0b-4132-9231-b3ce81a8c85d.png)
+
+
+![image](https://user-images.githubusercontent.com/105383186/198134940-c59ef383-4cd4-4d3e-80db-60e52b1d3f6f.png)
 
 
 ## Other Topics
