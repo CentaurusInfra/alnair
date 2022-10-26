@@ -21,17 +21,21 @@ With a Data Orchestration platform in place, an application developer can work u
 
 # Competing Products
 
-![image](https://user-images.githubusercontent.com/105383186/198129356-ea5c7533-a252-40a5-bbfa-d59675676a5a.png)
+![image](https://user-images.githubusercontent.com/105383186/198136747-c36eae97-ece1-433a-aa99-508c8f0874e7.png)
 
 ## Features of Fluid
 
-![image](https://user-images.githubusercontent.com/105383186/198129864-7f38ccce-7077-4d89-a9fc-7e8f96433c74.png)
+![image](https://user-images.githubusercontent.com/105383186/198136887-0f391605-091a-4efb-8d69-1d47944243b6.png)
 
 ## Merits of Fluid (Works on top of Alluxio)
 
-![image](https://user-images.githubusercontent.com/105383186/198129630-49fb82f1-1b5b-4519-bfcf-7143c188122c.png)
+![image](https://user-images.githubusercontent.com/105383186/198136942-3389de2c-ec18-415b-951c-d95737762fa2.png)
 
-## Astronomer.io -- is a paid service
+## Astronomer.io
+
+It is a paid service to build, run, and observe data pipelines-as-code with Astro, the cloud-native data orchestration platform powered by Apache Airflow™.
+Apache Airflow is the de facto standard for expressing data flows as code, with a robust and growing community of data engineers, scientists, and analysts around the world.
+There is not necessarily a direct overlap of Astronomer or Airflow with what we're trying to do.
 
 # What We Have So Far - Alluxio
 
