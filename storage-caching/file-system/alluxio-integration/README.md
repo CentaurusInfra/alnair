@@ -409,9 +409,6 @@ This uses the custom Filesystem in User Space (FUSE)
 ![image](https://user-images.githubusercontent.com/105383186/198135167-b494a955-7c0b-4132-9231-b3ce81a8c85d.png)
 
 
-![image](https://user-images.githubusercontent.com/105383186/198134940-c59ef383-4cd4-4d3e-80db-60e52b1d3f6f.png)
-
-
 ## Other Topics
 1. User Data/Path Isolation - How To Isolate And Possibly Also Share Hosted Data Between Users
 2. Network Bottlenecks - When Does Network Limit Our Training Performance
