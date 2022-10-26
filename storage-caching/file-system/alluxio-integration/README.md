@@ -345,13 +345,19 @@ spec:
 ## Pod yaml exmaple with Alluxio
 
 
-## Sample Results on data loading speed with and without Alluxio
+## Sample Results on Data Loading Speed with and without Alluxio (in October, 2022)
 
 ![image](https://user-images.githubusercontent.com/105383186/198132738-17e6edfa-ef5e-4a39-acf6-b82b55171f53.png)
+
+### Older Results (in July, 2022)
+
+![image](https://user-images.githubusercontent.com/105383186/177635080-237cae64-22c2-4716-8587-1c42e3e910b9.png)
+
 
 ## Project Completion Milestones and Status (August to October, 2022)
 
 ![image](https://user-images.githubusercontent.com/105383186/198131069-72702950-7496-4517-93cb-60c8fb8a6dd5.png)
+
 
 
 ## Other Topics
