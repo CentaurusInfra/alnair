@@ -1,4 +1,4 @@
-FROM nvidia/cuda:11.4.0-base-ubuntu20.04
+FROM ubuntu:20.04
 
 RUN apt-get update && apt-get install -y \
         vim \
@@ -12,7 +12,8 @@ RUN pip3 install nvidia-ml-py3 pynvml pymongo
 RUN mkdir /app
 WORKDIR /app
 COPY ./app.py .
-COPY ./metadata_store.py .
-COPY ./nvml_gpu_watch.py .
+COPY ./mongo_upsert.py .
+COPY ./pod_event_watch.py .
+COPY ./prometheus_query.py .
 COPY ./util.py .
 CMD ["bash", "-c", "python3 app.py"]
