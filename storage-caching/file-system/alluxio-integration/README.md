@@ -349,6 +349,10 @@ spec:
 
 ![image](https://user-images.githubusercontent.com/105383186/177635080-237cae64-22c2-4716-8587-1c42e3e910b9.png)
 
+## Project Completion Milestones and Status (August to October, 2022)
+
+![image](https://user-images.githubusercontent.com/105383186/198131069-72702950-7496-4517-93cb-60c8fb8a6dd5.png)
+
 
 ## Other Topics
 1. User Data/Path Isolation - How To Isolate And Possibly Also Share Hosted Data Between Users
