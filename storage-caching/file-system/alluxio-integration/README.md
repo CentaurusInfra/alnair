@@ -347,7 +347,7 @@ spec:
 
 ## Sample Results on data loading speed with and without Alluxio
 
-![image](https://user-images.githubusercontent.com/105383186/177635080-237cae64-22c2-4716-8587-1c42e3e910b9.png)
+![image](https://user-images.githubusercontent.com/105383186/198132738-17e6edfa-ef5e-4a39-acf6-b82b55171f53.png)
 
 ## Project Completion Milestones and Status (August to October, 2022)
 
