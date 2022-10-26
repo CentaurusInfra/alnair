@@ -142,6 +142,14 @@ ls -l /home/nikunj/data-orchestration/alnair/storage-caching/file-system/futurew
 -rwxrwxr-x 1 nikunj nikunj 4.1K Jul  9 19:32 dataorch-host-data
 ```
 
+### Tools
+
+![image](https://user-images.githubusercontent.com/105383186/198128405-1fd18114-359a-491a-b41b-106ede4dbcd0.png)
+
+
+### Artifact Locations
+
+![image](https://user-images.githubusercontent.com/105383186/198128609-025c4e99-4eb9-456d-a8a9-e422283f696e.png)
 
 ## Alluxio Cluster Setup
 
