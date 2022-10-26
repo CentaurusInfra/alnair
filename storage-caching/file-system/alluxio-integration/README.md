@@ -3,8 +3,8 @@
 
 Alluxio is an open source Data Orchestration platform. It enables data orchestration in the cloud and fundamentally allows for separation of storage and compute. Alluxio also brings speed and agility to big data and AI workloads and reduces costs by eliminating data duplication and enables users to move to newer storage solutions like object stores.
 
+![image](https://user-images.githubusercontent.com/105383186/198127485-44308fd4-3d58-4fc9-b9ab-73d7993423c5.png)
 
-<>
 
 Alluxio’s data orchestration in the cloud solves for three critical challenges:
 • Data locality: Data is local to compute, giving you memory-speed access for your big data and AI/ML workloads
