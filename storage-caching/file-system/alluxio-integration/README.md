@@ -341,14 +341,47 @@ spec:
     name: alluxio-worker-domain-socket
     namespace: alluxio
 ```
-(Pod yaml exmaple with Alluxio)
 
+## Pod yaml exmaple with Alluxio
+	
+```
+apiVersion: v1 # apiextensions.k8s.io/v1
+kind: Pod
+metadata:
+  name: alluxio-cifar10
+
+  annotations:
+    cacheDataset: "yes"
+
+  #namespace: data-orchestra
+spec:
+    # nodeName: edgeml2gpu
+  nodeName: fw0013603
+  containers:
+  - name: pytorch
+
+    image: centaurusinfra/alluxio-cifar10
+    command: ["python3", "cifar10-demo.py"]
+
+    securityContext:
+      privileged: true
+
+    volumeMounts:
+    - mountPath: /alluxio-cifar10/data
+      name: dataset-mount
+  volumes:
+
+  - name: dataset-mount # LOCAL LOCAL
+    hostPath:
+        path: /mnt/fuse3/alluxio-journal/datasets/cifar10
+        type: Directory
+
+  restartPolicy: OnFailure
+```
 
 ## Project Completion Milestones and Status (August to October, 2022)
 
 ![image](https://user-images.githubusercontent.com/105383186/198131069-72702950-7496-4517-93cb-60c8fb8a6dd5.png)
-
-
 
 ## Sample Results on Data Loading Speed with and without Alluxio (in October, 2022)
 
@@ -357,6 +390,11 @@ spec:
 ### Older Results (in July, 2022)
 
 ![image](https://user-images.githubusercontent.com/105383186/177635080-237cae64-22c2-4716-8587-1c42e3e910b9.png)
+
+
+## Project Completion Milestones and Status (August to October, 2022)
+
+![image](https://user-images.githubusercontent.com/105383186/198131069-72702950-7496-4517-93cb-60c8fb8a6dd5.png)
 
 
 ## Other Topics
