@@ -16,16 +16,23 @@ spec:
         prometheus.io/port: '9876'
         prometheus.io/path: '/metrics'
     spec:
+      hostPID: true
       containers:
         - name: alnair-exporter
-          image: centaurusinfra/alnair-exporter:0.4.0 
+          image: centaurusinfra/alnair-exporter:0.5.0 
           imagePullPolicy: Always 
           # command: ["bash", "-c", "sleep infinity"] # for debug purpose 
+          securityContext:
+            privileged: true  #set this so nsenter can get pod name by process ID, otherwise permission denied
           env:
             - name: MY_NODE_NAME
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
+            - name: MY_POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
           ports:
             - containerPort: 9876
           volumeMounts:
