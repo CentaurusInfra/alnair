@@ -19,6 +19,20 @@ Data Orchestration is to data what container orchestration is to containers. Con
 
 With a Data Orchestration platform in place, an application developer can work under the assumption that the data will be readily accessible regardless of where the data resides or the characteristics of the storage and focus on writing the application.
 
+# Competing Products
+
+![image](https://user-images.githubusercontent.com/105383186/198129356-ea5c7533-a252-40a5-bbfa-d59675676a5a.png)
+
+## Features of Fluid
+
+![image](https://user-images.githubusercontent.com/105383186/198129864-7f38ccce-7077-4d89-a9fc-7e8f96433c74.png)
+
+## Merits of Fluid (Works on top of Alluxio)
+
+![image](https://user-images.githubusercontent.com/105383186/198129630-49fb82f1-1b5b-4519-bfcf-7143c188122c.png)
+
+## Astronomer.io -- is a paid service
+
 # What We Have So Far - Alluxio
 
 Alluxio is an open source Data Orchestration platform. It enables data orchestration in the cloud and fundamentally allows for separation of storage and compute. Alluxio also brings speed and agility to big data and AI workloads and reduces costs by eliminating data duplication and enables users to move to newer storage solutions like object stores.
