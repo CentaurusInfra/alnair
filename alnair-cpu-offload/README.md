@@ -38,6 +38,16 @@ There are some new technologies in hardware and software to support a possible G
   . Explore the API for complex applications like TF or Ptorch  
   . Define the CPU-Offload application field  
   . Implement API and infrastructure  
+```
+Goal: accelerate training by enable GDS on ssd(nvme), by pass CPU
+Steps:
+1. Investigate hardware, driver, library requirements for enabling GDS
+2. Prepare cuda level example and python level example with and without GDS 
+  (heavy on read/write, python level leverage MagnumIO/gds/readers, https://github.com/NVIDIA/MagnumIO/tree/main/gds/readers)
+3. Compare read/write speed, program execution time with above scripts
+4. Explore and compare with advanced library (more wrapped) like DALI
+5. Put all the dependencies together into container image, provide usage guide
+```
 
 ### sub tasks : 
 
