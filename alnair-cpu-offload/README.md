@@ -10,7 +10,7 @@ AI jobs (training and inferencing) in the cloud are normally handled by the coll
 
 CPU is responsible for task 1. 2. 4. GPU only focuses on task 3: computing.  
 ## CPU-centered AI data flow diagram:
-<img src="./docs/images/alnair-cpu-centered.jpg">
+<img src="./docs/alnair-cpu-centered.jpg">
 
 Computing technology has been improved dramatically over years. Taking Nvidia GPU as an example, the computing capacity is increased 450x from G80 to A100. Meanwhile, the memory onboard of GPU is creased by 50x. In order to run GPU with full capacity, the data transfering from system memory into GPU memory becomes a critical task. On a system with multiple A100s, CPU has a heavy duty to prepare the data in time for all GPUs.
 
@@ -19,7 +19,7 @@ If we can reduce the workload of data transferring on CPU, it not only removes t
 There are some new technologies in hardware and software to support a possible GPU-centered system architecture, which includes NVMe SSD, gpudirect. THis project will explore a novel solution to provide a GPU-centered AI-training System (GAS) to offload CPU in the process. 
 
 ## GPU-centered AI-training System (GAS) data flow diagram:
-<img src="./docs/images/alnair-gpu-centered.jpg">
+<img src="./docs/alnair-gpu-centered.jpg">
 
 GAS tries to achieve the following goals:
 1.  Efficiency improvements by resource sharing in the cloud
