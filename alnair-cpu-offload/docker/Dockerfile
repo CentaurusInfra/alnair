@@ -18,6 +18,8 @@ RUN pip3 install jupyterlab==3.5.0
 # RUN jupyter --version
 # RUN jupyter labextension install jupyterlab_tensorboard
 RUN pip3 install jupyter_tensorboard torchvision scikit-image
+RUN pip3 install jupyterlab_nvdashboard
+
 # # tensorboard
 # EXPOSE 6006
 # jupyter notebook
