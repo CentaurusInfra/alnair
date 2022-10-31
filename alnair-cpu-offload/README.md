@@ -19,7 +19,7 @@ If we can reduce the workload of data transferring on CPU, it not only removes t
 There are some new technologies in hardware and software to support a possible GPU-centered system architecture, which includes NVMe SSD, gpudirect. THis project will explore a novel solution to provide a GPU-centered AI-training System (GAS) to offload CPU in the process. 
 
 ## GPU-centered AI-training System (GAS) data flow diagram:
-<img src="./docs/alnair-gpu-centered.jpg">
+<img src="./docs/alnair-gpu-centered.JPG">
 
 GAS tries to achieve the following goals:
 1.  Efficiency improvements by resource sharing in the cloud
