@@ -73,6 +73,12 @@ Steps:
   d. a working example to benchmark the performance  
 5. Performance Probe and improvements
 
+### Hardware requirements :
+To support CPU-Offload, GPU-direct capability is required on Nvidia GPUs. This is the list of Nvidia GPU that is going to be used in the project:
+V100, A100, A6000
+
+### The dataflow of CPU-offload architecture and the current CPU-centered architecture in AI applications:
+
 ### CUDA code samples :
 advance features requires SMS="80"
 https://github.com/nvidia/cuda-samples
