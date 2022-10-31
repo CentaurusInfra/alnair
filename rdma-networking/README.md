@@ -20,7 +20,7 @@
 * draft project so far.
 * Before enable FreeFlow, the current job is to have RDMA/Pytroch enabled iamge for "distributed" AI training tasks.
 
-* `bin/vRouter.sh` is for triggering running container on the RDMA enabled machine.
+* `bin/vRouter.sh` is for triggering running container on the RDMA enabled machine. (ToDo)
 
 # Dev Tools
 ## conda
