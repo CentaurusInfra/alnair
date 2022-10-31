@@ -22,8 +22,8 @@ There are some new technologies in hardware and software to support a possible G
 <img src="./docs/alnair-gpu-centered.JPG">
 
 GAS tries to achieve the following goals:
-1.  Efficiency improvements by resource sharing in the cloud
-2.  Performance improvements in generic AI training and inference applications by high parallelism
+1.  Efficiency improvements by the resource sharing in the cloud
+2.  Performance improvements in generic AI training and inference applications by the highly parallel computing
 
 ### Goal: Offloading CPU by GPU-centered AI system
 
