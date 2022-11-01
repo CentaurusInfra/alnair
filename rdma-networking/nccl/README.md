@@ -1,6 +1,19 @@
 
 
 # Build NCCL
+## Pre-requirements
+```
+Requirements
+Mellanox ConnectX 6 HCA and Mellanox Quantum IB switch with SHARP support
+Nvidia CUDA Toolkit
+Mellanox OFED >= 5.0-2.x
+Nvidia NCCL >= 2.7.3.
+Mellanox HPC-X >= 2.6.2
+(Note: HPC-X contains Mellanox SHARP library and latest stable NCCL SHARP plugin)
+GPUDirectRDMA driver
+More details on GPUDirect RDMA https://www.mellanox.com/products/GPUDirect-RDMA
+```
+
 
 ## trouble shooting
 
@@ -13,7 +26,10 @@ export CFLAGS="-I<...> -I<...>"
 export LDFLAGS="-L<...> -L<...>"
 ```
 # Build nccl-test
-
+## test
+```
+$ ./build/all_reduce_perf -b 8 -e 256M -f 2 -g <ngpus>
+```
 ## trouble shooting
 ### fatal error: nccl.h: No such file or directory
 ```
@@ -28,4 +44,8 @@ Compiling /home/huide/proj/nvidia/nccl-tests/build/verifiable/verifiable.o
 using absolute path below:
 ```
 make NCCL_HOME=/home/huide/proj/nvidia/nccl/build
+```
+**enable MPI**
+```
+make MPI=1 NCCL_HOME=/home/dario/nccl/build MPI_HOME=/usr/lib/x86_64-linux-gnu/openmpi
 ```
