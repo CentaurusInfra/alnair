@@ -26,8 +26,8 @@ spec:
         ports:
           - containerPort: 8888
             name: jupyter-svc  
-        command: ["sh", "-c", "sleep infinity"]
-        # command: ["sh", "-c", "jupyter lab --no-browser --allow-root --ip=0.0.0.0"]
+        # command: ["sh", "-c", "sleep infinity"]
+        command: ["sh", "-c", "jupyter lab --no-browser --allow-root --ip=0.0.0.0"]
         volumeMounts:
         - mountPath: /dev/shm
           name: dshm

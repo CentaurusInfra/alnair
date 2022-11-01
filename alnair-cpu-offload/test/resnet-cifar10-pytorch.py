@@ -17,6 +17,8 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 
 from base import DALIDataloader
 from cifar10 import HybridTrainPipe_CIFAR
+import time
+
 
 IMG_DIR = '/data/cifar10/cifar100'
 TRAIN_BS = 256
@@ -24,6 +26,25 @@ TEST_BS = 200
 NUM_WORKERS = 4
 CROP_SIZE = 32
 CIFAR_IMAGES_NUM_TRAIN = 50000
+
+
+class AverageMeter(object):
+    """Computes and stores the average and current value"""
+    def __init__(self):
+        self.reset()
+
+    def reset(self):
+        self.val = 0
+        self.avg = 0
+        self.sum = 0
+        self.count = 0
+
+    def update(self, val, n=1):
+        self.val = val
+        self.sum += val * n
+        self.count += n
+        self.avg = self.sum / self.count
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-n', '--nodes', default=1, type=int, metavar='N',
@@ -46,8 +67,12 @@ def main():
 def train(gpu, args):
     alnair_pf = os.getenv('PFLOG')
     if (alnair_pf  is None):
-        alnair_pf= "./test"     
-    model = torch.hub.load('pytorch/vision:v0.9.0', 'resnet50', pretrained=False)
+        alnair_pf= "/root/test"     
+    batch_time = AverageMeter()
+
+    # model = torch.hub.load('pytorch/vision:v0.9.0', 'resnet50', pretrained=False)
+    model = torchvision.models.densenet121(pretrained=True, progress=True)    
+
     rank = args.nr * args.gpus + gpu
     dist.init_process_group(backend='nccl', init_method='env://', world_size=args.world_size, rank=rank)
     torch.manual_seed(0)
@@ -101,6 +126,9 @@ def train(gpu, args):
     total_step = len(trainloader)
     train_start = datetime.now()
     alnair_log = os.path.join(str(alnair_pf), "py_step.log")
+    print_freq = 10
+    end = time.time()
+
     with open(alnair_log, "w") as f:
         for epoch in range(args.epochs):
             for i, (images, labels) in enumerate(trainloader):
@@ -115,13 +143,28 @@ def train(gpu, args):
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
-                if (i + 1) % 10 == 0 and gpu == 0:
+                batch_time.update((time.time() - end)/print_freq)
+                end = time.time()
+
+                if (i + 1) % print_freq == 0 and gpu == 0:
                     print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}'.format(epoch + 1, args.epochs, i + 1, total_step,
                                                                             loss.item()))
                     print("Training complete in: " + str(datetime.now() - start))
                 f.write("step:" + str(i+1) + ", start: " + str(start) + ", duation:" + str((datetime.now()-start).microseconds) + "\n")
 
     print("Training done, total epoch {}, total time {}".format(args.epochs, datetime.now()-train_start))
+
+    if gpu == 0:
+        alnair_bm = os.path.join(str(alnair_pf), "benchmark.log")
+        f_bm = open(alnair_bm, "w")
+        if args.conf==0: 
+            loadername = "torch" 
+        else: 
+            loadername = "DALI"
+        f_bm.write("loader:" + loadername  + ", GPU: " + str(args.gpus) + ", batch time: " + str(batch_time.val) + "(" + str(batch_time.avg) + ")\n")
+        f_bm.write("Training done, total epoch {}, total time {}\n".format(args.epochs, datetime.now()-train_start))
+
+        f_bm.close()
 
 if __name__ == '__main__':
     main()

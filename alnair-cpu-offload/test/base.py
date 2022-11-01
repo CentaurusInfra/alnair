@@ -1,5 +1,6 @@
 from nvidia.dali.plugin.pytorch import DALIGenericIterator
 
+
 class DALIDataloader(DALIGenericIterator):
     def __init__(self, pipeline, size, batch_size, output_map=["data", "label"], auto_reset=True, onehot_label=False):
         # self.size = size
