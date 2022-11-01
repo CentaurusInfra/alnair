@@ -13,7 +13,8 @@ To enable MIG in K8s, there are several components to be installed:
          
          
 How does MIG work in kubernetes:  
-    https://developer.nvidia.com/blog/getting-kubernetes-ready-for-the-a100-gpu-with-multi-instance-gpu/  
+  https://developer.nvidia.com/blog/getting-kubernetes-ready-for-the-a100-gpu-with-multi-instance-gpu/  
+  https://info.nvidia.com/rs/156-OFN-742/images/How_to_easily_use_GPUs_with_Kubernetes.pdf
   
 Advanced training topics in GPU:  
   
