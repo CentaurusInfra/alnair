@@ -242,3 +242,6 @@ git submodule deinit -f .
 git submodule update --init --recursive
 python setup.py install
 ```
+### monitroing tools
+#### tcpdump
+`tcpdump` is the useful packet sniffering tool for network traffic analyzing. For RDMA traffice the the tool running on host may (or may not) hit some issues; in case it can not capture the expected RDMA (RoCE here) traffics, please try to use `mellanox/tcpdump-rdma` for packet snifferring purposes. 
