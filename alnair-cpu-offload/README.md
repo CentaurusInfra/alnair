@@ -32,6 +32,9 @@ GAS tries to achieve the following goals:
 3. sharing NVMe-SSD between GPUs on one node
 4. gpudirect data among GPU in the cloud
 
+## GPU-centered AI-training System (GAS) work flow details:
+<img src="./docs/alnair-gas-architecuture.JPG">
+
 ### Project Planning
 1. Stage I (architecture research)  
   . Explore the research papers for side-band SSD accessible.  
