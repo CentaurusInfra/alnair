@@ -6,19 +6,13 @@ spec:
   containers:
   - name: dali-gds-benchmark
     image:  centaurusinfra/torch-gds-basic:latest
-    # image: cschranz/gpu-jupyter:v1.4_cuda-11.6_ubuntu-20.04_python-only
     env:
     - name: CUDA_VISIBLE_DEVICES
       value: 0,1,2,3          
     - name: PFLOG
       value: /log/pflog    
-    - name: LD_PRELOAD
-      value: /lib/interpose/libpfinterpose.so          
-    ports:
-      - containerPort: 8888
-        name: jupyter-svc  
     # command: ["sh", "-c", "sleep infinity"]
-    command: ["sh", "-c", "python resnet-cifar10-pytorch.py -cf 0 -g 1 --epochs 5"]
+    command: ["sh", "-c", "python resnet-cifar10-pytorch.py -cf 0 -g 1 --epochs 2"]
     volumeMounts:
     - mountPath: /dev/shm
       name: dshm
@@ -51,4 +45,4 @@ spec:
   - name: pflog
     hostPath:
       path: /var/lib/alnair/workspace/ 
-
+  restartPolicy: OnFailure

@@ -6,6 +6,7 @@ RUN mkdir /root/{data,logs,scripts}
 
 RUN pip3 install jupyterlab==3.5.0
 RUN pip3 install jupyterlab_nvdashboard
+RUN jupyter labextension install jupyterlab-nvdashboard
 
 EXPOSE 8888
 WORKDIR /root/scripts

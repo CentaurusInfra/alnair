@@ -21,8 +21,6 @@ spec:
           value: 0,1,2,3          
         - name: PFLOG
           value: /log/pflog    
-        - name: LD_PRELOAD
-          value: /lib/interpose/libpfinterpose.so          
         ports:
           - containerPort: 8888
             name: jupyter-svc  

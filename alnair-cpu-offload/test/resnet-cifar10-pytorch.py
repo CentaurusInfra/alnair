@@ -118,7 +118,7 @@ def train(gpu, args):
                                         world_size=1, 
                                         local_rank=0, 
                                         cutout=0)
-        train_loader = DALIDataloader(pipeline=pip_train,
+        trainloader = DALIDataloader(pipeline=pip_train,
                                     size=CIFAR_IMAGES_NUM_TRAIN, 
                                     batch_size=batch_size, 
                                     onehot_label=True)     
@@ -154,8 +154,9 @@ def train(gpu, args):
 
     print("Training done, total epoch {}, total time {}".format(args.epochs, datetime.now()-train_start))
 
-    if gpu == 0:
+    if gpu == 0 or args.gpus == 1:
         alnair_bm = os.path.join(str(alnair_pf), "benchmark.log")
+        print("benchmark log: {}".format(alnair_bm))
         f_bm = open(alnair_bm, "w")
         if args.conf==0: 
             loadername = "torch" 
