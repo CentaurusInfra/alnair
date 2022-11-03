@@ -33,7 +33,7 @@ GAS tries to achieve the following goals:
 4. gpudirect data among GPU in the cloud
 
 ## GPU-centered AI-training System (GAS) work flow details:
-<img src="./docs/alnair-gas-architecuture.JPG">
+<img src="./docs/alnair-GAS-pipeline.JPG">
 
 ### Project Planning
 1. Stage I (architecture research)  
