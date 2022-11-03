@@ -32,7 +32,6 @@ GAS tries to achieve the following goals:
 3. sharing NVMe-SSD between GPUs on one node
 4. gpudirect data among GPU in the cloud
 
-## GPU-centered AI-training System (GAS) work flow details:
 <img src="./docs/alnair-GAS-pipeline.JPG">
 
 ### Project Planning
