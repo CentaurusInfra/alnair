@@ -244,4 +244,10 @@ python setup.py install
 ```
 ### monitroing tools
 #### tcpdump
-`tcpdump` is the useful packet sniffering tool for network traffic analyzing. For RDMA traffice the the tool running on host may (or may not) hit some issues; in case it can not capture the expected RDMA (RoCE here) traffics, please try to use `mellanox/tcpdump-rdma` for packet snifferring purposes. 
+`tcpdump` is the useful packet sniffering tool for network traffic analyzing. For RDMA traffice the the tool running on host may (or may not) hit some issues; in case it can not capture the expected RDMA (RoCE here) traffics, please try to use `mellanox/tcpdump-rdma` for packet snifferring purposes.
+
+##### docker cmd:
+```
+$ docker run -it -v /dev/infiniband:/dev/infiniband -v /tmp/traces:/tmp/traces --net=host --privileged mellanox/tcpdump-rdma bash
+```
+
