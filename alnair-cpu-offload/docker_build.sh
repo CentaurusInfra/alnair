@@ -1,1 +1,0 @@
-sudo docker build  -f ./docker/Dockerfile -t centaurusinfra/torch-gds-basic .
