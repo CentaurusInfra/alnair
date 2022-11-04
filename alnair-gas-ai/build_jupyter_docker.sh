@@ -1,0 +1,1 @@
+sudo docker build  -f ./docker/Dockerfile-jupyter -t centaurusinfra/torch-dali-jupyter .
