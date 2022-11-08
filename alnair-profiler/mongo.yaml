@@ -6,9 +6,11 @@ metadata:
   labels:
     name: mongo
 spec:
+  type: NodePort
   ports:
     - port: 27017
       targetPort: 27017
+      nodePort: 30917
   selector:
     role: mongo
 ---

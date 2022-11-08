@@ -29,21 +29,17 @@ Modify [kustomization.yaml](./kustomization.yaml) file and re-compile to add or 
 
 ### 3. View profiler results
 
-Profiler results are written into cluster nodes' annotations. With ```kubectl describe node <your-node-name> | grep ai.centaurus.io```, results like the followings can be seen. By default, profiler will update annotations every 30 seconds, if memory utilization pattern changes.
-
-<!--img  src="https://github.com/CentaurusInfra/alnair/blob/main/profiling/images/annotation_results.png" width="700" height="160"-->
-![node_ann](./images/node_results.png)
-
-Similarly, the results from profiler at pod level are annotated as following.
+Pod resource utilization data are patched to pod annoation. Sample results are like the following.
 
 ![pod_ann](./images/pod_results.png)
 
-As for custom resource definition, we take an example of MPIJobs from kubeflow. For a distributed training job, multiple workers' resource utilzation results are aggregated at the job level. Workers (pods) will be deleted when job is done. The max resource utilization results are stored in the MPIjobs' annotations as following.
+The complete pod record including metadata and resource utilization data is stored in MongoDB as following.
 
-![job_ann](./images/mpijob_results.png)
+![mongo](./images/mongo_record.png)
 
 In addition, GPU metrics can be viewed through Prometheus's web UI. In the ```prometheus-complete.yaml```, prometheus' container port is mapped to the host port for the sake of simiplicity. http://prometheus-node-ip:9090, the node-ip is the IP address of the node where Prometheus server is deployed. 
 
+More information on Alnair custom metrics is described in Alnair-exporter.
 
 ![screenshot](./images/prometheus_UI.png)
 

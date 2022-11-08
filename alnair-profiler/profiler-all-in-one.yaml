@@ -75,19 +75,18 @@ data:
     \     regex: ^(.*):\\d+$\n      target_label: __address__\n      replacement:
     $1:8080\n    - source_labels: [__meta_kubernetes_pod_node_name]\n      target_label:
     instance\n    - source_labels: [__meta_kubernetes_host_ip]\n      target_label:
-    node_ip\n  - job_name: 'profiler-pods'\n    scrape_interval: 1s \n    metrics_path:
-    '/metrics' \n    kubernetes_sd_configs:\n      - role: pod\n        namespaces:\n
-    \         names:\n            - alnair\n        selectors:\n          - role:
-    pod\n            label: \"app=profiler\" \n    relabel_configs:\n    - source_labels:
-    [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]\n      action:
-    replace\n      regex: ([^:]+)(?::\\d+)?;(\\d+)\n      replacement: $1:$2\n      target_label:
-    __address__\n  - job_name: 'alnair-exporter'\n    scrape_interval: 1s\n    metrics_path:
-    '/metrics'\n    kubernetes_sd_configs:\n      - role: pod\n        namespaces:\n
-    \         names:\n            - alnair\n        selectors:\n          - role:
-    pod\n            label: \"app=alnair-exporter\"\n    relabel_configs:\n    - source_labels:
-    [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]\n      action:
-    replace\n      regex: ([^:]+)(?::\\d+)?;(\\d+)\n      replacement: $1:$2\n      target_label:
-    __address__\n"
+    node_ip\n  - job_name: 'dcgm'\n    scrape_interval: 1s \n    metrics_path: '/metrics'
+    \n    kubernetes_sd_configs:\n      - role: pod\n        namespaces:\n          names:\n
+    \           - alnair\n        selectors:\n          - role: pod\n            label:
+    \"app=dcgm\" \n    relabel_configs:\n    - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]\n
+    \     action: replace\n      regex: ([^:]+)(?::\\d+)?;(\\d+)\n      replacement:
+    $1:$2\n      target_label: __address__\n  - job_name: 'alnair-exporter'\n    scrape_interval:
+    1s\n    metrics_path: '/metrics'\n    kubernetes_sd_configs:\n      - role: pod\n
+    \       namespaces:\n          names:\n            - alnair\n        selectors:\n
+    \         - role: pod\n            label: \"app=alnair-exporter\"\n    relabel_configs:\n
+    \   - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]\n
+    \     action: replace\n      regex: ([^:]+)(?::\\d+)?;(\\d+)\n      replacement:
+    $1:$2\n      target_label: __address__\n"
 kind: ConfigMap
 metadata:
   name: prometheus-config
@@ -102,10 +101,12 @@ metadata:
   namespace: alnair
 spec:
   ports:
-  - port: 27017
+  - nodePort: 30917
+    port: 27017
     targetPort: 27017
   selector:
     role: mongo
+  type: NodePort
 ---
 apiVersion: v1
 kind: Service
@@ -233,19 +234,77 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
-        image: centaurusinfra/alnair-exporter:0.4.0
+        - name: MY_POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        image: centaurusinfra/alnair-exporter:0.5.0
         imagePullPolicy: Always
         name: alnair-exporter
         ports:
         - containerPort: 9876
+        securityContext:
+          privileged: true
         volumeMounts:
         - mountPath: /var/lib/alnair/workspace
           name: alnair-workspace
           readOnly: true
+      hostPID: true
       volumes:
       - hostPath:
           path: /var/lib/alnair/workspace
         name: alnair-workspace
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: alnair-profiler-daemonset
+  namespace: alnair
+spec:
+  selector:
+    matchLabels:
+      app: alnair-profiler
+  template:
+    metadata:
+      labels:
+        app: alnair-profiler
+    spec:
+      containers:
+      - env:
+        - name: PYTHONUNBUFFERED
+          value: "0"
+        - name: MY_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: MY_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: MY_POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: MY_HOST_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.hostIP
+        - name: MY_POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        image: centaurusinfra/profiler:0.5.0
+        name: profiler-container
+        resources:
+          limits:
+            cpu: "1"
+            memory: 2Gi
+          requests:
+            cpu: "0.5"
+            memory: 1Gi
+        securityContext:
+          privileged: true
+      serviceAccountName: admin-pod
 ---
 apiVersion: apps/v1
 kind: DaemonSet
@@ -323,12 +382,12 @@ spec:
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: profiler-daemonset
+  name: dcgm-daemonset
   namespace: alnair
 spec:
   selector:
     matchLabels:
-      app: profiler
+      app: dcgm
   template:
     metadata:
       annotations:
@@ -336,43 +395,9 @@ spec:
         prometheus.io/port: "9400"
         prometheus.io/scrape: "true"
       labels:
-        app: profiler
+        app: dcgm
     spec:
       containers:
-      - env:
-        - name: PYTHONUNBUFFERED
-          value: "0"
-        - name: MY_NODE_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: spec.nodeName
-        - name: MY_POD_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.name
-        - name: MY_POD_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
-        - name: MY_HOST_IP
-          valueFrom:
-            fieldRef:
-              fieldPath: status.hostIP
-        - name: MY_POD_IP
-          valueFrom:
-            fieldRef:
-              fieldPath: status.podIP
-        image: centaurusinfra/profiler
-        name: profiler-container
-        resources:
-          limits:
-            cpu: "1"
-            memory: 2Gi
-          requests:
-            cpu: "0.5"
-            memory: 1Gi
-        securityContext:
-          privileged: true
       - env:
         - name: DCGM_EXPORTER_INTERVAL
           value: "100"
@@ -384,5 +409,3 @@ spec:
           capabilities:
             add:
             - SYS_ADMIN
-      hostPID: true
-      serviceAccountName: admin-pod
