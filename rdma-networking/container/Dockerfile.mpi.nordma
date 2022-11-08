@@ -40,7 +40,9 @@ SHELL ["conda", "run", "-n", "p38", "/bin/bash", "-c"]
 ENV PATH="/root/anaconda3/envs/p38/bin:${PATH}"
 ARG PATH="/root/anaconda3/envs/p38/bin:${PATH}"
 
-RUN /bin/bash -c "echo ############## Building OMPI from source ##############" 
+#RUN conda install -y python=3.8
+
+#RUN /bin/bash -c "echo ############## Building OMPI from source ##############" 
 RUN /bin/bash -c "set | grep conda "
 
 
@@ -77,8 +79,7 @@ RUN cd /opt \
     && git submodule sync \
     && git submodule deinit -f . \
     && git submodule update --init --recursive \
-    && python setup.py install \
-    && cd /opt && rm -rf pytorch
+    && python setup.py install 
 
 ## torchvision
 RUN /bin/bash -c "echo ########## Building torchvision from source ########"
@@ -87,6 +88,5 @@ RUN cd /opt \
     && git clone https://github.com/pytorch/vision.git \
     && cd vision \
     && git checkout tags/v0.9.2 -b b0.9.2 \
-    && python setup.py install \
-    && cd /opt && rm -rf vision
+    && python setup.py install 
 
