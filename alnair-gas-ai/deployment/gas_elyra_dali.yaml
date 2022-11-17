@@ -1,20 +1,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: dali-gds-jupyter
+  name: dali-gds-elyra
 spec:
   selector:
     matchLabels:
-      run: dali-gds-jupyter
+      run: dali-gds-elyra
   replicas: 1
   template:
     metadata:
       labels:
-        run: dali-gds-jupyter
+        run: dali-gds-elyra
     spec:
       containers:
-      - name: dali-gds-jupyter
-        image:  centaurusinfra/torch-dali-jupyter:latest
+      - name: dali-gds-elyra
+        image:  centaurusinfra/torch-dali-elyra:1.0.0
         # image: cschranz/gpu-jupyter:v1.4_cuda-11.6_ubuntu-20.04_python-only
         env:
         - name: CUDA_VISIBLE_DEVICES
@@ -68,11 +68,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: dali-gds-jupyter
+  name: dali-gds-elyra
 spec:
   type: NodePort
   selector:
-    run: dali-gds-jupyter
+    run: dali-gds-elyra
   ports:
   - targetPort: jupyter-svc
     port: 8888

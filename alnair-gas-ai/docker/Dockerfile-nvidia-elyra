@@ -1,0 +1,40 @@
+FROM nvcr.io/nvidia/pytorch:22.10-py3
+# RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys A4B469963BF863CC
+RUN apt-get update && DEBIAN_FRONTEND="noninteractive" TZ="America/San_Francisco" apt-get install -y tzdata
+
+RUN apt-get update && apt-get install -y git vim 
+RUN apt-get -y --no-install-recommends install texlive-latex-base texlive-fonts-recommended texlive-fonts-extra texlive-latex-extra dvipng cm-super
+# RUN apt-get install -y cuda-toolkit-11-4
+
+
+RUN pip3 install scipy dataset pytorch-ignite matplotlib seaborn
+RUN mkdir /root/{data,logs,scripts}
+RUN pip3 install jupyterlab==3.5.0
+RUN pip3 install jupyter_http_over_ws ipykernel nbformat
+RUN jupyter serverextension enable --py jupyter_http_over_ws
+
+# RUN echo "http://dl-cdn.alpinelinux.org/alpine/v3.12/main/" >> /etc/apk/repositories \
+    # && apk add --update nodejs=12.22.12-r0 npm=12.22.12-r0 other-package
+# RUN jupyter labextension install jupyterlab_tensorboard
+RUN pip3 install jupyter_tensorboard torchvision scikit-image
+RUN pip3 install jupyterlab_nvdashboard
+RUN pip3 install --upgrade jupyterhub
+RUN pip3 install jupyterlab-github
+
+RUN pip3 install --upgrade "elyra[all]"
+
+EXPOSE 8888
+WORKDIR /root/scripts
+
+# COPY start.sh /
+
+# CMD ["/start.sh"]
+
+
+# ENV CU_HOOK_DEBUG=1
+
+COPY test/*.py ./ 
+COPY test/git-lfs-linux-amd64-v3.2.0.tar.gz ./ 
+RUN tar -zxvf ./git-lfs-linux-amd64-v3.2.0.tar.gz 
+RUN cd git-lfs-3.2.0
+RUN bash git-lfs-3.2.0/install.sh
