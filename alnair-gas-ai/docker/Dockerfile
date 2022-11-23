@@ -5,11 +5,16 @@ RUN apt-get update && DEBIAN_FRONTEND="noninteractive" TZ="America/San_Francisco
 RUN mkdir /root/{data,logs,scripts}
 
 RUN pip3 install jupyterlab==3.5.0
-RUN pip3 install jupyterlab_nvdashboard
-RUN jupyter labextension install jupyterlab-nvdashboard
+# RUN echo "http://dl-cdn.alpinelinux.org/alpine/v3.12/main/" >> /etc/apk/repositories \
+#     && apk add --update nodejs=12.22.12-r0 npm=12.22.12-r0 other-package
+# RUN pip3 install jupyterlab_nvdashboard
+# RUN jupyter labextension install jupyterlab-nvdashboard
 
 EXPOSE 8888
 WORKDIR /root/scripts
+
+COPY  test.txt ./
+COPY strrev_gds.co ./
 
 
 COPY test/*.py ./ 
