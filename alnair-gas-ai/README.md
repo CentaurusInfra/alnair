@@ -1,4 +1,4 @@
-# Project: CPU Offload
+# Project: GPU-Centered AI System
 
 ### Background information
   
