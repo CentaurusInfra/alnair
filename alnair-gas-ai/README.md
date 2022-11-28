@@ -71,6 +71,64 @@ GAS tries to achieve the following goals:
   d. a working example to benchmark the performance  
 5. Performance Probe and improvements
 
+### GPU direct installation procedure :  
+1.  Install supporting library:  
+File access APIs would still work without GDS but you won't see the speed up. Please follow the release note or the installation guide to install GDS in your host system.
+
+Note:: During the GDS prerequisite installation (step 3 of the installation guide), you would need MOFED (Mellanox OpenFabrics Enterprise Distribution) installed. MOFED is available at https://www.mellanox.com/products/infiniband-drivers/linux/mlnx_ofed.
+2.  Verify the hardware configuration:  (e.g on A100)
+   /usr/local/cuda/gds/tools/gdscheck -p
+============
+ ENVIRONMENT:
+ ============
+ =====================
+ DRIVER CONFIGURATION:
+ =====================
+ NVMe               : Unsupported
+ NVMeOF             : Unsupported
+ SCSI               : Unsupported
+ ScaleFlux CSD      : Unsupported
+ NVMesh             : Unsupported
+ DDN EXAScaler      : Unsupported
+ IBM Spectrum Scale : Unsupported
+ NFS                : Unsupported
+ WekaFS             : Unsupported
+ Userspace RDMA     : Unsupported
+ --Mellanox PeerDirect : Disabled
+ --rdma library        : Not Loaded (libcufile_rdma.so)
+ --rdma devices        : Not configured
+ --rdma_device_status  : Up: 0 Down: 0
+ =====================
+ CUFILE CONFIGURATION:
+ =====================
+ properties.use_compat_mode : true
+ properties.gds_rdma_write_support : true
+ properties.use_poll_mode : false
+ properties.poll_mode_max_size_kb : 4
+ properties.max_batch_io_timeout_msecs : 5
+ properties.max_direct_io_size_kb : 16384
+ properties.max_device_cache_size_kb : 131072
+ properties.max_device_pinned_mem_size_kb : 33554432
+ properties.posix_pool_slab_size_kb : 4 1024 16384
+ properties.posix_pool_slab_count : 128 64 32
+ properties.rdma_peer_affinity_policy : RoundRobin
+ properties.rdma_dynamic_routing : 0
+ fs.generic.posix_unaligned_writes : false
+ fs.lustre.posix_gds_min_kb: 0
+ fs.weka.rdma_write_support: false
+ profile.nvtx : false
+ profile.cufile_stats : 0
+ miscellaneous.api_check_aggressive : false
+ =========
+ GPU INFO:
+ =========
+ GPU index 0 Tesla V100-SXM3-32GB bar:1 bar size (MiB):32768 supports GDS
+ GPU index 1 Tesla V100-SXM3-32GB bar:1 bar size (MiB):32768 supports GDS
+ GPU index 2 Tesla V100-SXM3-32GB bar:1 bar size (MiB):32768 supports GDS
+ GPU index 3 Tesla V100-SXM3-32GB bar:1 bar size (MiB):32768 supports GDS
+ GPU index 4 Tesla V100-SXM3-32GB bar:1 bar size (MiB):32768 supports GDS
+   
+   
 ### CUDA code samples :
 advance features requires SMS="80"
 https://github.com/nvidia/cuda-samples
