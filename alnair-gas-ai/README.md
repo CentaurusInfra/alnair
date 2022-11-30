@@ -71,6 +71,23 @@ GAS tries to achieve the following goals:
   d. a working example to benchmark the performance  
 5. Performance Probe and improvements
 
+### GPU direct profiling procedure :  
+
+Start the docker image (test on V100):  
+   sudo docker run --gpus all -it --rm -v $PWD:/root/test -v /mnt/gds-data:/root/data -v /mnt/data:/data --shm-size=1024m nvcr.io/nvidia/pytorch:21.09-py3
+   cd /root/test
+   
+NOTE: make sure that share memory is large enough.      
+
+1. run training on imagenet without GPU-direct:  
+    python test/dali_imagenet_train.py --epochs 1  
+2. run training on imagenet with GPU-direct:  
+    python test/dali_imagenet_train.py --epochs 1 --dali  
+3. run nsys profile training on imagenet with GPU-direct:  
+    nsys nvprof -o dali-imgnet-train python test/dali_imagenet_train.py --epochs 1 --dali  
+    
+    NOTE: 1 epoch has too much data. if you run nsys nvprof, please stop the training after 20 seconds.  
+    
 ### GPU direct installation procedure :  
 1.  Install supporting library:  
   Here is installation guild: https://docs.nvidia.com/gpudirect-storage/troubleshooting-guide/index.html#install-prereqs%3E. It is required to install MOFED (Mellanox OpenFabrics Enterprise Distribution). MOFED is available at https://www.mellanox.com/products/infiniband-drivers/linux/mlnx_ofed.
