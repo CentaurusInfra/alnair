@@ -14,6 +14,7 @@ import torch
 import torch.nn as nn
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
+from torchvision import models
 
 def main():
     parser = argparse.ArgumentParser()
@@ -33,7 +34,7 @@ def main():
 
 
 def train(gpu, args):
-    model = torch.hub.load('pytorch/vision:v0.9.0', 'resnet50', pretrained=False)
+    model = models.resnet.resnet152(pretrained = False)
     rank = args.nr * args.gpus + gpu
     dist.init_process_group(backend='nccl', init_method='env://', world_size=args.world_size, rank=rank)
     torch.manual_seed(0)
