@@ -74,7 +74,7 @@ GAS tries to achieve the following goals:
 ### GPU direct profiling procedure :  
 
 Start the docker image (test on V100):  
-   sudo docker run --gpus all -it --rm -v $PWD:/root/test -v /mnt/gds-data:/root/data -v /mnt/data:/data --shm-size=1024m nvcr.io/nvidia/pytorch:21.09-py3
+   sudo docker run --gpus all -it --rm -v $PWD:/root/test -v /mnt/gds-data:/root/data -v /mnt/data:/data --shm-size=1024m nvcr.io/nvidia/pytorch:21.09-py3  
    cd /root/test
    
 NOTE: make sure that share memory is large enough.      
