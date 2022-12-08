@@ -49,5 +49,12 @@ Connect [127.0.1.1]:[a port]: Connection refused
 ```
 export GLOO_SOCKET_IFNAME=eth1  ## change eth1 to the target interface
 ```
+#### 2. Error: "Address is already in use" 
+Previous multi-process may be lauched and not cleaned up properly, resulting the master port is in use
 
+Find the pid of the previous multi process, and kill it 
+```
+ps -aux | grep python
+kill -9 <pid>
+```
 ## Horovd
