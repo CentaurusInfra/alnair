@@ -1,0 +1,1 @@
+sudo docker build -f ./docker/Dockerfile-RAPIDS-elyra -t centaurusinfra/torch-rapids-elyra .

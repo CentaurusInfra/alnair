@@ -1,0 +1,82 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dali-gds-elyra
+spec:
+  selector:
+    matchLabels:
+      run: rapids-elyra-srv
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        run: rapids-elyra
+    spec:
+      containers:
+      - name: rapids-elyra-srv
+        image:   centaurusinfra/torch-rapids-elyra:latest
+        # image: cschranz/gpu-jupyter:v1.4_cuda-11.6_ubuntu-20.04_python-only
+        env:
+        - name: CUDA_VISIBLE_DEVICES
+          value: 0,1,2,3          
+        - name: PFLOG
+          value: /log/pflog    
+        ports:
+          - containerPort: 8888
+            name: jupyter-svc  
+        # command: ["sh", "-c", "sleep infinity"]
+        command: ["sh", "-c", "jupyter lab --no-browser --allow-root --ip=0.0.0.0"]
+        volumeMounts:
+        - mountPath: /dev/shm
+          name: dshm
+        - mountPath: /lib/interpose/
+          name: intercept       
+        - mountPath: /root/scripts
+          name: dali-example
+        - mountPath: /root/scripts/special
+          name: codes
+        - mountPath: /root/data
+          name: data
+        - name: pflog
+          mountPath: /log/pflog 
+      nodeName: a6000
+      volumes:
+      - name: dshm  # this is to trick pytorch when large size of shared memory is needed
+        emptyDir:
+          medium: Memory
+      - name: intercept
+        hostPath:
+          path: /home/lib
+          type: Directory
+      - name: dali-example
+        hostPath:
+          path: /home/scripts
+          type: Directory            
+      - name: codes
+        hostPath:
+          path: /home/scripts
+          type: Directory      
+      - name: data
+        hostPath:
+          path: /data
+          type: Directory          
+
+  # restartPolicy: OnFailure
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rapids-elyra-srv
+spec:
+  type: NodePort
+  selector:
+    run: rapids-elyra-srv
+  ports:
+  - targetPort: jupyter-svc
+    port: 8888
+    nodePort: 30888
+  # name: tb-svc
+  #   protocol: tcp
+  #   targetPort: 6006
+  #   port: 6006
+    
