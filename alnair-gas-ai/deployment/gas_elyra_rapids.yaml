@@ -38,7 +38,7 @@ spec:
         - mountPath: /root/data
           name: data
         - name: pflog
-          mountPath: /log/pflog 
+          mountPath: /root/pflog 
       nodeName: compute-a6000
       volumes:
       - name: dshm  # this is to trick pytorch when large size of shared memory is needed
