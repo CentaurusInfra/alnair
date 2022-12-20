@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: dali-gds-elyra
+  name: rapids-elyra-srv
 spec:
   selector:
     matchLabels:
@@ -10,7 +10,7 @@ spec:
   template:
     metadata:
       labels:
-        run: rapids-elyra
+        run: rapids-elyra-srv
     spec:
       containers:
       - name: rapids-elyra-srv
