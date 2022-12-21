@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: rapids-elyra-srv
-        image:   centaurusinfra/torch-rapids-elyra:latest
+        image: centaurusinfra/torch-rapids-devel:latest
         # image: cschranz/gpu-jupyter:v1.4_cuda-11.6_ubuntu-20.04_python-only
         env:
         - name: CUDA_VISIBLE_DEVICES
