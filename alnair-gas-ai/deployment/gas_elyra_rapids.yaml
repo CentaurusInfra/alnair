@@ -78,14 +78,24 @@ spec:
     name: jupyter
     port: 8888
     nodePort: 30888
-  - name: dask
-    protocol: TCP
-    port: 8787
-    targetPort: 8787
-    # By default and for convenience, the Kubernetes control plane will allocate a port from a range (default: 30000-32767)
-    nodePort: 30787
+   # By default and for convenience, the Kubernetes control plane will allocate a port from a range (default: 30000-32767)
   # name: tb-svc
   #   protocol: tcp
   #   targetPort: 6006
   #   port: 6006
     
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rapids-dask-srv
+spec:
+  type: NodePort
+  selector:
+    run: rapids-dask-srv
+  ports:
+  - name: dask
+    protocol: TCP
+    port: 8787
+    targetPort: 8787
+    nodePort: 30787
