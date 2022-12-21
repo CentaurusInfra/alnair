@@ -24,6 +24,8 @@ spec:
         ports:
           - containerPort: 8888
             name: jupyter-svc  
+          - containerPort: 8787
+            name: dask-svc  
         # command: ["sh", "-c", "sleep infinity"]
         command: ["sh", "-c", "jupyter lab --no-browser --allow-root --ip=0.0.0.0"]
         volumeMounts:
@@ -31,8 +33,6 @@ spec:
           name: dshm
         - mountPath: /lib/interpose/
           name: intercept       
-        - mountPath: /root/scripts
-          name: dali-example
         - mountPath: /root/scripts/special
           name: codes
         - mountPath: /root/data
@@ -79,6 +79,8 @@ spec:
   - targetPort: jupyter-svc
     port: 8888
     nodePort: 30888
+    port: 8787
+    nodePort: 30787
   # name: tb-svc
   #   protocol: tcp
   #   targetPort: 6006

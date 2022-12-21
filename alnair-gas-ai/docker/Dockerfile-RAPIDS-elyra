@@ -23,10 +23,11 @@ RUN pip3 install --upgrade jupyterhub
 RUN pip3 install jupyterlab-github
 
 RUN pip3 install --upgrade "elyra[all]"
-
+RUN pip3 install dask-labextension
+# RUN pip3 install cupy-cuda114
 EXPOSE 8888
 WORKDIR /root/scripts
-
+RUN git clone --branch gas-ai https://github.com/CentaurusInfra/alnair.git
 # COPY start.sh /
 
 # CMD ["/start.sh"]
