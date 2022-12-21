@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: rapids-elyra-srv
+  name: rapi-srv
 spec:
   selector:
     matchLabels:
