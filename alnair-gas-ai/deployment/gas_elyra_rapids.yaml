@@ -33,11 +33,12 @@ spec:
           name: intercept       
         - mountPath: /root/scripts/special
           name: codes
-        - mountPath: /root/data
+        - mountPath: /data
           name: data
         - name: pflog
           mountPath: /root/pflog 
-      nodeName: compute-a6000
+      # nodeName: compute-a6000
+      nodeName: compute-a100
       volumes:
       - name: dshm  # this is to trick pytorch when large size of shared memory is needed
         emptyDir:
@@ -60,7 +61,7 @@ spec:
           type: Directory      
       - name: data
         hostPath:
-          path: /data
+          path: /home/scripts/data
           type: Directory          
 
   # restartPolicy: OnFailure
