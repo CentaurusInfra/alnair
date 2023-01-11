@@ -1,0 +1,34 @@
+#command to submit "argo submit parallel-example.yaml"
+apiVersion: v1
+kind: Workflow
+metadata:
+  generateName: k8s-orchestrate-
+spec:
+  entrypoint: k8s-orchestrate
+  templates:
+  - name: k8s-orchestrate
+    steps:
+
+    - - name: code1
+        template: code1
+
+      - name: code2
+        template: code2
+
+  - name: code1
+    container:
+      image: centaurusinfra/training-cases-tf
+      command: ["sh", "-c", "python case1_dcgan_mnist.py"]
+      resources:
+        limits:
+          alnair/vgpu-memory: 16       #int (32/number of jobs) 2 in this case.
+          alnair/vgpu-compute: 100
+
+  - name: code2
+    container:
+      image: centaurusinfra/training-cases-tf
+      command: ["sh", "-c", "python case2_rl_cart_pole.py"]
+      resources:
+        limits:
+          alnair/vgpu-memory: 16        #int (32/number of jobs) 2 in this case.
+          alnair/vgpu-compute: 100
